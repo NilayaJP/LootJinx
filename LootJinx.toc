@@ -19,5 +19,6 @@ Report.lua
 UI.lua
 RunDetail.lua
 JournalUI.lua
+LayoutRouter.lua
 Minimap.lua
 Options.lua

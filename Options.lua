@@ -103,7 +103,7 @@ end
 local function buildPanel()
     panel = CreateFrame("Frame", "LootJinxOptionsPanel")
     panel.name = LJ.L("OPTIONS_TAB")
-    panel:SetSize(600, 520)
+    panel:SetSize(600, 560)
     panel:SetScript("OnShow", function() O:Refresh() end)
     O.panel = panel
 
@@ -134,7 +134,7 @@ local function buildPanel()
 
     local window = W:Card(panel)
     window:SetPoint("TOPLEFT", 16, -100)
-    window:SetSize(568, 128)
+    window:SetSize(568, 112)
 
     local windowTitle = W:Font(window, 9, C.accent, "OUTLINE")
     windowTitle:SetPoint("TOPLEFT", 14, -10)
@@ -185,8 +185,8 @@ local function buildPanel()
     windowHint:SetText(LJ.L("OPT_SCALE_RANGE"))
 
     local behavior = W:Card(panel)
-    behavior:SetPoint("TOPLEFT", 16, -240)
-    behavior:SetSize(568, 112)
+    behavior:SetPoint("TOPLEFT", 16, -224)
+    behavior:SetSize(568, 96)
 
     local behaviorTitle = W:Font(behavior, 9, C.accent, "OUTLINE")
     behaviorTitle:SetPoint("TOPLEFT", 14, -10)
@@ -196,8 +196,8 @@ local function buildPanel()
     controls.welcome = createCheck(behavior, "showWelcome", LJ.L("OPT_WELCOME"), LJ.L("OPT_WELCOME_HINT"), -66)
 
     local appearance = W:Card(panel)
-    appearance:SetPoint("TOPLEFT", 16, -364)
-    appearance:SetSize(568, 112)
+    appearance:SetPoint("TOPLEFT", 16, -332)
+    appearance:SetSize(568, 96)
 
     local appearanceTitle = W:Font(appearance, 9, C.accent, "OUTLINE")
     appearanceTitle:SetPoint("TOPLEFT", 14, -10)
@@ -206,8 +206,27 @@ local function buildPanel()
     controls.watermark = createCheck(appearance, "showWatermark", LJ.L("OPT_WATERMARK"), LJ.L("OPT_WATERMARK_HINT"), -30)
     controls.compact = createCheck(appearance, "compact", LJ.L("OPT_COMPACT"), LJ.L("OPT_COMPACT_HINT"), -66)
 
+    local preview = W:Card(panel)
+    preview:SetPoint("TOPLEFT", 16, -440)
+    preview:SetSize(568, 76)
+    local previewTitle = W:Font(preview, 9, C.accent, "OUTLINE")
+    previewTitle:SetPoint("TOPLEFT", 14, -10)
+    previewTitle:SetText(LJ.L("OPT_LAYOUT_PREVIEW"))
+
+    local classic = W:Button(preview, LJ.L("OPT_LAYOUT_CLASSIC"), 156, 25)
+    classic:SetPoint("TOPLEFT", 14, -32)
+    classic:SetScript("OnClick", function() LJ.UI:SetLayout("classic") end)
+    local journal = W:Button(preview, LJ.L("OPT_LAYOUT_JOURNAL"), 156, 25)
+    journal:SetPoint("TOPLEFT", 180, -32)
+    journal:SetScript("OnClick", function() LJ.UI:SetLayout("journal") end)
+    controls.layoutClassic, controls.layoutJournal = classic, journal
+    local previewHint = W:Font(preview, 8, C.dim, "")
+    previewHint:SetPoint("TOPLEFT", 14, -61)
+    previewHint:SetWidth(530)
+    previewHint:SetText(LJ.L("OPT_LAYOUT_HINT"))
+
     local footer = W:Font(panel, 9, C.muted, "")
-    footer:SetPoint("TOPLEFT", 18, -488)
+    footer:SetPoint("TOPLEFT", 18, -530)
     footer:SetWidth(560)
     footer:SetText(LJ.L("OPT_FOOTER"))
 end
@@ -255,6 +274,10 @@ function O:Refresh()
     if controls.welcome then setCheck(controls.welcome, LJ.DB.showWelcome) end
     if controls.watermark then setCheck(controls.watermark, LJ.DB.showWatermark ~= false) end
     if controls.compact then setCheck(controls.compact, LJ.DB.compact) end
+    if controls.layoutClassic then
+        controls.layoutClassic.label:SetText((LJ.DB.layoutPreview == "journal" and "" or "[X] ") .. LJ.L("OPT_LAYOUT_CLASSIC"))
+        controls.layoutJournal.label:SetText((LJ.DB.layoutPreview == "journal" and "[X] " or "") .. LJ.L("OPT_LAYOUT_JOURNAL"))
+    end
 end
 
 function O:Open()
