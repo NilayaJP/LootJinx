@@ -19,10 +19,6 @@ local hero, needCard, recentCard
 local miniNoWin, miniNoLoot, miniSince
 local recentRows = {}
 local reportPopup, reportEdit, reportError
-local reportQueue = {}
-local reportTimer
-local reportSession = 0
-local reportChannel, reportTarget
 
 local function hex(c)
     return string.format("|cff%02x%02x%02x",
@@ -925,112 +921,12 @@ function UI:Refresh()
     end
 end
 
-local function stripName(value)
-    value = tostring(value or "")
-    return value:match("^%s*(.-)%s*$") or ""
-end
-
-local function currentTargetName()
-    if type(UnitName) ~= "function" then return nil end
-    if type(UnitIsPlayer) == "function" then
-        local okP, isPlayer = pcall(UnitIsPlayer, "target")
-        isPlayer = okP and LJ.Plain(isPlayer) or nil
-        if isPlayer == false then return nil end
-    end
-    local ok, name, realm = pcall(UnitName, "target")
-    name, realm = ok and LJ.Plain(name) or nil, ok and LJ.Plain(realm) or nil
-    if type(name) ~= "string" or name == "" then return nil end
-    local okP, _, ownRealm = pcall(UnitName, "player")
-    ownRealm = okP and LJ.Plain(ownRealm) or nil
-    if type(realm) == "string" and realm ~= "" and realm ~= ownRealm then
-        return name .. "-" .. realm
-    end
-    return name
-end
-
-local function groupChat()
-    if type(IsInRaid) == "function" then
-        local ok, raid = pcall(IsInRaid)
-        raid = ok and LJ.Plain(raid) or nil
-        if raid == true then return "RAID", true end
-    end
-    if type(IsInGroup) == "function" then
-        local ok, grouped = pcall(IsInGroup)
-        grouped = ok and LJ.Plain(grouped) or nil
-        if grouped == true then return "PARTY", true end
-        if grouped == false then return "PARTY", false end
-    end
-    if type(GetNumSubgroupMembers) == "function" then
-        local ok, count = pcall(GetNumSubgroupMembers)
-        count = ok and tonumber(LJ.Plain(count)) or 0
-        return "PARTY", count > 0
-    end
-    if type(GetNumPartyMembers) == "function" then
-        local ok, count = pcall(GetNumPartyMembers)
-        count = ok and tonumber(LJ.Plain(count)) or 0
-        return "PARTY", count > 0
-    end
-    return "PARTY", false
-end
-
-local function stopReport()
-    reportSession = reportSession + 1
-    if reportTimer and reportTimer.Cancel then pcall(reportTimer.Cancel, reportTimer) end
-    reportTimer = nil
-    reportQueue = {}
-end
-
-local function finishReport()
-    if reportChannel == "WHISPER" then
-        LJ:Print(LJ.L("REPORT_SENT_WHISPER", reportTarget or "?"))
-    elseif reportChannel == "RAID" then
-        LJ:Print(LJ.L("REPORT_SENT_RAID"))
-    else
-        LJ:Print(LJ.L("REPORT_SENT_GROUP"))
-    end
-end
-
-local function sendNextReportLine(session)
-    if session ~= reportSession then return end
-    local line = table.remove(reportQueue, 1)
-    if not line then
-        reportTimer = nil
-        finishReport()
-        return
-    end
-    pcall(SendChatMessage, line, reportChannel, nil, reportTarget)
-    if C_Timer and C_Timer.NewTimer then
-        reportTimer = C_Timer.NewTimer(1.0, function()
-            pcall(sendNextReportLine, session)
-        end)
-    elseif C_Timer and C_Timer.After then
-        reportTimer = nil
-        C_Timer.After(1.0, function() pcall(sendNextReportLine, session) end)
-    else
-        sendNextReportLine(session)
-    end
-end
-
 function UI:GetTargetName()
-    return currentTargetName()
+    return LJ.Report:GetTargetName()
 end
 
 function UI:BuildReport()
-    local stats = LJ.Stats.Compute(LJ.Tracker:GetRuns())
-    local className = select(1, LJ:ClassName())
-    local _, statLabel = LJ:PlayerStat()
-    return {
-        LJ.L("REPORT_LINE_HEADER", className, statLabel),
-        LJ.L("REPORT_LINE_CURSE", stats.noAgiDungeons or 0, stats.totalDungeons or 0,
-            statLabel, stats.noAgiCurrent or 0, stats.noAgiMax or 0),
-        LJ.L("REPORT_LINE_NEED", stats.needWins or 0, stats.needLost or 0,
-            stats.needPending or 0, stats.lostNeedCurrent or 0, stats.lostNeedMax or 0),
-        LJ.L("REPORT_LINE_NO_WIN", stats.noNeedWinDungeons or 0,
-            stats.noNeedWinCurrent or 0, stats.noNeedWinMax or 0),
-        LJ.L("REPORT_LINE_NO_LOOT", stats.noLootDungeons or 0,
-            stats.noLootCurrent or 0, stats.noLootMax or 0),
-        LJ.L("REPORT_LINE_SINCE", stats.sinceNeedWinCurrent or 0, stats.sinceNeedWinMax or 0),
-    }
+    return LJ.Report:Build()
 end
 
 function UI:ShowReport()
@@ -1048,33 +944,15 @@ end
 
 function UI:SendReport(channel, target)
     if not frame then UI:Create() end
-    if not LJ.Stats or not LJ.Tracker or not reportPopup then return false end
-    local lines = UI:BuildReport()
-    if channel == "WHISPER" then
-        target = stripName(target)
-        if target == "" then target = UI:GetTargetName() or "" end
-        if target == "" then
-            if reportError then reportError:SetText(LJ.L("REPORT_NO_TARGET")) end
-            return false
-        end
-        stopReport()
-        reportChannel, reportTarget = "WHISPER", target
-    elseif channel == "PARTY" or channel == "GROUP" then
-        local chatChannel, ok = groupChat()
-        if not ok then
-            if reportError then reportError:SetText(LJ.L("REPORT_NO_PARTY")) end
-            return false
-        end
-        stopReport()
-        reportChannel, reportTarget = chatChannel, nil
-    else
+    if not reportPopup then return false end
+    local sent, reason = LJ.Report:Send(channel, target)
+    if not sent then
+        if reason and reportError then reportError:SetText(LJ.L(reason)) end
         return false
     end
     if reportError then reportError:SetText("") end
-    reportQueue = lines
     reportPopup:Hide()
     if reportEdit then reportEdit:ClearFocus() end
-    sendNextReportLine(reportSession)
     return true
 end
 

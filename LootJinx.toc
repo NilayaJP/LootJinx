@@ -15,6 +15,7 @@ Core.lua
 Stats.lua
 Widgets.lua
 Tracker.lua
+Report.lua
 UI.lua
 RunDetail.lua
 Minimap.lua
