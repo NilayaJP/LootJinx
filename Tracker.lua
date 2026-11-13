@@ -26,6 +26,8 @@ local rollLinkAt = {}
 local rollLinkCount = 0
 local lootWindowOpen = false
 local seenLootSlots = {}
+local lootHistoryDrops = 0
+local lootHistoryRolls = 0
 
 local function now()
     return LJ.Now()
@@ -232,6 +234,7 @@ end
 function T:StartRun(d, partial)
     local data = db()
     if not data then return nil end
+    local stat = LJ:PlayerStat()
     local run = {
         id = tonumber(data.nextRunID) or 1,
         name = d.name,
@@ -257,6 +260,9 @@ function T:StartRun(d, partial)
         partial = partial == true,
         closed = false,
         paused = false,
+        stat = stat,
+        statHistory = stat and { stat } or nil,
+        statMixed = false,
     }
     data.nextRunID = run.id + 1
     data.runs[#data.runs + 1] = run
@@ -307,6 +313,18 @@ function T:ObserveInstanceGUID(guid)
             previous.agilityLink = previous.agilityLink or candidate.agilityLink
             previous.agilityAt = previous.agilityAt or candidate.agilityAt
             previous.agilityName = previous.agilityName or candidate.agilityName
+            if previous.stat then
+                previous.statHistory = previous.statHistory or { previous.stat }
+                local candidateHistory = candidate.statHistory
+                    or (candidate.stat and { candidate.stat }) or {}
+                for _, stat in ipairs(candidateHistory) do
+                    if previous.statHistory[#previous.statHistory] ~= stat then
+                        previous.statHistory[#previous.statHistory + 1] = stat
+                    end
+                end
+                previous.stat = previous.statHistory[#previous.statHistory]
+                previous.statMixed = #previous.statHistory > 1
+            end
             previous.lastSeen = now()
             previous.outsideAt = nil
             previous.paused = false
@@ -461,6 +479,7 @@ local function queuePending(run, link, id, info, source)
     run.pending[#run.pending + 1] = {
         link = link,
         id = id,
+        stat = run.stat,
         added = now(),
         countedLoot = info and info.loot == true or false,
         source = source,
@@ -491,7 +510,7 @@ function T:RecordItem(link, source)
     end
     run.seenLinks[link] = true
 
-    local info = LJ:ClassifyItem(link)
+    local info = LJ:ClassifyItem(link, run.stat)
     diagItem(id, info, source)
     if LJ.debugMode then LJ:NoteItemDebug(link, source) end
     if not info then
@@ -537,11 +556,14 @@ function T:ReclassifyPending(itemID)
     local changed = false
     for _, run in ipairs(data.runs) do
         local pending = run.pending
+        -- Runs ohne überlieferten Stat-Kontext werden nicht mit der aktuellen
+        -- Spezialisierung nachklassifiziert.
         if type(pending) == "table" and #pending > 0 then
             local keep = {}
             for i = 1, #pending do
                 local p = pending[i]
-                local info = LJ:ClassifyItem(p.link)
+                local stat = p.stat or run.stat
+                local info = stat and LJ:ClassifyItem(p.link, stat) or nil
                 if info and (not itemID or p.id == itemID or info.id == itemID) then
                     local action, counted, agi = finalizePending(p, info)
                     diagItem(p.id or info.id, info, "reclassify")
@@ -578,52 +600,17 @@ function T:FinalizeRunItems(run)
         if #pending > 0 then diag("pending-finalized", run.id, "n=" .. tostring(#pending)) end
         for i = 1, #pending do
             local p = pending[i]
-            local info = LJ:ClassifyItem(p.link)
+            local stat = p.stat or run.stat
+            local info = stat and LJ:ClassifyItem(p.link, stat) or nil
             if info and info.agi == true then markAgility(run, p.link, info) end
         end
     end
     run.pending = {}
 end
 
--- Bewertet alle bereits gesehenen Items eines Runs mit dem aktuellen
--- Primärstat neu (z. B. nach einem Spezialisierungswechsel).
-local function rebuildRunItems(run)
-    run.lootSeen = false
-    run.itemsSeen = 0
-    run.agilityDropped = false
-    run.agiItemsSeen = 0
-    run.agilityLink = nil
-    run.agilityAt = nil
-    run.agilityName = nil
-    for link in pairs(run.seenLinks or {}) do
-        local info = LJ:ClassifyItem(link)
-        if info and not info.quest then
-            if info.loot == true then
-                run.lootSeen = true
-                run.itemsSeen = run.itemsSeen + 1
-                for i = 1, #(run.pending or {}) do
-                    local p = run.pending[i]
-                    if p.link == link then p.countedLoot = true end
-                end
-            end
-            if info.agi == true then
-                run.agilityDropped = true
-                run.agiItemsSeen = run.agiItemsSeen + 1
-                run.agilityLink = run.agilityLink or link
-                run.agilityAt = run.agilityAt or run.started or now()
-                run.agilityName = run.agilityName or info.name
-            end
-        end
-    end
-end
-
-function T:ReclassifyAll()
-    local data = db()
-    if not data then return end
-    for _, run in ipairs(data.runs) do rebuildRunItems(run) end
-    LJ:Changed()
-end
-
+-- Ein Spezialisierungswechsel aktualisiert nur den laufenden Run. Abgeschlossene
+-- Runs behalten ihren gespeicherten Stat-Kontext; ihre Klassifikation wird nicht
+-- rückwirkend mit der neuen Spezialisierung neu berechnet.
 function T:CheckPrimaryStatChanged()
     local stat = LJ:PlayerStat()
     if not lastPrimaryStat then
@@ -634,7 +621,18 @@ function T:CheckPrimaryStatChanged()
     local previous = lastPrimaryStat
     lastPrimaryStat = stat
     diag("stat-change", nil, tostring(previous) .. "->" .. tostring(stat))
-    T:ReclassifyAll()
+
+    local run = activeRun()
+    if run and run.stat then
+        run.statHistory = run.statHistory or { run.stat }
+        if run.statHistory[#run.statHistory] ~= stat then
+            run.statHistory[#run.statHistory + 1] = stat
+        end
+        run.stat = stat
+        run.statMixed = #run.statHistory > 1
+        diag("run-stat-change", run.id, tostring(previous) .. "->" .. tostring(stat))
+        LJ:Changed()
+    end
     return true
 end
 
@@ -985,7 +983,7 @@ function T:NoteDrop(...)
     return noteDrop(activeRun(), ...)
 end
 
-function T:NoteRoll(link, name, kind, value)
+function T:NoteRoll(link, name, kind, value, source)
     local run = activeRun()
     if not run then return false end
     link = LJ:NormalizeLink(link)
@@ -997,36 +995,203 @@ function T:NoteRoll(link, name, kind, value)
     end
     if not id or not value or type(name) ~= "string" or name == "" then return false end
     local mine = LJ:IsMe(name)
-    kind = kind == "greed" and "greed" or "need"
+    if kind ~= "greed" and kind ~= "transmog" then kind = "need" end
     run.rolls = run.rolls or {}
     local at = now()
-    run.rolls[#run.rolls + 1] = { id = id, name = name, kind = kind, value = value, at = at }
+    if source ~= "history" then
+        for i = #run.rolls, 1, -1 do
+            local prior = run.rolls[i]
+            if at - (tonumber(prior.at) or 0) > 300 then break end
+            if prior.lootHistoryKey and not prior.chatSeen and prior.id == id
+                and prior.kind == kind and tonumber(prior.value) == value
+                and lower(prior.name) == lower(name) then
+                prior.chatSeen = true
+                return false
+            end
+        end
+    end
+    run.rolls[#run.rolls + 1] = {
+        id = id, name = name, kind = kind, value = value, at = at,
+        chatSeen = source ~= "history",
+    }
     while #run.rolls > MAX_ROLLS do table.remove(run.rolls, 1) end
     diag("roll", id, kind .. "=" .. tostring(value) .. (mine and " self" or " other"))
 
-    local changed = false
-    for i = #(run.drops or {}), 1, -1 do
-        local drop = run.drops[i]
-        if drop.id == id and drop.winner and lower(drop.winner) == lower(name) and not drop.roll then
-            drop.roll = value
-            drop.rollKind = kind
-            changed = true
-            break
-        end
-    end
-    if kind == "need" and LJ:IsMe(name) then
-        for i = 1, #(run.needs or {}) do
-            local need = run.needs[i]
-            if need.id == id and not need.roll then
-                need.roll = value
-                need.rollKind = kind
-                changed = true
+    if source ~= "history" then
+        for i = #(run.drops or {}), 1, -1 do
+            local drop = run.drops[i]
+            if drop.id == id and drop.winner and lower(drop.winner) == lower(name) and not drop.roll then
+                drop.roll = value
+                drop.rollKind = kind
                 break
+            end
+        end
+        if kind == "need" and mine then
+            for i = 1, #(run.needs or {}) do
+                local need = run.needs[i]
+                if need.id == id and not need.roll then
+                    need.roll = value
+                    need.rollKind = kind
+                    break
+                end
             end
         end
     end
     LJ:Changed()
     return true
+end
+
+local LOOT_HISTORY_STATES = {
+    [0] = "need", [1] = "need", [2] = "transmog", [3] = "greed", [5] = "pass",
+}
+
+local function historyKind(state)
+    state = LJ.Plain(state)
+    local number = tonumber(state)
+    if number then return LOOT_HISTORY_STATES[number] end
+    if type(state) == "string" then
+        local value = state:lower()
+        if value:find("need", 1, true) then return "need" end
+        if value:find("transmog", 1, true) then return "transmog" end
+        if value:find("greed", 1, true) then return "greed" end
+        if value:find("pass", 1, true) then return "pass" end
+    end
+end
+
+local function recentDrop(run, id, at, historyKey)
+    for i = #(run.drops or {}), 1, -1 do
+        local drop = run.drops[i]
+        if drop.id == id and drop.lootHistoryKey == historyKey then return drop end
+    end
+    for i = #(run.drops or {}), 1, -1 do
+        local drop = run.drops[i]
+        if drop.id == id and not drop.lootHistoryKey
+            and math.abs((tonumber(drop.at) or 0) - at) <= 900 then
+            return drop
+        end
+    end
+end
+
+-- C_LootHistory liefert für Encounter-Beute die echten Rollzahlen aller
+-- Spieler. Die Chatmeldungen bleiben der Fallback für Trash und ältere Runs.
+function T:NoteRollFromHistory(link, name, kind, value, historyKey)
+    local run = activeRun()
+    if not run then return false end
+    link = LJ:NormalizeLink(link)
+    local id = LJ:ItemID(link)
+    value = tonumber(value)
+    name = LJ.Plain(name)
+    if not id or not value or value < 1 or value > 100
+        or type(name) ~= "string" or name == "" then return false end
+    local at = now()
+    for i = #(run.rolls or {}), 1, -1 do
+        local roll = run.rolls[i]
+        if at - (tonumber(roll.at) or 0) > 300 then break end
+        if roll.id == id and roll.kind == kind and tonumber(roll.value) == value
+            and lower(roll.name) == lower(name) then
+            if roll.lootHistoryKey == historyKey then return false end
+            if not roll.lootHistoryKey then
+                roll.lootHistoryKey = historyKey
+                roll.chatSeen = true
+                return false
+            end
+        end
+    end
+    if not T:NoteRoll(link, name, kind, value, "history") then return false end
+    run.rolls[#run.rolls].lootHistoryKey = historyKey
+    return true
+end
+
+function T:OnLootHistoryDrop(encounterID, lootListID)
+    if not inside then return end
+    local run = activeRun()
+    if not run then return end
+    local api = _G.C_LootHistory
+    if type(api) ~= "table" or type(api.GetSortedInfoForDrop) ~= "function" then return end
+    encounterID = tonumber(LJ.Plain(encounterID))
+    lootListID = tonumber(LJ.Plain(lootListID))
+    if not encounterID or not lootListID then return end
+    local historyKey = tostring(encounterID) .. ":" .. tostring(lootListID)
+    local ok, info = pcall(api.GetSortedInfoForDrop, encounterID, lootListID)
+    if not ok or type(info) ~= "table" then return end
+
+    local link = LJ:NormalizeLink(LJ.Plain(info.itemHyperlink))
+    local id = LJ:ItemID(link)
+    if not id then return end
+    local drop = recentDrop(run, id, now(), historyKey)
+    if not drop and not (run.seenLinks and run.seenLinks[link]) then
+        diag("loot-history-skip", id, "unseen")
+        return
+    end
+    lootHistoryDrops = lootHistoryDrops + 1
+    local dropBound = false
+    if drop and drop.lootHistoryKey ~= historyKey then
+        drop.lootHistoryKey = historyKey
+        dropBound = true
+    end
+
+    local winner = type(info.winner) == "table" and info.winner or nil
+    local winnerName = winner and LJ.Plain(winner.playerName) or nil
+    if type(winnerName) == "string" then
+        winnerName = winnerName:match("^%s*(.-)%s*$")
+        if winnerName == "" then winnerName = nil end
+    else
+        winnerName = nil
+    end
+    local winnerClass = winner and LJ.Plain(winner.playerClass) or nil
+    if type(winnerClass) ~= "string" then winnerClass = nil end
+    local winnerKind = winner and historyKind(winner.state) or nil
+    if winnerKind == "pass" then winnerKind = nil end
+    local winnerRoll = winner and tonumber(LJ.Plain(winner.roll)) or nil
+
+    local added = 0
+    local rollInfos = type(info.rollInfos) == "table" and info.rollInfos or {}
+    for i = 1, #rollInfos do
+        local entry = rollInfos[i]
+        if type(entry) == "table" then
+            local name = LJ.Plain(entry.playerName)
+            if type(name) == "string" then
+                name = name:match("^%s*(.-)%s*$")
+                if name == "" then name = nil end
+            else
+                name = nil
+            end
+            local value = tonumber(LJ.Plain(entry.roll))
+            local kind = historyKind(entry.state)
+            if name and value and kind and kind ~= "pass" then
+                if T:NoteRollFromHistory(link, name, kind, value, historyKey) then added = added + 1 end
+            end
+        end
+    end
+    if winnerName and winnerKind and winnerRoll then
+        if T:NoteRollFromHistory(link, winnerName, winnerKind, winnerRoll, historyKey) then
+            added = added + 1
+        end
+    end
+
+    if winnerName then
+        if drop then
+            local changed = false
+            if not drop.winner then
+                drop.winner = winnerName
+                drop.winnerSource = "lootHistory"
+                changed = true
+            end
+            if winnerClass and not drop.winnerClass then drop.winnerClass = winnerClass; changed = true end
+            if winnerRoll and not drop.roll then drop.roll = winnerRoll; changed = true end
+            if winnerKind and not drop.rollKind then drop.rollKind = winnerKind; changed = true end
+            if changed then diag("drop-merge", id, "lootHistory") end
+        end
+    elseif info.allPassed == true then
+        if drop then
+            if not drop.winner then drop.passed = true end
+        end
+    end
+
+    lootHistoryRolls = lootHistoryRolls + added
+    diag("loot-history", id, "rolls=" .. tostring(added)
+        .. " winner=" .. tostring(winnerName and "yes" or "no"))
+    if dropBound or added > 0 or winnerName or info.allPassed == true then LJ:Changed() end
 end
 
 function T:NotePassed(link)
@@ -1437,6 +1602,8 @@ local function onEvent(event, ...)
         T:OnEncounterLoot(...)
     elseif event == "START_LOOT_ROLL" then
         T:OnStartRoll((...))
+    elseif event == "LOOT_HISTORY_UPDATE_DROP" then
+        T:OnLootHistoryDrop(...)
     elseif event == "CANCEL_LOOT_ROLL" then
         T:OnCancelRoll((...))
     elseif event == "LOOT_OPENED" or event == "LOOT_READY" then
@@ -1468,7 +1635,8 @@ local function registerEvents()
         "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_SUCCEEDED", "NAME_PLATE_UNIT_ADDED",
         "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT",
         "ENCOUNTER_END", "BOSS_KILL", "ENCOUNTER_LOOT_RECEIVED",
-        "START_LOOT_ROLL", "CANCEL_LOOT_ROLL", "LOOT_OPENED", "LOOT_READY", "LOOT_CLOSED",
+        "START_LOOT_ROLL", "LOOT_HISTORY_UPDATE_DROP", "CANCEL_LOOT_ROLL",
+        "LOOT_OPENED", "LOOT_READY", "LOOT_CLOSED",
         "CHAT_MSG_LOOT", "CHAT_MSG_SYSTEM", "GET_ITEM_INFO_RECEIVED", "BAG_UPDATE_DELAYED",
         "PLAYER_SPECIALIZATION_CHANGED", "PLAYER_TALENT_UPDATE",
     }
@@ -1523,6 +1691,8 @@ function T:ResetAll()
     rollLinkCount = 0
     lootWindowOpen = false
     seenLootSlots = {}
+    lootHistoryDrops = 0
+    lootHistoryRolls = 0
     if LJ.Diagnostics and LJ.Diagnostics.Reset then LJ.Diagnostics:Reset() end
     LJ:Changed()
     after(0.2, function() T:CheckZone() end)
@@ -1624,6 +1794,7 @@ function T:GetDiagnosticState()
         runCount = #(T:GetRuns()),
         lootWindowOpen = lootWindowOpen,
         lootSlots = countTable(seenLootSlots),
+        lootHistory = { drops = lootHistoryDrops, rolls = lootHistoryRolls },
         copy = diagnosticCopy(run),
         start = T.startedAt,
     }
@@ -1647,6 +1818,9 @@ function T:GetDiagnosticState()
             partial = run.partial == true,
             lootSeen = run.lootSeen == true,
             agilityDropped = run.agilityDropped == true,
+            stat = run.stat,
+            statHistory = run.statHistory,
+            statMixed = run.statMixed == true,
             itemsSeen = run.itemsSeen or 0,
             agiItemsSeen = run.agiItemsSeen or 0,
             bosses = #(run.bosses or {}),

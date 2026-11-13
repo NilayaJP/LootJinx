@@ -369,8 +369,13 @@ function H:Refresh()
         row.run = run
         row:SetShown(run ~= nil)
         if run then
-            local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 48)
-            row.label:SetText(name .. (run.legacy and "  ·  " .. LJ.L("HISTORY_LEGACY") or ""))
+            local marker = ""
+            if run.legacy then
+                marker = marker .. "  ·  " .. LJ.L("HISTORY_LEGACY")
+            end
+            if not run.stat then marker = marker .. "  ·  " .. LJ.L("HISTORY_STAT_UNKNOWN") end
+            local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), marker ~= "" and 30 or 48)
+            row.label:SetText(name .. marker)
             row.date:SetText(date and date("%d.%m.%Y", run.started or 0) or "")
         end
     end

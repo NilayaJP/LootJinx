@@ -38,6 +38,9 @@ function E:ClassifyDrop(drop)
     if drop.winner and drop.winnerSource == "encounter" then
         return "confirmed", "EVIDENCE_DROP_ENCOUNTER"
     end
+    if drop.winner and drop.winnerSource == "lootHistory" then
+        return "confirmed", "EVIDENCE_DROP_HISTORY"
+    end
     if (drop.winner and drop.winnerSource == "chat")
         or (drop.passed and (sources.chat or source == "chat")) then
         return "confirmed", "EVIDENCE_DROP_CHAT"

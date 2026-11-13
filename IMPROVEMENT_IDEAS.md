@@ -2,7 +2,7 @@
 
 Updated: 2026-11-13
 
-These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, per-dungeon statistics, manual saved-data cleanup, history date filters, optional local record announcements, and the copyable diagnostic snapshot are present in the local `1.6.0-dev` build.
+These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, per-dungeon statistics, manual saved-data cleanup, history date filters, optional local record announcements, run stat context, and the copyable diagnostic snapshot are present in the local `1.6.0-dev` build.
 
 | Priority | Idea | Player benefit | Effort |
 | --- | --- | --- | --- |
@@ -12,7 +12,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 | Done in local build | History date filters | Find a run from a particular day or week | Low–medium |
 | Done in local build | New-record notifications | Notice a personal record when it happens | Low |
 | Done in local build | Diagnostic snapshot | Make missed-loot bug reports easier to investigate | Medium |
-| 7 | Run stat context | Understand which specialization/stat a historical run used | Medium |
+| Done in local build | Run stat context | Understand which specialization/stat a historical run used | Medium |
 
 ## 1. Show detection confidence
 
@@ -68,11 +68,13 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 
 **Proposal:** Store the chosen primary-stat key with each run and show it in run details. Mark older records whose original stat context cannot be reconstructed.
 
+**Implemented locally:** Each run stores its primary-stat key and the sequence of stat changes observed while it was active. Run details show the stat context; the history marks runs without a stored context as **Stat unknown**. A specialization change updates only the active run and no longer reclassifies closed runs. Diagnostics include the stat context without player names.
+
 **Done when:** Changing specialization later does not make an old run's classification appear to refer to the new specialization.
 
 ## Suggested order
 
-After in-game validation of the completed items, consider **run stat context** next. All saved-data cleanup remains manual so players decide when older detail reports are removed.
+After in-game validation of the completed items, consider the remaining ideas in priority order. All saved-data cleanup remains manual so players decide when older detail reports are removed.
 
 ## Reference points
 

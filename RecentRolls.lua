@@ -24,7 +24,7 @@ function R:Entries(run)
     local entries, matched = {}, {}
     for _, roll in ipairs(run.rolls or {}) do
         local value = validRoll(roll.value)
-        if value and (roll.kind == "need" or roll.kind == "greed") then
+        if value and (roll.kind == "need" or roll.kind == "greed" or roll.kind == "transmog") then
             entries[#entries + 1] = {
                 id = roll.id, name = roll.name, kind = roll.kind,
                 value = value, at = tonumber(roll.at) or 0,
@@ -74,7 +74,9 @@ end
 function R:Lines(run)
     local lines = {}
     for _, entry in ipairs(self:Entries(run)) do
-        local kind = LJ.L(entry.kind == "greed" and "DETAIL_ROLL_GREED" or "DETAIL_ROLL_NEED", entry.value)
+        local key = entry.kind == "transmog" and "DETAIL_ROLL_TRANSMOG"
+            or entry.kind == "greed" and "DETAIL_ROLL_GREED" or "DETAIL_ROLL_NEED"
+        local kind = LJ.L(key, entry.value)
         lines[#lines + 1] = LJ.L("RECENT_ROLL_LINE", itemLabel(run, entry.id),
             entry.name or LJ.L("RECENT_ROLL_YOU"), kind)
     end

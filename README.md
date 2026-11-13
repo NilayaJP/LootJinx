@@ -24,7 +24,7 @@ The interface is available in German and English. Open it with `/lj`, the minima
 
 ## Diagnostics
 
-`/lj debug` opens a snapshot of the current session and run. It shows the instance-copy state, recent loot event types, open Need rolls, pending item classifications, and the latest classification decisions. The report is designed to be copied into a bug report. The window follows the active Classic or Journal design and scrolls long snapshots.
+`/lj debug` opens a snapshot of the current session and run. It shows the instance-copy state, the stored primary-stat context, recent loot event types, open Need rolls, pending item classifications, and the latest classification decisions. The report is designed to be copied into a bug report. The window follows the active Classic or Journal design and scrolls long snapshots.
 
 The snapshot contains item IDs, roll IDs, event counts, and classification flags only. Player names, chat text, and whisper targets are not included. The **Print to chat** button outputs the same snapshot locally if you prefer plain text.
 
@@ -69,7 +69,7 @@ All graphics are 32-bit TGA files at 256 × 256 pixels. If you replace them, use
 
 ## What Gets Tracked
 
-**Dungeon Curse:** Dungeons without an observed item matching your primary stat. LootJinx determines the stat from your current specialization. For example, Balance Druid uses Intellect, Feral Druid uses Agility, Elemental Shaman uses Intellect, Enhancement Shaman uses Agility, Holy Paladin uses Intellect, and Protection or Retribution Paladin uses Strength. If specialization data is unavailable, LootJinx compares base stats through `UnitStat` before falling back to a class mapping. Changing specialization during a run re-evaluates items already observed in that run. The tracker shows your current streak and longest recorded streak.
+**Dungeon Curse:** Dungeons without an observed item matching your primary stat. LootJinx determines the stat from your current specialization. For example, Balance Druid uses Intellect, Feral Druid uses Agility, Elemental Shaman uses Intellect, Enhancement Shaman uses Agility, Holy Paladin uses Intellect, and Protection or Retribution Paladin uses Strength. If specialization data is unavailable, LootJinx compares base stats through `UnitStat` before falling back to a class mapping. The stat used for classification is stored with each run, so changing specialization later does not reclassify older runs. Runs recorded before stat context was stored are marked as unknown. The tracker shows your current streak and longest recorded streak.
 
 **Need Rolls:** Counts Need rolls, consecutive losses, and your longest losing streak. Greed rolls and items won through Greed do not affect Need statistics.
 
@@ -107,10 +107,12 @@ Recent Runs shows the latest observed personal and other-player Need values dire
 Click a supported entry in **Recent Runs** to open its detail window (available for runs recorded since version 1.3.0). It shows:
 
 - Dungeon name, date and time, and status (`LIVE` or completed).
+- The primary stat used for the run, including any stat changes during that run. Older records without stored context show **Primary stat: unknown**.
 - A summary of bosses, items, Need rolls, and Need wins.
 - Equippable green-quality or better loot grouped by boss in drop order.
 - Equippable green-quality or better dungeon trash loot in a separate section.
 - Each item's icon, quality-colored name, recipient (class-colored, or "You" for your character), winner's roll type and value, and your own Need roll and outcome when available.
+- A per-item tooltip with observed roll values for each player when the client or loot chat supplied them.
 - A confidence label beside your Need result and a tooltip explaining whether the result came from a direct roll message, a bag check, or another observation. Drop tooltips also explain the recipient evidence. Older records without a saved source show "evidence unavailable".
 - Boss attribution by encounter ID. Gray, white, and non-equippable items are excluded.
 - A "No loot observed" message for bosses without observed drops.
@@ -124,6 +126,7 @@ Runs recorded before version 1.3.0 remain in Recent Runs but cannot be opened be
 WoW Forever does not provide a combat log to addons. LootJinx therefore detects loot and roll results on a best-effort basis using:
 
 - `START_LOOT_ROLL` / `CANCEL_LOOT_ROLL` and the roll window.
+- `LOOT_HISTORY_UPDATE_DROP` and `C_LootHistory.GetSortedInfoForDrop` for per-player roll values on encounter loot when the API is available.
 - `LOOT_OPENED` / `LOOT_READY` and the loot window.
 - `CHAT_MSG_LOOT` for win, Need, and Greed messages.
 - `ENCOUNTER_END` / `BOSS_KILL` for boss kills and `ENCOUNTER_LOOT_RECEIVED` for loot recipients.
@@ -131,6 +134,8 @@ WoW Forever does not provide a combat log to addons. LootJinx therefore detects 
 - Bag counts as a fallback for unresolved Need results.
 
 Items whose data is not yet available are queued and classified after `GET_ITEM_INFO_RECEIVED`. An item matches your primary stat when `C_Item.GetItemStats` reports a positive value for that stat.
+
+When the client exposes `C_LootHistory`, LootJinx reads the per-player roll values for encounter loot and merges them with values parsed from loot chat. Item tooltips in run details list observed Need, Greed, and Transmog values per player; chat parsing remains the fallback for trash loot and older records. Separate loot-history events for identical items remain separate even when players roll the same numbers.
 
 If a Need result cannot be resolved directly, LootJinx checks your bags after a short delay. A simultaneous Greed roll for the same item prevents a false Need win.
 

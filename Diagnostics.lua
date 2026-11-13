@@ -252,10 +252,13 @@ local function addCopyState(lines, state)
         .. " blocked=" .. boolText(state.blocked)
         .. " live=" .. boolText(state.live)
         .. " paused=" .. boolText(run and run.paused))
+    local history = state.lootHistory or {}
     append(lines, "copy=" .. tostring(copy.state or "?")
         .. " runs=" .. tostring(state.runCount or 0)
         .. " lootWindow=" .. boolText(state.lootWindowOpen)
         .. " slots=" .. tostring(state.lootSlots or 0))
+    append(lines, "lootHistory=" .. tostring(history.drops or 0)
+        .. " historyRolls=" .. tostring(history.rolls or 0))
     if not run then
         append(lines, "run=none")
     else
@@ -275,6 +278,10 @@ local function addCopyState(lines, state)
             .. " statItems=" .. tostring(run.agiItemsSeen or 0)
             .. " lootSeen=" .. boolText(run.lootSeen)
             .. " statLoot=" .. boolText(run.agilityDropped))
+        local history = type(run.statHistory) == "table" and table.concat(run.statHistory, ">") or "-"
+        append(lines, "stat=" .. tostring(run.stat or "-")
+            .. " history=" .. history
+            .. " mixed=" .. boolText(run.statMixed))
         append(lines, "bosses=" .. tostring(run.bosses or 0)
             .. " drops=" .. tostring(run.drops or 0)
             .. " rolls=" .. tostring(run.rolls or 0)

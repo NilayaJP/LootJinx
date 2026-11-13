@@ -131,6 +131,21 @@ local function formatDate(run)
     return LJ.L("NO_DATA")
 end
 
+local function statContext(run)
+    local stat = run and run.stat
+    if not stat then return LJ.L("DETAIL_STAT_UNKNOWN"), C.muted end
+    local history = type(run.statHistory) == "table" and run.statHistory or nil
+    if history and #history > 1 then
+        local labels = {}
+        for i = 1, #history do
+            labels[#labels + 1] = LJ.StatLabel and LJ:StatLabel(history[i]) or history[i]
+        end
+        return LJ.L("DETAIL_STAT_MIXED", table.concat(labels, " → ")), C.orange
+    end
+    local label = LJ.StatLabel and LJ:StatLabel(stat) or stat
+    return LJ.L("DETAIL_STAT", label), C.muted
+end
+
 local function sortedNeeds(run)
     local list = {}
     for i = 1, #(run.needs or {}) do
@@ -225,6 +240,7 @@ local function dropRollText(run, drop)
         end
     end
     if not value then return nil end
+    if kind == "transmog" then return LJ.L("DETAIL_ROLL_TRANSMOG", value) end
     if kind == "greed" then return LJ.L("DETAIL_ROLL_GREED", value) end
     return LJ.L("DETAIL_ROLL_NEED", value)
 end
@@ -383,6 +399,29 @@ local function paginate(lines)
     return out
 end
 
+local function itemRolls(run, id, at, historyKey)
+    local out = {}
+    if not run or not id then return out end
+    local center = tonumber(at) or 0
+    for i = 1, #(run.rolls or {}) do
+        local roll = run.rolls[i]
+        if roll.id == id then
+            local rollAt = tonumber(roll.at) or 0
+            local near = center == 0 or math.abs(rollAt - center) <= (historyKey and 30 or 300)
+            local matchingHistory = historyKey and roll.lootHistoryKey == historyKey
+            if matchingHistory or (near and (not historyKey or not roll.lootHistoryKey)) then
+                out[#out + 1] = roll
+            end
+        end
+    end
+    table.sort(out, function(a, b)
+        local av, bv = tonumber(a.value) or 0, tonumber(b.value) or 0
+        if av == bv then return tostring(a.name) < tostring(b.name) end
+        return av > bv
+    end)
+    return out
+end
+
 local function rowTooltip(row)
     local line = row.line
     local link = row.link
@@ -408,6 +447,30 @@ local function rowTooltip(row)
         GameTooltip:AddLine(LJ.L("EVIDENCE_TOOLTIP", LJ.L("EVIDENCE_" .. string.upper(level))),
             0.92, 0.82, 0.61)
         GameTooltip:AddLine(LJ.L(reason), 0.76, 0.78, 0.83, true)
+    end
+    local id = line.kind == "item" and line.drop and line.drop.id
+        or line.kind == "need" and line.need and line.need.id
+    local at = line.kind == "item" and line.drop and line.drop.at
+        or line.kind == "need" and line.need and line.need.at
+    local historyKey = line.kind == "item" and line.drop and line.drop.lootHistoryKey
+    local rolls = itemRolls(currentRun, id, at, historyKey)
+    if #rolls > 0 then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(LJ.L("DETAIL_ROLLS_SECTION"), 0.92, 0.82, 0.61)
+        for i = 1, #rolls do
+            local roll = rolls[i]
+            local kind = roll.kind == "transmog" and LJ.L("DETAIL_ROLL_KIND_TRANSMOG")
+                or roll.kind == "greed" and LJ.L("DETAIL_ROLL_KIND_GREED")
+                or LJ.L("DETAIL_ROLL_KIND_NEED")
+            local name = roll.name
+            if LJ:IsMe(name) then name = LJ.L("DETAIL_YOU") end
+            local text = LJ.L("DETAIL_ROLL_LINE", kind, name, tonumber(roll.value) or 0)
+            if roll.kind ~= "need" then
+                GameTooltip:AddLine(text, 0.70, 0.75, 0.80)
+            else
+                GameTooltip:AddLine(text, 0.95, 0.82, 0.45)
+            end
+        end
     end
     GameTooltip:Show()
 end
@@ -817,7 +880,8 @@ function M:Refresh()
     local active = LJ.Tracker and LJ.Tracker.GetActive and LJ.Tracker:GetActive()
     local status = active == run and (LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("STATUS_IDLE"))
         or LJ.L("DETAIL_CLOSED")
-    subtitle:SetText(formatDate(run) .. " · " .. status)
+    local statText, statColor = statContext(run)
+    subtitle:SetText(formatDate(run) .. " · " .. status .. " · " .. colored(statColor, statText))
 
     local bossCount = #(run.bosses or {})
     local lines, dropCount = buildLines(run)

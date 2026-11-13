@@ -89,7 +89,7 @@ local function normalizeDrop(d, fallbackAt)
     if bossID and bossID <= 0 then bossID = nil end
     local winner = type(d.winner) == "string" and d.winner or nil
     local kind = d.rollKind
-    if kind ~= "need" and kind ~= "greed" then kind = nil end
+    if kind ~= "need" and kind ~= "greed" and kind ~= "transmog" then kind = nil end
     return {
         id = id,
         link = link,
@@ -101,6 +101,7 @@ local function normalizeDrop(d, fallbackAt)
         winnerClass = type(d.winnerClass) == "string" and d.winnerClass or nil,
         roll = tonumber(d.roll),
         rollID = tonumber(d.rollID),
+        lootHistoryKey = type(d.lootHistoryKey) == "string" and d.lootHistoryKey or nil,
         rollKind = kind,
         passed = d.passed == true,
         source = type(d.source) == "string" and d.source or nil,
@@ -115,13 +116,15 @@ local function normalizeRoll(r, fallbackAt)
     local name = type(r.name) == "string" and r.name or nil
     if not id or not value or not name then return nil end
     local kind = r.kind
-    if kind ~= "need" and kind ~= "greed" then kind = "need" end
+    if kind ~= "need" and kind ~= "greed" and kind ~= "transmog" then kind = "need" end
     return {
         id = id,
         name = name,
         kind = kind,
         value = value,
         at = tonumber(r.at) or fallbackAt or 0,
+        lootHistoryKey = type(r.lootHistoryKey) == "string" and r.lootHistoryKey or nil,
+        chatSeen = r.chatSeen == true,
     }
 end
 
@@ -159,6 +162,37 @@ local function normalizeNeed(n, fallbackAt)
     return n
 end
 
+local VALID_STATS = { agility = true, strength = true, intellect = true }
+
+-- Der Primärstat-Kontext eines Runs bleibt an den Run gebunden. Ältere Runs
+-- ohne gespeicherten Kontext werden nicht nachträglich mit der aktuellen
+-- Spezialisierung aufgefüllt, sondern bleiben ausdrücklich unbekannt.
+local function normalizeStatContext(run)
+    local history = type(run.statHistory) == "table" and run.statHistory or {}
+    local clean = {}
+    for i = 1, #history do
+        local stat = history[i]
+        if VALID_STATS[stat] and clean[#clean] ~= stat then
+            clean[#clean + 1] = stat
+        end
+    end
+    local stat = VALID_STATS[run.stat] and run.stat or nil
+    if #clean == 0 then
+        if stat then clean[1] = stat end
+    elseif stat and clean[#clean] ~= stat then
+        clean[#clean + 1] = stat
+    end
+    if #clean == 0 then
+        run.stat = nil
+        run.statHistory = nil
+        run.statMixed = false
+        return
+    end
+    run.stat = clean[#clean]
+    run.statHistory = clean
+    run.statMixed = #clean > 1
+end
+
 local function normalizeRun(run, fallbackID)
     if type(run) ~= "table" then return nil end
     run.id = tonumber(run.id) or fallbackID or 0
@@ -182,6 +216,7 @@ local function normalizeRun(run, fallbackID)
     run.closed = run.closed == true
     run.closedReason = type(run.closedReason) == "string" and run.closedReason or nil
     run.partial = run.partial == true
+    normalizeStatContext(run)
 
     -- Runs, die vor Version 1.3.0 aufgezeichnet wurden, tragen keinen
     -- Detailmarker. Für sie lassen sich keine Bosse und Empfänger anzeigen.
@@ -209,6 +244,7 @@ local function normalizeRun(run, fallbackID)
             p.id = tonumber(p.id) or LJ:ItemID(p.link)
             p.added = tonumber(p.added) or run.started
             p.countedLoot = p.countedLoot == true
+            p.stat = VALID_STATS[p.stat] and p.stat or nil
             if p.id then cleanPending[#cleanPending + 1] = p end
         end
     end
@@ -466,6 +502,16 @@ end
 
 local statCache = { key = nil, stat = nil }
 
+function LJ:StatLabel(stat)
+    local keys = STAT_KEYS[stat]
+    local label = keys and _G[keys[1]]
+    label = Plain(label)
+    if type(label) ~= "string" or label == "" then
+        label = self.L(STAT_LABELS[stat] or "STAT_AGILITY")
+    end
+    return label
+end
+
 function LJ:PlayerStat()
     local _, classFile = self:ClassName()
     local index = currentSpec()
@@ -492,12 +538,7 @@ function LJ:PlayerStat()
         end
     end
     local keys = STAT_KEYS[stat]
-    local label = keys and _G[keys[1]]
-    label = Plain(label)
-    if type(label) ~= "string" or label == "" then
-        label = self.L(STAT_LABELS[stat] or "STAT_AGILITY")
-    end
-    return stat, label, keys
+    return stat, self:StatLabel(stat), keys
 end
 
 local STAT_SHORT = {
@@ -624,7 +665,7 @@ end
 --   agi        true / false / nil für den Primärstat des Spielers
 --              (historischer Feldname; beim Schurken = Beweglichkeit),
 --              nil solange die Itemdaten noch nicht geladen sind
-function LJ:ClassifyItem(link)
+function LJ:ClassifyItem(link, statKey)
     link = Plain(link)
     if type(link) ~= "string" then return nil end
     local id = self:ItemID(link)
@@ -634,7 +675,12 @@ function LJ:ClassifyItem(link)
     local itemType = instant and instant.itemType or nil
     local isQuest = (classID == 12) or (type(itemType) == "string" and itemType == "Quest")
     local stats = self:ItemStats(link)
-    local stat, _, keys = self:PlayerStat()
+    local stat, _, keys
+    if statKey and STAT_KEYS[statKey] then
+        stat, keys = statKey, STAT_KEYS[statKey]
+    else
+        stat, _, keys = self:PlayerStat()
+    end
     local agi
     if stats then
         local v = statValue(stats, keys)
