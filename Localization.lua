@@ -50,6 +50,18 @@ local S = {
     OPT_COMPACT_HINT = { de = "Blendet „Letzte Runs“ aus und verkleinert das Fenster.", en = "Hides Recent Runs and shrinks the window." },
     OPT_FOOTER = { de = "Änderungen werden sofort gespeichert. Weitere Befehle: /lj help", en = "Changes are saved immediately. More commands: /lj help" },
 
+    JOURNAL_TITLE = { de = "Dungeon-Journal", en = "Dungeon Journal" },
+    JOURNAL_SUBTITLE = { de = "Chronik deines Dungeon-Pechs", en = "A chronicle of your dungeon luck" },
+    JOURNAL_TAB_RUNS = { de = "Runs", en = "Runs" },
+    JOURNAL_TAB_CURSES = { de = "Flüche", en = "Curses" },
+    JOURNAL_TAB_RECORDS = { de = "Rekorde", en = "Records" },
+    JOURNAL_TAB_SHARE = { de = "Teilen", en = "Share" },
+    JOURNAL_LATEST = { de = "Letzter Dungeon", en = "Latest Dungeon" },
+    JOURNAL_CURRENT_RECORDS = { de = "Serien & Rekorde", en = "Streaks & Records" },
+    JOURNAL_RECORD_VALUE = { de = "Rekord %d", en = "Record %d" },
+    JOURNAL_CURRENT_VALUE = { de = "Aktuell %d", en = "Current %d" },
+    JOURNAL_LEGACY = { de = "Keine Details", en = "No details" },
+
     REPORT_TITLE = { de = "BERICHT TEILEN", en = "SHARE REPORT" },
     REPORT_SUB = { de = "Statistik in den Chat posten", en = "Post your stats to chat" },
     REPORT_WHISPER_LABEL = { de = "Whisper-Ziel:", en = "Whisper target:" },

@@ -18,5 +18,6 @@ Tracker.lua
 Report.lua
 UI.lua
 RunDetail.lua
+JournalUI.lua
 Minimap.lua
 Options.lua
