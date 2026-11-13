@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added an independent dungeon loot catalog for boss and trash attribution, based on reviewed DungeonJournal item IDs. Kept unlisted observed gear visible under Other Loot and stopped assigning drops to the last boss solely by time.
 - Stored the primary-stat context with each run and showed it in run details, including a marker when the stat changed during the run. Marked older runs without a stored context as unknown and stopped reclassifying them with the current specialization.
 - Used `C_LootHistory` as an optional source for per-player roll values on encounter loot, with loot-chat parsing as fallback. Listed observed Need, Greed, and Transmog values in run-detail item tooltips and kept rolls for identical drops separate.
 - Extended `/lj debug` with a copyable diagnostic snapshot of the current run: instance-copy state, recent loot event types, open Need rolls, pending classifications, and the latest item-classification decisions. The snapshot uses IDs and flags only and excludes player names, chat text, and whisper targets. The window follows the active Classic or Journal design and scrolls long reports.

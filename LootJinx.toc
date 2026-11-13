@@ -16,6 +16,8 @@ Evidence.lua
 Stats.lua
 Storage.lua
 Widgets.lua
+DungeonLootData.lua
+DungeonLoot.lua
 Diagnostics.lua
 Tracker.lua
 Records.lua

@@ -109,8 +109,8 @@ Click a supported entry in **Recent Runs** to open its detail window (available 
 - Dungeon name, date and time, and status (`LIVE` or completed).
 - The primary stat used for the run, including any stat changes during that run. Older records without stored context show **Primary stat: unknown**.
 - A summary of bosses, items, Need rolls, and Need wins.
-- Equippable green-quality or better loot grouped by boss in drop order.
-- Equippable green-quality or better dungeon trash loot in a separate section.
+- Equippable green-quality or better loot grouped by boss when an encounter or the dungeon loot catalog identifies its source.
+- Cataloged dungeon trash in a **Trash drops** section. Other observed gear remains visible under **Other Loot**; proximity to a boss kill alone does not assign it to that boss.
 - Each item's icon, quality-colored name, recipient (class-colored, or "You" for your character), winner's roll type and value, and your own Need roll and outcome when available.
 - A per-item tooltip with observed roll values for each player when the client or loot chat supplied them.
 - A confidence label beside your Need result and a tooltip explaining whether the result came from a direct roll message, a bag check, or another observation. Drop tooltips also explain the recipient evidence. Older records without a saved source show "evidence unavailable".
@@ -120,6 +120,8 @@ Click a supported entry in **Recent Runs** to open its detail window (available 
 The detail window opens centered over the dashboard. Close it with **×**, **ESC**, or by closing the dashboard. Use **Back** and **Next** to navigate longer reports.
 
 Runs recorded before version 1.3.0 remain in Recent Runs but cannot be opened because detailed boss and recipient data was not captured for them. Their tooltip explains this.
+
+The bundled `DungeonLootData.lua` is an independent source index drawn from the item IDs in ForeverDungeonJournal 2.0.4. It covers 35 listed dungeons and supports 22 explicit trash groups. The catalog helps label observed drops; it is not a whitelist and does not change the five tracker totals. Unknown or ambiguous items stay in **Other Loot**. The catalog can be regenerated from a reviewed DungeonJournal `Data/Dungeons.lua` with `lua tools/build_dungeon_loot.lua <path-to-Dungeons.lua>`.
 
 ## Detection Limits
 

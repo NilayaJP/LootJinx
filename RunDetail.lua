@@ -245,7 +245,7 @@ local function dropRollText(run, drop)
     return LJ.L("DETAIL_ROLL_NEED", value)
 end
 
-local function bossIndexFor(drop, bosses)
+local function bossIndexFor(drop, bosses, catalogKind, catalogBoss)
     local id = tonumber(drop.bossID)
     if id and id > 0 then
         for i = #bosses, 1, -1 do
@@ -260,11 +260,11 @@ local function bossIndexFor(drop, bosses)
         end
     end
     if (id and id > 0) or drop.source == "encounter" then return nil end
-    local at = tonumber(drop.at)
-    if not at then return nil end
-    for i = #bosses, 1, -1 do
-        local bossAt = tonumber(bosses[i].at)
-        if bossAt and at >= bossAt and at - bossAt <= 120 then return i end
+    if catalogKind == "boss" and type(catalogBoss) == "string" then
+        for i = #bosses, 1, -1 do
+            if type(bosses[i].name) == "string"
+                and bosses[i].name:lower() == catalogBoss:lower() then return i end
+        end
     end
     return nil
 end
@@ -294,6 +294,7 @@ local function buildLines(run)
     local lines = {}
     local bosses = run.bosses or {}
     local byBoss = {}
+    local trash = {}
     local other = {}
     local needByDrop = {}
     local usedNeeds = {}
@@ -307,10 +308,16 @@ local function buildLines(run)
                 needByDrop[drop] = need
                 usedNeeds[need] = true
             end
-            local index = bossIndexFor(drop, bosses)
+            local catalogKind, catalogBoss
+            if LJ.DungeonLoot then
+                catalogKind, catalogBoss = LJ.DungeonLoot:Source(run, drop.id)
+            end
+            local index = bossIndexFor(drop, bosses, catalogKind, catalogBoss)
             if index then
                 byBoss[index] = byBoss[index] or {}
                 byBoss[index][#byBoss[index] + 1] = drop
+            elseif catalogKind == "trash" then
+                trash[#trash + 1] = drop
             else
                 other[#other + 1] = drop
             end
@@ -332,6 +339,15 @@ local function buildLines(run)
             for j = 1, #items do
                 lines[#lines + 1] = { kind = "item", drop = items[j], need = needByDrop[items[j]] }
             end
+        end
+    end
+
+    if #trash > 0 then
+        lines[#lines + 1] = {
+            kind = "boss", name = LJ.L("DETAIL_TRASH"), count = #trash, other = true,
+        }
+        for i = 1, #trash do
+            lines[#lines + 1] = { kind = "item", drop = trash[i], need = needByDrop[trash[i]] }
         end
     end
 

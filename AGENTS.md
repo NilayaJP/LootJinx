@@ -18,6 +18,7 @@
 - Preserve existing `LootJinxDB` account-wide settings and `LootJinxCharDB` per-character runs and statistics when changing saved data. Handle older runs that lack detailed data.
 - Keep repeated drops and Need rolls for identical items distinct. A missing roll value or recipient must remain unknown rather than being invented.
 - Greed rolls must not change Need statistics. Changes to the five trackers, roll matching, or run continuity need focused regression checks.
+- `DungeonLootData.lua` is attribution reference data, not a whitelist of possible drops. Keep observed items visible when the catalog is missing or ambiguous. Review source data and regenerate it with `tools/build_dungeon_loot.lua` when updating the catalog.
 - Keep Classic and Dungeon Journal functional. Changes to shared behavior should appear in both designs; the selected design also applies to run details. ESC closes the detail window before history or the dashboard.
 - Add or update both German and English entries in `Localization.lua` for user-facing text.
 
