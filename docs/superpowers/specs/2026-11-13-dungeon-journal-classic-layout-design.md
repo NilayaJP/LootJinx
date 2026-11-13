@@ -12,6 +12,8 @@ Both views use the same tracker, statistics, run details, and report service. Th
 
 The shared Run Details window follows the selected view's appearance when opened from Recent Runs. Journal uses leather, bronze, parchment, and gold in that window; Classic restores its original colors and font when opened from Classic.
 
+When Run Details is open, the first ESC closes only that window. A second ESC closes the main LootJinx dashboard. This applies to both Classic and Journal.
+
 ## Approach
 
 Keep the separate Journal view and give it Classic's geometry. This preserves the current Classic implementation and its look. Retheming the Classic frame in place would require restoring every texture and text color on each switch; duplicating the entire Classic module would couple two large UI implementations.

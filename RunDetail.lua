@@ -38,6 +38,48 @@ local rows = {}
 local pages = {}
 local currentRun
 local page = 1
+local suspendedSpecialName
+local restoreToken = 0
+local deferredRestoreFrame
+
+local function suspendDashboardEscape()
+    local dashboard = LJ.UI and LJ.UI.frame
+    local name = dashboard and dashboard.IsShown and dashboard:IsShown()
+        and dashboard.GetName and dashboard:GetName()
+    if not name or type(UISpecialFrames) ~= "table" then return end
+    for i = #UISpecialFrames, 1, -1 do
+        if UISpecialFrames[i] == name then table.remove(UISpecialFrames, i) end
+    end
+    suspendedSpecialName = name
+    restoreToken = restoreToken + 1
+end
+
+local function restoreDashboardEscape()
+    local name = suspendedSpecialName
+    if not name then return end
+    suspendedSpecialName = nil
+    restoreToken = restoreToken + 1
+    local token = restoreToken
+    local function restore()
+        if token ~= restoreToken or type(UISpecialFrames) ~= "table" then return end
+        for i = 1, #UISpecialFrames do
+            if UISpecialFrames[i] == name then return end
+        end
+        table.insert(UISpecialFrames, name)
+    end
+    -- CloseSpecialWindows iterates this table; restore after its ESC pass ends.
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0, restore)
+    elseif CreateFrame then
+        deferredRestoreFrame = deferredRestoreFrame or CreateFrame("Frame", nil, UIParent)
+        deferredRestoreFrame:SetScript("OnUpdate", function(self)
+            self:SetScript("OnUpdate", nil)
+            self:Hide()
+            restore()
+        end)
+        deferredRestoreFrame:Show()
+    end
+end
 
 local function hex(c)
     c = c or C.text
@@ -614,6 +656,7 @@ function M:Create()
 
     f:SetScript("OnHide", function()
         if GameTooltip then GameTooltip:Hide() end
+        restoreDashboardEscape()
     end)
     f:Hide()
 
@@ -711,6 +754,7 @@ function M:Show(run, theme)
         LJ:Print(LJ.L("ERROR_PART", "Run-Details", tostring(err)))
         return false
     end
+    suspendDashboardEscape()
     frame:Show()
     return true
 end
