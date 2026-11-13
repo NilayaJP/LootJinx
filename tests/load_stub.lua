@@ -285,7 +285,7 @@ function _G.C_Item.GetItemInfoInstant(x)
     local it = id and items[id]
     if not it then return nil end
     local itemType = it.classID == 12 and "Quest" or (it.classID == 2 and "Weapon" or "Armor")
-    return id, itemType, "Misc", "", it.icon or 134400, it.classID or 4
+    return id, itemType, "Misc", it.equipLoc or "", it.icon or 134400, it.classID or 4
 end
 function _G.C_Item.GetItemStats(x)
     local id = type(x) == "number" and x or tonumber(tostring(x):match("item:(%d+)"))
@@ -736,7 +736,8 @@ fire(trackerFrame, "BOSS_KILL", 5002, "Helix")
 ok(#runs[2].bosses == 2, "Zweiter Boss erfasst")
 
 -- Boss-Beute mit Empfänger
-items[1011] = { name = "Boss Axe", classID = 2, quality = 4, icon = 132394 }
+items[1011] = { name = "Boss Axe", classID = 2, quality = 4, icon = 132394,
+    equipLoc = "INVTYPE_WEAPON" }
 local bossLink = "|cffa335ee|Hitem:1011::::::::|h[Boss Axe]|h|r"
 rolls[9011] = bossLink
 fire(trackerFrame, "ENCOUNTER_LOOT_RECEIVED", 5001, "Glubtok", bossLink, 1, "Otherguy", "Krieger")
@@ -746,7 +747,8 @@ ok(bossDrop and bossDrop.bossID == 5001, "Encounter-Beute dem Boss zugeordnet")
 ok(bossDrop and bossDrop.winner == "Otherguy", "Encounter-Beute mit Empfänger")
 ok(bossDrop and bossDrop.winnerClass == "WARRIOR", "Klassenname aufgelöst")
 
-items[1017] = { name = "Late Boss Shield", classID = 4, quality = 3 }
+items[1017] = { name = "Late Boss Shield", classID = 4, quality = 3,
+    equipLoc = "INVTYPE_SHIELD" }
 local lateBossLink = "|cff0070dd|Hitem:1017::::::::|h[Late Boss Shield]|h|r"
 ok(LJ.Tracker:NoteDrop(lateBossLink, "Otherguy", runs[2].bosses[1], "chat") == true,
     "Chat-Beute vor Encounter-Ereignis erfasst")
@@ -781,18 +783,29 @@ local passedDrop = dropById(runs[2], 1013)
 ok(passedDrop and passedDrop.passed == true and passedDrop.winner == nil,
     "Alle haben gepasst markiert")
 
-items[1015] = { name = "Sweet Nectar", classID = 0, quality = 0 }
+items[1015] = { name = "Sweet Nectar", classID = 0, quality = 0,
+    equipLoc = "INVTYPE_TRINKET" }
 local grayLink = "|cff9d9d9d|Hitem:1015::::::::|h[Sweet Nectar]|h|r"
 ok(LJ.Tracker:NoteDrop(grayLink, nil, runs[2].bosses[1], "encounter") == true,
     "Graues Item mit Boss-Zuordnung erfasst")
-items[1016] = { name = "Silk Cloth", classID = 7, quality = 1 }
+items[1016] = { name = "Silk Cloth", classID = 7, quality = 1,
+    equipLoc = "INVTYPE_TRINKET" }
 local whiteLink = "|cffffffff|Hitem:1016::::::::|h[Silk Cloth]|h|r"
 ok(LJ.Tracker:NoteDrop(whiteLink, nil, runs[2].bosses[1], "encounter") == true,
     "Weißes Item mit Boss-Zuordnung erfasst")
-items[1018] = { name = "Boss Blue", classID = 4, quality = 3 }
+items[1018] = { name = "Boss Blue", classID = 4, quality = 3,
+    equipLoc = "INVTYPE_CHEST" }
 local bossBlueLink = "|cff0070dd|Hitem:1018::::::::|h[Boss Blue]|h|r"
 ok(LJ.Tracker:NoteDrop(bossBlueLink, nil, runs[2].bosses[1], "chat") == true,
     "Seltenes Item mit zeitlicher Boss-Zuordnung erfasst")
+items[7146] = { name = "The Scarlet Key", classID = 13, quality = 2 }
+local keyLink = "|cff1eff00|Hitem:7146::::::::|h[The Scarlet Key]|h|r"
+ok(LJ.Tracker:NoteDrop(keyLink, "Otherguy", runs[2].bosses[1], "loot-window") == true,
+    "Truhenschlüssel mit zeitlicher Boss-Zuordnung erfasst")
+items[3864] = { name = "Citrine", classID = 7, quality = 2 }
+local gemLink = "|cff1eff00|Hitem:3864::::::::|h[Citrine]|h|r"
+ok(LJ.Tracker:NoteDrop(gemLink, "Otherguy", runs[2].bosses[1], "chat") == true,
+    "Edelstein mit zeitlicher Boss-Zuordnung erfasst")
 local lateCacheLink = "|cff0070dd|Hitem:1019::::::::|h[Late Cache Sword]|h|r"
 ok(LJ.Tracker:NoteDrop(lateCacheLink, nil, runs[2].bosses[1], "chat") == true,
     "Boss-Item vor geladenen Itemdaten erfasst")
@@ -818,10 +831,13 @@ ok(shownIDs[1011] == true and shownIDs[1017] == true and shownIDs[1018] == true,
     "Bosszugeordnete Beute auch ohne Encounter-Event im Detail")
 ok(not shownIDs[1012] and not shownIDs[1015] and not shownIDs[1016],
     "Bossfremde, graue und weiße Items im Detail ausgeblendet")
+ok(not shownIDs[7146] and not shownIDs[3864],
+    "Schlüssel und Edelstein trotz Boss-Zuordnung ausgeblendet")
 ok(detail.summary:GetText():find("2 Bosse · " .. itemLines .. " Items", 1, true) ~= nil,
     "Zusammenfassung zählt nur angezeigte Items")
 
-items[1019] = { name = "Late Cache Sword", classID = 2, quality = 3 }
+items[1019] = { name = "Late Cache Sword", classID = 2, quality = 3,
+    equipLoc = "INVTYPE_WEAPON" }
 fire(trackerFrame, "GET_ITEM_INFO_RECEIVED", 1019, true)
 local lateCacheShown = false
 for _, line in ipairs(detail.lines or {}) do
@@ -838,6 +854,8 @@ ok(#detail.lines == linesBefore, "Bossfremder Live-Drop bleibt ausgeblendet")
 -- Lange Runs werden auf Seiten aufgeteilt
 local manyRun = { id = 9001, name = "Viele Bosse", started = clock, bosses = {}, drops = {}, needs = {} }
 for i = 1, 18 do
+    items[3000 + i] = { name = "Item " .. i, classID = 4, quality = 2,
+        equipLoc = "INVTYPE_CHEST" }
     manyRun.bosses[i] = { id = 6000 + i, name = "Boss " .. i, at = clock - 100 + i }
     manyRun.drops[i] = {
         id = 3000 + i,

@@ -160,7 +160,10 @@ end
 local function bossLootQuality(drop)
     LJ:LoadItem(drop.link, drop.id)
     local info = LJ:ItemInfo(drop.link or drop.id)
-    if info.classID == 12 then return nil end
+    local instant = LJ:ItemInfoInstant(drop.link or drop.id) or LJ:ItemInfoInstant(drop.id)
+    if info.classID == 12 or (instant and instant.classID == 12) then return nil end
+    local equipLoc = instant and instant.equipLoc or info.equipLoc
+    if type(equipLoc) ~= "string" or equipLoc == "" then return nil end
     if info.quality ~= nil then return tonumber(info.quality) end
     local getQuality = C_Item and C_Item.GetItemQualityByID
     if type(getQuality) == "function" then

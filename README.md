@@ -92,7 +92,8 @@ gewonnen wurde. Dungeons ganz ohne Need unterbrechen die Serie nicht.
 Questitems (Klassen-ID 12 bzw. Typ „Quest") zählen nicht als Loot.
 
 **Seit Need-Win** – alle Dungeons seit deinem letzten gewonnenen Need-Roll,
-auch Dungeons ohne Need-Wurf. Serie = aktueller Wert, Rekord = höchster Wert.
+auch Dungeons ohne Need-Wurf. Vor dem ersten Need-Wurf bleibt der Wert 0.
+Serie = aktueller Wert, Rekord = höchster Wert.
 
 Ein *Run* beginnt beim Betreten einer Gruppen- oder Szenario-Instanz. Verlässt du
 die Instanz, fragt ein Dialog nach **Pausieren**, **Beenden** oder **Beenden ohne Speichern?**.
@@ -123,11 +124,11 @@ Detailfenster (Version 1.3.0). Es zeigt:
 
 - Kopf mit Dungeonname, Datum/Uhrzeit und Status (`LIVE` oder abgeschlossen),
 - die Kurzzeile „Bosse · Items · Need-Rolls (gewonnen)",
-- Bossen zugeordnete Beute ab grüner Qualität, nach Bossen und Drop-Reihenfolge gruppiert,
+- Bossen zugeordnete, ausrüstbare Beute ab grüner Qualität, nach Bossen und Drop-Reihenfolge gruppiert,
 - pro Item: Icon und Name in Qualitätsfarbe, Empfänger (Klassenfarbe, „Du" bei dir),
   Rollart und Rollzahl des Gewinners (z. B. `Need 91`, `Gier 45`) und darunter dein
   eigener Need-Wurf mit Ergebnis (`Dein Need: 87 · verloren`),
-- Items mit Boss-Zuordnung durch Encounter-ID oder letzten erfolgreichen Boss; graue, weiße und nicht zugeordnete Drops bleiben ausgeblendet,
+- Items mit Boss-Zuordnung durch Encounter-ID oder letzten erfolgreichen Boss; graue, weiße, nicht ausrüstbare und nicht zugeordnete Drops bleiben ausgeblendet,
 - Bosse ohne beobachtete Beute mit dem Hinweis „Keine Beute beobachtet".
 
 Das Fenster wird zentriert über dem Dashboard geöffnet, lässt sich per `×`, `ESC`

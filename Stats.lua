@@ -63,6 +63,7 @@ function Stats.Compute(runs)
         lastAgilityRun = nil,
     }
 
+    local seenNeed = false
     for _, run in ipairs(runs) do
         if type(run) == "table" then
             out.totalDungeons = out.totalDungeons + 1
@@ -127,11 +128,11 @@ function Stats.Compute(runs)
                 end
             end
 
-            -- Dungeons seit dem letzten Need-Win: jede Dungeon zählt,
-            -- die Dungeon mit dem Sieg setzt die Serie auf 0.
+            -- Vor dem ersten Need-Wurf beginnt die Serie noch nicht.
+            if hasNeed then seenNeed = true end
             if hasWin then
                 out.sinceNeedWinCurrent = 0
-            else
+            elseif seenNeed then
                 out.sinceNeedWinCurrent = out.sinceNeedWinCurrent + 1
                 out.sinceNeedWinMax = max(out.sinceNeedWinMax, out.sinceNeedWinCurrent)
             end

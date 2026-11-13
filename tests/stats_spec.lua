@@ -136,15 +136,26 @@ do
     ok(s.lastNeedWinNeed ~= nil and s.lastNeedWinNeed.result == "won", "since: letzter Sieg")
 end
 
--- 8. Ohne jemals einen Need-Win zählt jeder Dungeon
+-- 8. Ohne Need-Wurf beginnt die Serie noch nicht
 do
     local s = Stats.Compute({
         run({}),
         run({}),
         run({}),
     })
-    eq(s.sinceNeedWinCurrent, 3, "since none: aktuell")
-    eq(s.sinceNeedWinMax, 3, "since none: Rekord")
+    eq(s.sinceNeedWinCurrent, 0, "since none: aktuell")
+    eq(s.sinceNeedWinMax, 0, "since none: Rekord")
+end
+
+-- 8a. Erste Need-Niederlage startet die Serie ohne frühere Dungeons
+do
+    local s = Stats.Compute({
+        run({}),
+        run({ needs = { need(1, "lost") } }),
+        run({}),
+    })
+    eq(s.sinceNeedWinCurrent, 2, "since first need: aktuell")
+    eq(s.sinceNeedWinMax, 2, "since first need: Rekord")
 end
 
 -- 9. Offene Need-Rolls zählen als offen, nicht als verloren
