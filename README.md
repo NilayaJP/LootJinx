@@ -93,6 +93,8 @@ The header shows how many runs are displayed and how many are saved. **Clean up*
 
 ## Run Details
 
+Recent Runs shows the latest observed personal and other-player Need values directly in each row. Hover over a run to see all observed Need and Greed values with player names and items. Values appear only when the game exposed a roll number; the two short row values may come from different items in the same run.
+
 Click a supported entry in **Recent Runs** to open its detail window (available for runs recorded since version 1.3.0). It shows:
 
 - Dungeon name, date and time, and status (`LIVE` or completed).

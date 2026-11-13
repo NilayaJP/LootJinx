@@ -133,6 +133,14 @@ local function makeRecent(f)
         row.date:SetPoint("RIGHT", 0, 0)
         row.date:SetWidth(62)
         row.date:SetJustifyH("RIGHT")
+        row:SetScript("OnEnter", function(self)
+            self:SetBackdropColor(rgba(P.page))
+            if self.run then LJ:ShowRecentTooltip(self, self.run) end
+        end)
+        row:SetScript("OnLeave", function(self)
+            self:SetBackdropColor(rgba(P.inset))
+            if GameTooltip then GameTooltip:Hide() end
+        end)
         row:SetScript("OnClick", function(self)
             if self.run and self.run.legacy ~= true and LJ.RunDetail then
                 LJ.RunDetail:Show(self.run, "journal")
@@ -346,7 +354,7 @@ function J:Refresh()
             if totalNeeds > 0 then badges = badges .. " · " .. LJ.L("BADGE_NEED", wins, totalNeeds) end
             if run.legacy then badges = badges .. " · " .. LJ.L("JOURNAL_LEGACY") end
             row.name:SetText(W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 36))
-            row.badges:SetText(badges)
+            row.badges:SetText(LJ.RecentRolls:Summary(run) or badges)
             row.date:SetText(date and date("%d.%m.", run.started or 0) or "")
         end
     end

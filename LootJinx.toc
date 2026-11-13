@@ -18,6 +18,7 @@ Storage.lua
 Widgets.lua
 Tracker.lua
 Report.lua
+RecentRolls.lua
 UI.lua
 RunDetail.lua
 History.lua

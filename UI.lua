@@ -376,6 +376,7 @@ local function runTooltip(row, run)
         GameTooltip:AddLine(LJ.L("TT_RUN_NEEDS", total, won, lost, pending),
             0.86, 0.87, 0.90, true)
     end
+    if LJ.RecentRolls then LJ.RecentRolls:AddTooltip(run) end
     if run.agilityLink then
         GameTooltip:AddLine(" ")
         GameTooltip:AddLine(run.agilityLink, 0.86, 0.87, 0.90)
@@ -394,6 +395,10 @@ local function runTooltip(row, run)
         end
     end
     GameTooltip:Show()
+end
+
+function LJ:ShowRecentTooltip(row, run)
+    runTooltip(row, run)
 end
 
 local function createRecent()
@@ -878,7 +883,7 @@ local function refreshContent()
                 if not run.lootSeen then
                     badges = badges .. " · " .. colored(C.muted, LJ.L("BADGE_EMPTY"))
                 end
-                setText(row.badges, badges)
+                setText(row.badges, LJ.RecentRolls:Summary(run) or badges)
             end
         end
     end
