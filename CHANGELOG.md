@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0 — 2026-11-13
+
+- Add a Design dropdown in Options to switch between Classic and Dungeon Journal. The selected design takes effect immediately and is saved account-wide; Classic remains the default.
+- Add the Dungeon Journal visual style to the existing dashboard layout, including the five trackers, recent runs, sharing controls, and a matching run detail window.
+- Keep run details open in their selected style and close only the detail window when ESC is pressed; a second ESC closes the dashboard.
+- Share report building and sending across both designs, so party, raid, and whisper reports use the same statistics.
+- Update the CurseForge description and repository README for both designs.
+
 ## 1.4.1 — 2026-11-13
 
 - Keep loot from a returning dungeon run separate until its instance copy is identified. If the copy matches, the provisional loot joins the original run; otherwise it stays in a new run.

@@ -48,10 +48,10 @@ local S = {
     OPT_WATERMARK_HINT = { de = "Blendet das große LootJinx-Symbol unten rechts ein oder aus.", en = "Toggles the large LootJinx symbol in the bottom right." },
     OPT_COMPACT = { de = "Kompakter Modus", en = "Compact mode" },
     OPT_COMPACT_HINT = { de = "Blendet „Letzte Runs“ aus und verkleinert das Fenster.", en = "Hides Recent Runs and shrinks the window." },
-    OPT_LAYOUT_PREVIEW = { de = "ENTWICKLUNGSVORSCHAU", en = "DEVELOPMENT PREVIEW" },
+    OPT_LAYOUT = { de = "DESIGN", en = "DESIGN" },
     OPT_LAYOUT_CLASSIC = { de = "Klassisch", en = "Classic" },
     OPT_LAYOUT_JOURNAL = { de = "Dungeon-Journal", en = "Dungeon Journal" },
-    OPT_LAYOUT_HINT = { de = "Nur für lokale Design-Tests.", en = "For local design testing only." },
+    OPT_LAYOUT_HINT = { de = "Wähle ein Design. Die Auswahl gilt für alle Charaktere.", en = "Choose a design. The selection applies to all characters." },
     OPT_FOOTER = { de = "Änderungen werden sofort gespeichert. Weitere Befehle: /lj help", en = "Changes are saved immediately. More commands: /lj help" },
 
     JOURNAL_TITLE = { de = "Dungeon-Journal", en = "Dungeon Journal" },

@@ -105,6 +105,9 @@ local function buildPanel()
     panel.name = LJ.L("OPTIONS_TAB")
     panel:SetSize(600, 560)
     panel:SetScript("OnShow", function() O:Refresh() end)
+    panel:SetScript("OnHide", function()
+        if controls.layoutMenu then controls.layoutMenu:Hide() end
+    end)
     O.panel = panel
 
     local header = W:Card(panel)
@@ -206,24 +209,42 @@ local function buildPanel()
     controls.watermark = createCheck(appearance, "showWatermark", LJ.L("OPT_WATERMARK"), LJ.L("OPT_WATERMARK_HINT"), -30)
     controls.compact = createCheck(appearance, "compact", LJ.L("OPT_COMPACT"), LJ.L("OPT_COMPACT_HINT"), -66)
 
-    local preview = W:Card(panel)
-    preview:SetPoint("TOPLEFT", 16, -440)
-    preview:SetSize(568, 76)
-    local previewTitle = W:Font(preview, 9, C.accent, "OUTLINE")
-    previewTitle:SetPoint("TOPLEFT", 14, -10)
-    previewTitle:SetText(LJ.L("OPT_LAYOUT_PREVIEW"))
+    local layoutCard = W:Card(panel)
+    layoutCard:SetPoint("TOPLEFT", 16, -440)
+    layoutCard:SetSize(568, 76)
+    local layoutTitle = W:Font(layoutCard, 9, C.accent, "OUTLINE")
+    layoutTitle:SetPoint("TOPLEFT", 14, -10)
+    layoutTitle:SetText(LJ.L("OPT_LAYOUT"))
 
-    local classic = W:Button(preview, LJ.L("OPT_LAYOUT_CLASSIC"), 156, 25)
-    classic:SetPoint("TOPLEFT", 14, -32)
-    classic:SetScript("OnClick", function() LJ.UI:SetLayout("classic") end)
-    local journal = W:Button(preview, LJ.L("OPT_LAYOUT_JOURNAL"), 156, 25)
-    journal:SetPoint("TOPLEFT", 180, -32)
-    journal:SetScript("OnClick", function() LJ.UI:SetLayout("journal") end)
+    local dropdown = W:Button(layoutCard, "", 322, 25)
+    dropdown:SetPoint("TOPLEFT", 14, -31)
+    local arrow = W:Font(dropdown, 12, C.text, "")
+    arrow:SetPoint("RIGHT", -10, 0)
+    arrow:SetText("v")
+    local menu = W:Card(panel)
+    menu:SetPoint("TOPLEFT", dropdown, "BOTTOMLEFT", 0, -2)
+    menu:SetSize(322, 56)
+    menu:SetFrameLevel(layoutCard:GetFrameLevel() + 10)
+    local classic = W:Button(menu, LJ.L("OPT_LAYOUT_CLASSIC"), 310, 24)
+    classic:SetPoint("TOPLEFT", 6, -4)
+    local journal = W:Button(menu, LJ.L("OPT_LAYOUT_JOURNAL"), 310, 24)
+    journal:SetPoint("TOPLEFT", 6, -29)
+    dropdown:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
+    classic:SetScript("OnClick", function()
+        menu:Hide()
+        LJ.UI:SetLayout("classic")
+    end)
+    journal:SetScript("OnClick", function()
+        menu:Hide()
+        LJ.UI:SetLayout("journal")
+    end)
+    menu:Hide()
+    controls.layoutDropdown, controls.layoutMenu = dropdown, menu
     controls.layoutClassic, controls.layoutJournal = classic, journal
-    local previewHint = W:Font(preview, 8, C.dim, "")
-    previewHint:SetPoint("TOPLEFT", 14, -61)
-    previewHint:SetWidth(530)
-    previewHint:SetText(LJ.L("OPT_LAYOUT_HINT"))
+    local layoutHint = W:Font(layoutCard, 8, C.dim, "")
+    layoutHint:SetPoint("TOPLEFT", 14, -61)
+    layoutHint:SetWidth(530)
+    layoutHint:SetText(LJ.L("OPT_LAYOUT_HINT"))
 
     local footer = W:Font(panel, 9, C.muted, "")
     footer:SetPoint("TOPLEFT", 18, -530)
@@ -274,9 +295,9 @@ function O:Refresh()
     if controls.welcome then setCheck(controls.welcome, LJ.DB.showWelcome) end
     if controls.watermark then setCheck(controls.watermark, LJ.DB.showWatermark ~= false) end
     if controls.compact then setCheck(controls.compact, LJ.DB.compact) end
-    if controls.layoutClassic then
-        controls.layoutClassic.label:SetText((LJ.DB.layoutPreview == "journal" and "" or "[X] ") .. LJ.L("OPT_LAYOUT_CLASSIC"))
-        controls.layoutJournal.label:SetText((LJ.DB.layoutPreview == "journal" and "[X] " or "") .. LJ.L("OPT_LAYOUT_JOURNAL"))
+    if controls.layoutDropdown then
+        controls.layoutDropdown.label:SetText(LJ.L(LJ.DB.layoutPreview == "journal"
+            and "OPT_LAYOUT_JOURNAL" or "OPT_LAYOUT_CLASSIC"))
     end
 end
 

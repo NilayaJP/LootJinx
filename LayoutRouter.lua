@@ -1,4 +1,4 @@
--- Routes dashboard entry points to the selected local preview layout.
+-- Routes dashboard entry points to the selected layout.
 local ADDON, ns = ...
 local LJ = ns or _G.LootJinx
 if not LJ or not LJ.UI then return end

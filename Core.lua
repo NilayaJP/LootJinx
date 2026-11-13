@@ -65,7 +65,7 @@ function LJ:AddOnVersion()
         local ok, version = pcall(getter, "LootJinx", "Version")
         if ok and type(version) == "string" and version ~= "" then return version end
     end
-    return "1.4.1"
+    return "1.5.0"
 end
 
 local function normalizeBoss(b, fallbackAt)

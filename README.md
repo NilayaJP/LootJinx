@@ -42,6 +42,7 @@ Open **ESC > Options > AddOns > LootJinx**. The gear icon in the dashboard and `
 - **Welcome message on every login:** Show an additional chat hint. The one-time first-start message is independent of this setting.
 - **Show watermark:** Toggle the large LootJinx symbol in the lower-right corner.
 - **Compact mode:** Hide Recent Runs and reduce the dashboard height from 628 to 476 pixels.
+- **Design:** Choose Classic or Dungeon Journal from the dropdown. The choice applies to all characters and takes effect immediately. Both designs show the same trackers and run history; the detail window follows the selected design. Pressing ESC with run details open closes the details first.
 
 Changes are saved immediately.
 

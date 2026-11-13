@@ -30,6 +30,12 @@ Send a compact statistics report to party chat, raid chat, or a player by whispe
 
 The dashboard supports adjustable scale, a compact mode, and a movable window. Settings are available under **ESC → Options → AddOns → LootJinx** or with `/lj options`.
 
+## Choose Your Design
+
+Use the **Design** dropdown in Options to switch between **Classic** and **Dungeon Journal**. Both show the same trackers and recent runs in the same layout, with a different visual style. The run detail window matches your chosen design. The choice is saved across all characters and takes effect immediately.
+
+When a run detail window is open, pressing **ESC** closes that window first and leaves the dashboard open.
+
 ## Commands
 
 - `/lj` — Open or close the dashboard
@@ -43,7 +49,7 @@ The dashboard supports adjustable scale, a compact mode, and a movable window. S
 
 - **Game:** World of Warcraft: Forever
 - **Interface:** 16001
-- **Version:** 1.4.1
+- **Version:** 1.5.0
 - **Languages:** English and German
 - **Dependencies:** None
 
