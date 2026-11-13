@@ -132,6 +132,10 @@ local function makeRuns(view)
     J.fields.latestName:SetWordWrap(false)
     J.fields.latestStatus = font(latest, 9, P.muted, "")
     J.fields.latestStatus:SetPoint("TOPLEFT", 17, -64)
+    J.fields.latestLoot = font(latest, 9, P.muted, "")
+    J.fields.latestLoot:SetPoint("TOPLEFT", 119, -75)
+    J.fields.latestLoot:SetWidth(277)
+    J.fields.latestLoot:SetWordWrap(false)
 
     local art = latest:CreateTexture(nil, "ARTWORK")
     art:SetTexture(MEDIA .. "CurseChest")
@@ -181,8 +185,12 @@ local function makeMetricPage(view, isRecord)
         local value = heading(r, 25, P.gold, "0")
         value:SetPoint("TOPRIGHT", -14, -12)
         local sub = font(r, 9, P.muted, LJ.L(isRecord and "STREAK" or "RECORD"))
-        sub:SetPoint("TOPLEFT", 12, -36)
-        rows[i] = { value = value, sub = sub }
+        sub:SetPoint("TOPLEFT", 12, -33)
+        sub:SetWidth(375)
+        local extra = font(r, 8, P.muted, "")
+        extra:SetPoint("TOPLEFT", 12, -46)
+        extra:SetWidth(375)
+        rows[i] = { value = value, sub = sub, extra = extra }
     end
     if isRecord then
         J.recordRows = rows
@@ -365,16 +373,24 @@ function J:Refresh()
     self.fields.latestName:SetText(latest and latest.name or LJ.L("RECENT_EMPTY"))
     self.fields.latestStatus:SetText(latest and
         (latest.paused and LJ.L("STATUS_IDLE") or latest.closed and LJ.L("DETAIL_CLOSED") or LJ.L("STATUS_LIVE")) or "")
-    self.fields.status:SetText(latest and (latest.closed and LJ.L("STATUS_READY") or LJ.L("STATUS_LIVE"))
+    self.fields.status:SetText(latest and (latest.paused and LJ.L("STATUS_IDLE")
+        or latest.closed and LJ.L("STATUS_READY") or LJ.L("STATUS_LIVE"))
         or LJ.L("STATUS_READY"))
     self.fields.latestCurse:SetText(tostring(stats.noAgiCurrent or 0))
-    local latestNeeds = 0
+    local latestWins, latestLost, latestPending = 0, 0, 0
     if latest then
         for _, need in ipairs(latest.needs or {}) do
-            if need.result == "lost" then latestNeeds = latestNeeds + 1 end
+            if need.result == "won" then latestWins = latestWins + 1
+            elseif need.result == "lost" then latestLost = latestLost + 1
+            else latestPending = latestPending + 1 end
         end
     end
-    self.fields.latestNeed:SetText(LJ.L("CARD_NEED_LOST", latestNeeds))
+    local drops = latest and latest.drops or nil
+    local drop = drops and drops[#drops] or nil
+    local itemName = drop and type(drop.link) == "string" and drop.link:match("%[([^%]]+)%]")
+    self.fields.latestLoot:SetText(itemName and LJ.L("JOURNAL_KEY_LOOT", W:Truncate(itemName, 31))
+        or latest and latest.lootSeen and LJ.L("JOURNAL_LOOT_OBSERVED") or LJ.L("JOURNAL_NO_LOOT"))
+    self.fields.latestNeed:SetText(LJ.L("JOURNAL_NEED_RESULTS", latestWins, latestLost, latestPending))
     for i, item in ipairs(metricKeys) do
         local current = tonumber(stats[item.current]) or 0
         local record = tonumber(stats[item.record]) or 0
@@ -382,9 +398,25 @@ function J:Refresh()
         local recordField = self.fields[item.field:gsub("Current$", "Record")]
         if recordField then recordField:SetText(LJ.L("JOURNAL_RECORD_VALUE", record)) end
         self.curseRows[i].value:SetText(tostring(current))
-        self.curseRows[i].sub:SetText(LJ.L("JOURNAL_RECORD_VALUE", record))
+        local summary, extra = "", LJ.L("JOURNAL_RECORD_VALUE", record)
+        if i == 1 then
+            summary = LJ.L("JOURNAL_CURSE_TOTAL", stats.noAgiDungeons or 0, stats.totalDungeons or 0)
+        elseif i == 2 then
+            summary = LJ.L("JOURNAL_NEED_TOTAL", stats.needRolls or 0, stats.needWins or 0, stats.needLost or 0)
+            extra = LJ.L("JOURNAL_NEED_EXTRA", stats.needPending or 0,
+                math.floor((stats.winRate or 0) + 0.5), record)
+        elseif i == 3 then
+            summary = LJ.L("JOURNAL_NO_WIN_TOTAL", stats.noNeedWinDungeons or 0, stats.needDungeons or 0)
+        elseif i == 4 then
+            summary = LJ.L("JOURNAL_NO_LOOT_TOTAL", stats.noLootDungeons or 0, stats.totalDungeons or 0)
+        else
+            summary = LJ.L("JOURNAL_SINCE_NOTE")
+        end
+        self.curseRows[i].sub:SetText(summary)
+        self.curseRows[i].extra:SetText(extra)
         self.recordRows[i].value:SetText(tostring(record))
         self.recordRows[i].sub:SetText(LJ.L("JOURNAL_CURRENT_VALUE", current))
+        self.recordRows[i].extra:SetText("")
     end
     self.fields.recentEmpty:SetShown(#runs == 0)
     for i = 1, 4 do
@@ -430,6 +462,7 @@ function J:ApplyDisplayOptions()
     -- The three columns end at y=-475, so keep them inside the compact frame.
     self.frame:SetHeight(compact and 476 or 520)
     self.recentPanel:SetShown(not compact)
+    self.footer:SetShown(not compact)
     self.watermark:SetShown(LJ.DB.showWatermark ~= false)
 end
 
