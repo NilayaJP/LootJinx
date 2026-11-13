@@ -602,19 +602,20 @@ end
 function T:FindPendingNeed(itemID, link, maxAge)
     local data = db()
     if not data then return nil, nil end
-    local found, foundRun
+    local found, foundRun, matches = nil, nil, 0
     for i = #data.runs, 1, -1 do
         local run = data.runs[i]
         for j = #(run.needs or {}), 1, -1 do
             local n = run.needs[j]
             if needMatches(n, itemID, link, nil, maxAge or 900) then
+                matches = matches + 1
                 if not found or (n.at or 0) >= (found.at or 0) then
                     found, foundRun = n, run
                 end
             end
         end
     end
-    return found, foundRun
+    return found, foundRun, matches
 end
 
 function T:ResolveNeed(need, result, reason)
@@ -792,8 +793,12 @@ end
 function T:ResolveNeedByLink(link, result, reason)
     link = LJ:NormalizeLink(link)
     local id = LJ:ItemID(link)
-    local need, run = T:FindPendingNeed(id, link, 900)
+    local need, run, matches = T:FindPendingNeed(id, link, 900)
     if not need then return false end
+    if matches > 1 and (reason == "chat-won" or reason == "chat-other-won"
+        or reason == "chat-all-passed") then
+        reason = reason .. "-ambiguous"
+    end
     if result == "won" then
         return T:ResolveNeed(need, "won", reason)
     elseif result == "lost" then
@@ -858,7 +863,11 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
                 local changed = false
                 d.sources = sources
                 sources[source] = true
-                if winner and not d.winner then d.winner = winner; changed = true end
+                if winner and not d.winner then
+                    d.winner = winner
+                    d.winnerSource = source
+                    changed = true
+                end
                 if winner and winnerClass and not d.winnerClass then d.winnerClass = winnerClass; changed = true end
                 if rollValue and not d.roll then d.roll = rollValue; changed = true end
                 if rollKind and not d.rollKind then d.rollKind = rollKind; changed = true end
@@ -889,6 +898,7 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
         bossName = bossName,
         at = at,
         winner = winner,
+        winnerSource = winner and source or nil,
         winnerClass = winnerClass,
         roll = rollValue,
         rollID = rollID,

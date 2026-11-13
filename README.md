@@ -98,6 +98,7 @@ Click a supported entry in **Recent Runs** to open its detail window (available 
 - Equippable green-quality or better loot grouped by boss in drop order.
 - Equippable green-quality or better dungeon trash loot in a separate section.
 - Each item's icon, quality-colored name, recipient (class-colored, or "You" for your character), winner's roll type and value, and your own Need roll and outcome when available.
+- A confidence label beside your Need result and a tooltip explaining whether the result came from a direct roll message, a bag check, or another observation. Drop tooltips also explain the recipient evidence. Older records without a saved source show "evidence unavailable".
 - Boss attribution by encounter ID. Gray, white, and non-equippable items are excluded.
 - A "No loot observed" message for bosses without observed drops.
 
@@ -119,6 +120,8 @@ WoW Forever does not provide a combat log to addons. LootJinx therefore detects 
 Items whose data is not yet available are queued and classified after `GET_ITEM_INFO_RECEIVED`. An item matches your primary stat when `C_Item.GetItemStats` reports a positive value for that stat.
 
 If a Need result cannot be resolved directly, LootJinx checks your bags after a short delay. A simultaneous Greed roll for the same item prevents a false Need win.
+
+The confidence labels describe the evidence behind a recorded result; they do not change the five tracker totals. A direct roll chat message is marked **confirmed**. Bag checks and matching loot-chat messages are marked **inferred**. Pending results remain **unresolved**.
 
 ## Saved Data
 

@@ -2,11 +2,11 @@
 
 Updated: 2026-11-13
 
-These are proposals for future versions, not implemented features. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history and compact chat report are already present in the local `1.6.0-dev` build.
+These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, and detection-confidence labels are present in the local `1.6.0-dev` build.
 
 | Priority | Idea | Player benefit | Effort |
 | --- | --- | --- | --- |
-| 1 | Detection confidence | Understand which loot and roll results are certain | Medium |
+| Done in local build | Detection confidence | Understand which loot and roll results are certain | Medium |
 | 2 | Per-dungeon statistics | See where unlucky streaks happen most often | Medium |
 | 3 | Saved-data controls | Keep long-running histories manageable | Medium–high |
 | 4 | History date filters | Find a run from a particular day or week | Low–medium |
@@ -18,7 +18,7 @@ These are proposals for future versions, not implemented features. LootJinx's fo
 
 **Problem:** WoW Forever does not expose every loot or roll outcome unambiguously. LootJinx sometimes verifies an unresolved Need result from bag counts, but the run detail view does not explain how certain an outcome is.
 
-**Proposal:** Mark each observed result as **confirmed**, **inferred**, or **unresolved**, and show a short explanation in the run detail tooltip. Store the evidence source with the result. Keep this separate from the five curse totals so the current definitions stay understandable.
+**Implemented locally:** Need results show **confirmed**, **inferred**, or **unresolved** beside the outcome, with a tooltip explaining the saved evidence source. Older results without a source show **evidence unavailable**. Drop tooltips explain the recipient evidence. This remains separate from the five curse totals.
 
 **Done when:** A player can tell why a Need win or loss was counted, and unresolved results are never presented as confirmed. Older runs display an “evidence unavailable” state.
 
@@ -72,7 +72,7 @@ These are proposals for future versions, not implemented features. LootJinx's fo
 
 ## Suggested order
 
-Start with **detection confidence**, then **per-dungeon statistics**. These make the existing history more trustworthy and useful. Plan **saved-data controls** before the history becomes large; they need special care because lifetime statistics currently depend on saved runs.
+After in-game validation of the confidence labels, build **per-dungeon statistics**. Plan **saved-data controls** before the history becomes large; they need special care because lifetime statistics currently depend on saved runs.
 
 ## Reference points
 

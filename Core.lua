@@ -97,6 +97,7 @@ local function normalizeDrop(d, fallbackAt)
         bossName = type(d.bossName) == "string" and d.bossName or nil,
         at = tonumber(d.at) or fallbackAt or 0,
         winner = winner,
+        winnerSource = type(d.winnerSource) == "string" and d.winnerSource or nil,
         winnerClass = type(d.winnerClass) == "string" and d.winnerClass or nil,
         roll = tonumber(d.roll),
         rollID = tonumber(d.rollID),

@@ -188,6 +188,11 @@ local function needStatusText(need, drop)
     else
         text = LJ.L("DETAIL_NEED_LINE_NO_ROLL", status)
     end
+    if LJ.Evidence then
+        local observedSelfWinner = drop and drop.winner and LJ:IsMe(drop.winner)
+        local level = LJ.Evidence:Classify(need, observedSelfWinner)
+        text = text .. " · " .. LJ.L("EVIDENCE_" .. string.upper(level))
+    end
     return text, color
 end
 
@@ -381,13 +386,29 @@ end
 local function rowTooltip(row)
     local line = row.line
     local link = row.link
-    if not line or not link or not GameTooltip then return end
+    if not line or not GameTooltip then return end
+    local need = line.need
+    if not link and not need then return end
     GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
     local shown = false
-    if GameTooltip.SetHyperlink then
+    if link and GameTooltip.SetHyperlink then
         shown = pcall(GameTooltip.SetHyperlink, GameTooltip, link)
     end
-    if not shown then GameTooltip:AddLine(link, 0.92, 0.93, 0.96) end
+    if link and not shown then GameTooltip:AddLine(link, 0.92, 0.93, 0.96) end
+    if line.kind == "item" and line.drop and LJ.Evidence then
+        local level, reason = LJ.Evidence:ClassifyDrop(line.drop)
+        GameTooltip:AddLine(LJ.L("EVIDENCE_DROP_TOOLTIP", LJ.L("EVIDENCE_" .. string.upper(level))),
+            0.92, 0.82, 0.61)
+        GameTooltip:AddLine(LJ.L(reason), 0.76, 0.78, 0.83, true)
+    end
+    if need and LJ.Evidence then
+        local drop = line.drop
+        local observedSelfWinner = drop and drop.winner and LJ:IsMe(drop.winner)
+        local level, reason = LJ.Evidence:Classify(need, observedSelfWinner)
+        GameTooltip:AddLine(LJ.L("EVIDENCE_TOOLTIP", LJ.L("EVIDENCE_" .. string.upper(level))),
+            0.92, 0.82, 0.61)
+        GameTooltip:AddLine(LJ.L(reason), 0.76, 0.78, 0.83, true)
+    end
     GameTooltip:Show()
 end
 
