@@ -118,8 +118,7 @@ end
 
 function R:ShowReport()
     if selected() == "journal" then
-        self:Show()
-        Journal:SelectTab("share")
+        Journal:ShowReport()
     else
         Classic:ShowReport()
     end
