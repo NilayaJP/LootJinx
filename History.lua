@@ -7,7 +7,7 @@ local H = { query = "", dungeon = nil, page = 1, filterPage = 1, rows = {}, filt
 LJ.History = H
 local W = LJ.Widgets
 local WHITE = "Interface\\Buttons\\WHITE8X8"
-local PAGE_SIZE, FILTER_PAGE_SIZE = 10, 8
+local PAGE_SIZE, FILTER_PAGE_SIZE = 9, 8
 local palettes = {
     classic = { bg = { .065, .075, .10, .98 }, card = { .10, .11, .14, .98 }, border = { .27, .29, .35, 1 }, text = { .91, .91, .94, 1 }, accent = { .81, .36, .61, 1 }, muted = { .65, .67, .72, 1 } },
     journal = { bg = { .141, .102, .102, .98 }, card = { .190, .145, .133, .98 }, border = { .545, .384, .267, 1 }, text = { .906, .835, .729, 1 }, accent = { .918, .769, .494, 1 }, muted = { .690, .608, .510, 1 } },
@@ -78,6 +78,18 @@ function H:Dungeons(runs)
     return names
 end
 
+function H:Summarize(runs)
+    local stats = LJ.Stats.Compute(runs)
+    return {
+        runs = stats.totalDungeons or 0,
+        statRuns = stats.agilityDungeons or 0,
+        noLoot = stats.noLootDungeons or 0,
+        needWins = stats.needWins or 0,
+        needLost = stats.needLost or 0,
+        needPending = stats.needPending or 0,
+    }
+end
+
 local function suspendDashboardEscape()
     local dashboard = LJ.UI and LJ.UI.frame
     local name = dashboard and dashboard.IsShown and dashboard:IsShown()
@@ -111,9 +123,11 @@ function H:ApplyTheme()
     paint(self.frame, p.bg, p.border)
     paint(self.search, p.card, p.border)
     paint(self.menu, p.card, p.border)
+    paint(self.summaryPanel, p.card, p.border)
     for _, f in ipairs(self.labels) do f:SetTextColor(rgba(p.text)) end
     for _, f in ipairs(self.mutedLabels) do f:SetTextColor(rgba(p.muted)) end
     self.title:SetTextColor(rgba(p.accent))
+    self.summaryTitle:SetTextColor(rgba(p.accent))
     for _, b in ipairs(self.buttons) do
         paint(b, p.card, p.border)
         b.label:SetTextColor(rgba(p.text))
@@ -200,9 +214,24 @@ function H:Create()
     self.mutedLabels[#self.mutedLabels + 1] = self.filterPageText
     self.menu:Hide()
 
+    self.summaryPanel = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    self.summaryPanel:SetPoint("TOPLEFT", 16, -99)
+    self.summaryPanel:SetSize(578, 54)
+    self.summaryTitle = label(self.summaryPanel, 10, "")
+    self.summaryTitle:SetPoint("TOPLEFT", 10, -5)
+    self.summaryTitle:SetWidth(550)
+    self.summaryLine1 = label(self.summaryPanel, 9, "")
+    self.summaryLine1:SetPoint("TOPLEFT", 10, -22)
+    self.summaryLine1:SetWidth(550)
+    self.summaryLine2 = label(self.summaryPanel, 9, "")
+    self.summaryLine2:SetPoint("TOPLEFT", 10, -37)
+    self.summaryLine2:SetWidth(550)
+    self.labels[#self.labels + 1] = self.summaryLine1
+    self.labels[#self.labels + 1] = self.summaryLine2
+
     for i = 1, PAGE_SIZE do
         local row = addButton(f, "", 578, 31)
-        row:SetPoint("TOPLEFT", 16, -102 - (i - 1) * 34)
+        row:SetPoint("TOPLEFT", 16, -162 - (i - 1) * 34)
         row.label:ClearAllPoints()
         row.label:SetPoint("LEFT", 10, 0)
         row.label:SetWidth(400)
@@ -263,6 +292,13 @@ end
 function H:Refresh()
     if not self.frame or not LJ.Tracker then return end
     local matches = self:Filter(LJ.Tracker:GetRuns(), self.query, self.dungeon)
+    local summary = self:Summarize(matches)
+    self.summaryTitle:SetText(LJ.L("HISTORY_SUMMARY_TITLE",
+        W:Truncate(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"), 55)))
+    self.summaryLine1:SetText(LJ.L("HISTORY_SUMMARY_RUNS", summary.runs,
+        summary.statRuns, summary.noLoot))
+    self.summaryLine2:SetText(LJ.L("HISTORY_SUMMARY_NEED", summary.needWins,
+        summary.needLost, summary.needPending))
     local pages = math.max(1, math.ceil(#matches / PAGE_SIZE))
     self.page = math.max(1, math.min(self.page, pages))
     self.filterButton.label:SetText(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"))

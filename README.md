@@ -85,7 +85,7 @@ The report has six short, consistently prefixed chat lines: a header followed by
 
 ## Dungeon History
 
-Click **History** in the dashboard footer to browse all saved runs, including in compact mode. Search dungeon names, filter by dungeon, and use **Back** and **Next** to page through older runs. The list is newest first. Click a run to open its existing detail report; runs recorded before detailed history was introduced remain listed with a "Details unavailable" label.
+Click **History** in the dashboard footer to browse all saved runs, including in compact mode. Search dungeon names, filter by dungeon, and use **Back** and **Next** to page through older runs. The list is newest first. The summary above it shows runs with primary-stat loot, runs without loot, and Need wins, losses, and pending results for the current filter. Active runs are included. Click a run to open its existing detail report; runs recorded before detailed history was introduced remain listed with a "Details unavailable" label.
 
 The history window follows the selected Classic or Dungeon Journal design. ESC closes the detail report first, then the history window, then the dashboard.
 

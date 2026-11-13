@@ -2,12 +2,12 @@
 
 Updated: 2026-11-13
 
-These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, and detection-confidence labels are present in the local `1.6.0-dev` build.
+These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, and per-dungeon statistics are present in the local `1.6.0-dev` build.
 
 | Priority | Idea | Player benefit | Effort |
 | --- | --- | --- | --- |
 | Done in local build | Detection confidence | Understand which loot and roll results are certain | Medium |
-| 2 | Per-dungeon statistics | See where unlucky streaks happen most often | Medium |
+| Done in local build | Per-dungeon statistics | Compare loot and Need results by dungeon | Medium |
 | 3 | Saved-data controls | Keep long-running histories manageable | Medium–high |
 | 4 | History date filters | Find a run from a particular day or week | Low–medium |
 | 5 | New-record notifications | Notice a personal record when it happens | Low |
@@ -26,7 +26,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 
 **Problem:** The dashboard has overall streaks, while the new history can filter runs by dungeon. It does not summarize how those runs went.
 
-**Proposal:** For the selected dungeon, show run count, primary-stat drops, Need wins/losses, and no-loot runs. Calculate these from saved runs rather than maintaining duplicate counters.
+**Implemented locally:** The history summary shows run count, runs with primary-stat loot, runs without loot, and Need wins, losses, and pending results for the selected dungeon. It also follows the text search. Figures are calculated from saved runs rather than duplicate counters.
 
 **Done when:** The figures match the filtered run list, including older records with incomplete detail data. Current/live runs are clearly identified if included.
 
@@ -72,7 +72,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 
 ## Suggested order
 
-After in-game validation of the confidence labels, build **per-dungeon statistics**. Plan **saved-data controls** before the history becomes large; they need special care because lifetime statistics currently depend on saved runs.
+After in-game validation of the completed items, plan **saved-data controls** before the history becomes large; they need special care because lifetime statistics currently depend on saved runs.
 
 ## Reference points
 

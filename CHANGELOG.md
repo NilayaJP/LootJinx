@@ -6,6 +6,7 @@
 - Enabled opening run details from history and closing the detail window, history, and dashboard in order with ESC.
 - Shortened and numbered the shared chat report lines so the five trackers read as a compact block, with less delay between lines.
 - Added evidence labels and explanations for Need results and drop recipients in run details, including clear states for inferred, unresolved, and older entries without a saved source.
+- Added a history summary for the selected dungeon or search, showing primary-stat loot runs, no-loot runs, and Need outcomes.
 
 ## 1.5.0 — 2026-11-13
 
