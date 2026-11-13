@@ -4,6 +4,7 @@
 
 - Add a searchable, paginated history of all saved dungeon runs with a dungeon filter, accessible from both designs and compact mode.
 - Open existing run details from history and close detail, history, and dashboard in order with ESC.
+- Shorten and number the shared chat report lines so the five trackers read as a compact block, with less delay between lines.
 
 ## 1.5.0 — 2026-11-13
 

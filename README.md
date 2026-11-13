@@ -81,7 +81,7 @@ The **Report** button in the dashboard footer opens the sharing dialog:
 - **Party chat:** Post your statistics to party chat, or raid chat when you are in a raid.
 - **Whisper:** Send the report to a named player or your current player target. The target is filled in when the dialog opens. A target on your realm appears without a realm suffix; a cross-realm target appears as `Name-Realm`.
 
-The report has six lines: header, Dungeon Curse, Need Rolls, No Need Win, No Loot, and Since Need Win. Lines are sent one second apart to respect the chat limit. If no party or whisper target is available, the dialog shows a message and sends nothing.
+The report has six short, consistently prefixed chat lines: a header followed by five numbered tracker lines. They are sent 0.6 seconds apart. If no party or whisper target is available, the dialog shows a message and sends nothing.
 
 ## Dungeon History
 

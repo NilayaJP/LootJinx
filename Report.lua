@@ -6,6 +6,7 @@ if not LJ then return end
 local R = {}
 LJ.Report = R
 
+local REPORT_DELAY = 0.6
 local queue = {}
 local timer
 local session = 0
@@ -103,12 +104,12 @@ local function sendNextLine(currentSession)
     end
     pcall(SendChatMessage, line, reportChannel, nil, reportTarget)
     if C_Timer and C_Timer.NewTimer then
-        timer = C_Timer.NewTimer(1.0, function()
+        timer = C_Timer.NewTimer(REPORT_DELAY, function()
             pcall(sendNextLine, currentSession)
         end)
     elseif C_Timer and C_Timer.After then
         timer = nil
-        C_Timer.After(1.0, function() pcall(sendNextLine, currentSession) end)
+        C_Timer.After(REPORT_DELAY, function() pcall(sendNextLine, currentSession) end)
     else
         sendNextLine(currentSession)
     end
