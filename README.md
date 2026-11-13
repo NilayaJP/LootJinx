@@ -24,7 +24,7 @@ The interface is available in German and English. Open it with `/lj`, the minima
 
 ## Diagnostics
 
-`/lj debug` opens a snapshot of the current session and run. It shows the instance-copy state, recent loot event types, open Need rolls, pending item classifications, and the latest classification decisions. The report is designed to be copied into a bug report.
+`/lj debug` opens a snapshot of the current session and run. It shows the instance-copy state, recent loot event types, open Need rolls, pending item classifications, and the latest classification decisions. The report is designed to be copied into a bug report. The window follows the active Classic or Journal design and scrolls long snapshots.
 
 The snapshot contains item IDs, roll IDs, event counts, and classification flags only. Player names, chat text, and whisper targets are not included. The **Print to chat** button outputs the same snapshot locally if you prefer plain text.
 

@@ -42,6 +42,7 @@ function R:SetLayout(id)
     if LJ.History then LJ.History:Hide() end
     LJ.DB.layoutPreview = id
     self:Create()
+    if LJ.Diagnostics and LJ.Diagnostics.ApplyTheme then LJ.Diagnostics:ApplyTheme() end
     if wasVisible then self:Show() end
     if LJ.Options and LJ.Options.Refresh then LJ.Options:Refresh() end
     return id

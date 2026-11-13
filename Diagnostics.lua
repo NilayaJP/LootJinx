@@ -14,9 +14,63 @@ local REPORT_ITEMS = 8
 local REPORT_PENDING = 8
 
 local W = LJ.Widgets
-local C = LJ.COLORS
+local CLASSIC = LJ.COLORS or {}
 local FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 local WHITE = "Interface\\Buttons\\WHITE8X8"
+
+local JOURNAL = {
+    bg = { 0.141, 0.102, 0.102, 0.98 },
+    card = { 0.190, 0.145, 0.133, 0.98 },
+    border = { 0.545, 0.384, 0.267, 1 },
+    accent = { 0.918, 0.769, 0.494, 1 },
+    text = { 0.906, 0.835, 0.729, 1 },
+    muted = { 0.690, 0.608, 0.510, 1 },
+    inset = { 0.114, 0.086, 0.082, 0.96 },
+}
+
+local palettes = {
+    classic = {
+        bg = CLASSIC.bg,
+        card = CLASSIC.card,
+        border = CLASSIC.border,
+        accent = CLASSIC.accent,
+        cyan = CLASSIC.cyan,
+        text = CLASSIC.text,
+        muted = CLASSIC.muted,
+        editBg = { 0.040, 0.045, 0.060, 1 },
+        editBorder = CLASSIC.border,
+        buttonBg = { 0.100, 0.110, 0.140, 0.96 },
+        titleFont = FONT,
+        titleSize = 10,
+        titleFlags = "OUTLINE",
+        titleColor = CLASSIC.accent,
+    },
+    journal = {
+        bg = JOURNAL.bg,
+        card = JOURNAL.card,
+        border = JOURNAL.border,
+        accent = JOURNAL.accent,
+        cyan = JOURNAL.text,
+        text = JOURNAL.text,
+        muted = JOURNAL.muted,
+        editBg = JOURNAL.inset,
+        editBorder = JOURNAL.border,
+        buttonBg = JOURNAL.inset,
+        titleFont = "Fonts\\MORPHEUS.TTF",
+        titleSize = 14,
+        titleFlags = "",
+        titleColor = JOURNAL.accent,
+    },
+}
+
+local function currentTheme()
+    local ui = LJ.UI
+    if ui and ui.GetLayout then
+        local ok, value = pcall(ui.GetLayout, ui)
+        if ok and value == "journal" then return "journal" end
+    end
+    return "classic"
+end
 
 local function now()
     return LJ.Now and LJ.Now() or 0
@@ -403,43 +457,73 @@ function D:Print()
     end
 end
 
-local function applyBackdrop(frame)
-    if not frame.SetBackdrop then return end
+local function paint(frame, bg, edge)
+    if not frame or not frame.SetBackdrop or not bg or not edge then return end
     frame:SetBackdrop({
         bgFile = WHITE,
         edgeFile = WHITE,
         edgeSize = 1,
         insets = { left = 1, right = 1, top = 1, bottom = 1 },
     })
-    frame:SetBackdropColor(C.bg[1], C.bg[2], C.bg[3], C.bg[4] or 1)
-    frame:SetBackdropBorderColor(C.border[1], C.border[2], C.border[3], 1)
+    frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4] or 1)
+    frame:SetBackdropBorderColor(edge[1], edge[2], edge[3], 1)
+end
+
+local function tintButton(button, p, theme)
+    if not button then return end
+    if not button.__classicEnter then
+        button.__classicEnter = button:GetScript("OnEnter")
+        button.__classicLeave = button:GetScript("OnLeave")
+    end
+    if button.SetBackdropColor then
+        button:SetBackdropColor(p.buttonBg[1], p.buttonBg[2], p.buttonBg[3], p.buttonBg[4] or 1)
+        button:SetBackdropBorderColor(p.border[1], p.border[2], p.border[3], 1)
+    end
+    button.label:SetTextColor(p.muted[1], p.muted[2], p.muted[3], 1)
+    if theme == "journal" then
+        button:SetScript("OnEnter", function(self)
+            if self.SetBackdropColor then
+                self:SetBackdropColor(p.card[1], p.card[2], p.card[3], p.card[4] or 1)
+                self:SetBackdropBorderColor(p.accent[1], p.accent[2], p.accent[3], 1)
+            end
+            self.label:SetTextColor(p.text[1], p.text[2], p.text[3], 1)
+        end)
+        button:SetScript("OnLeave", function(self)
+            if self.SetBackdropColor then
+                self:SetBackdropColor(p.buttonBg[1], p.buttonBg[2], p.buttonBg[3], p.buttonBg[4] or 1)
+                self:SetBackdropBorderColor(p.border[1], p.border[2], p.border[3], 1)
+            end
+            self.label:SetTextColor(p.muted[1], p.muted[2], p.muted[3], 1)
+        end)
+    else
+        button:SetScript("OnEnter", button.__classicEnter)
+        button:SetScript("OnLeave", button.__classicLeave)
+    end
 end
 
 local function createWindow()
-    if not W or not C or not CreateFrame then return nil end
+    if not W or not CreateFrame then return nil end
     local frame = CreateFrame("Frame", "LootJinxDiagnosticsFrame", UIParent,
         BackdropTemplateMixin and "BackdropTemplate" or nil)
-    frame:SetSize(580, 470)
+    frame:SetSize(600, 520)
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     frame:SetFrameStrata("DIALOG")
     frame:SetToplevel(true)
     frame:SetClampedToScreen(true)
     frame:EnableMouse(true)
-    applyBackdrop(frame)
 
     local accent = frame:CreateTexture(nil, "ARTWORK")
     accent:SetPoint("TOPLEFT", 1, -1)
     accent:SetPoint("TOPRIGHT", -1, -1)
     accent:SetHeight(2)
-    W:SetGradient(accent, true, C.accent, C.cyan)
 
-    local title = W:Font(frame, 10, C.accent, "OUTLINE")
+    local title = W:Font(frame, 10, nil, "OUTLINE")
     title:SetPoint("TOPLEFT", 18, -12)
     title:SetText(LJ.L("DIAG_TITLE"))
 
-    local sub = W:Font(frame, 9, C.muted, "")
-    sub:SetPoint("TOPLEFT", 18, -28)
-    sub:SetText(LJ.L("DIAG_SUB"))
+    local subtitle = W:Font(frame, 9, nil, "")
+    subtitle:SetPoint("TOPLEFT", 18, -32)
+    subtitle:SetText(LJ.L("DIAG_SUB"))
 
     local close = W:Button(frame, "×", 20, 20)
     close:SetPoint("TOPRIGHT", -12, -10)
@@ -447,29 +531,64 @@ local function createWindow()
     close.label:SetPoint("CENTER", 0, 1)
     close:SetScript("OnClick", function() frame:Hide() end)
 
-    local edit = CreateFrame("EditBox", nil, frame, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    edit:SetSize(548, 350)
-    edit:SetPoint("TOPLEFT", 16, -48)
-    if edit.SetBackdrop then
-        edit:SetBackdrop({
-            bgFile = WHITE,
-            edgeFile = WHITE,
-            edgeSize = 1,
-            insets = { left = 2, right = 2, top = 2, bottom = 2 },
-        })
-        edit:SetBackdropColor(0.04, 0.045, 0.06, 1)
-        edit:SetBackdropBorderColor(C.border[1], C.border[2], C.border[3], 1)
-    end
+    local scroll = CreateFrame("ScrollFrame", nil, frame,
+        BackdropTemplateMixin and "BackdropTemplate" or nil)
+    scroll:SetPoint("TOPLEFT", 16, -50)
+    scroll:SetSize(540, 414)
+    scroll:SetFrameLevel((frame:GetFrameLevel() or 1) + 2)
+    scroll:EnableMouseWheel(true)
+
+    local edit = CreateFrame("EditBox", nil, scroll,
+        BackdropTemplateMixin and "BackdropTemplate" or nil)
+    edit:SetSize(520, 414)
+    edit:SetPoint("TOPLEFT", 0, 0)
     edit:SetMultiLine(true)
     edit:SetAutoFocus(false)
     edit:SetMaxLetters(20000)
     edit:SetFont(FONT, 9, "")
-    edit:SetTextColor(C.text[1], C.text[2], C.text[3])
     edit:SetTextInsets(10, 10, 10, 10)
+    edit:EnableMouseWheel(true)
     edit:SetScript("OnEscapePressed", function(self)
         self:ClearFocus()
         frame:Hide()
     end)
+    scroll:SetScrollChild(edit)
+
+    local measure = frame:CreateFontString(nil, "OVERLAY")
+    measure:SetFont(FONT, 9, "")
+    measure:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+    measure:SetAlpha(0)
+
+    local slider = CreateFrame("Slider", nil, frame)
+    slider:SetOrientation("VERTICAL")
+    slider:SetSize(12, 414)
+    slider:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -16, -50)
+    slider:SetMinMaxValues(0, 0)
+    slider:SetValueStep(1)
+    slider:SetObeyStepOnDrag(true)
+
+    local track = slider:CreateTexture(nil, "BACKGROUND")
+    track:SetWidth(2)
+    track:SetPoint("TOP", 0, 0)
+    track:SetPoint("BOTTOM", 0, 0)
+
+    local thumb = slider:CreateTexture(nil, "ARTWORK")
+    thumb:SetSize(10, 40)
+    slider:SetThumbTexture(thumb)
+
+    local function scrollBy(delta)
+        local value = (tonumber(slider:GetValue()) or 0) - (tonumber(delta) or 0) * 48
+        local minValue, maxValue = slider:GetMinMaxValues()
+        minValue, maxValue = tonumber(minValue) or 0, tonumber(maxValue) or 0
+        if value < minValue then value = minValue end
+        if value > maxValue then value = maxValue end
+        slider:SetValue(value)
+    end
+    slider:SetScript("OnValueChanged", function(_, value)
+        if scroll.SetVerticalScroll then scroll:SetVerticalScroll(tonumber(value) or 0) end
+    end)
+    scroll:SetScript("OnMouseWheel", function(_, delta) scrollBy(delta) end)
+    edit:SetScript("OnMouseWheel", function(_, delta) scrollBy(delta) end)
     frame:SetScript("OnHide", function() edit:ClearFocus() end)
 
     local refresh = W:Button(frame, LJ.L("DIAG_REFRESH"), 110, 22)
@@ -501,6 +620,15 @@ local function createWindow()
 
     D.frame = frame
     D.edit = edit
+    D.scroll = scroll
+    D.slider = slider
+    D.track = track
+    D.thumb = thumb
+    D.measure = measure
+    D.accent = accent
+    D.title = title
+    D.subtitle = subtitle
+    D.buttons = { refresh, selectAll, print, closeButton, close }
     return frame
 end
 
@@ -511,11 +639,110 @@ function D:Create()
     return frame
 end
 
-function D:Refresh()
+local function measureWidth(text)
+    if not D.measure then return #tostring(text or "") * 5 end
+    D.measure:SetText(tostring(text or ""))
+    if D.measure.GetStringWidth then
+        local ok, value = pcall(D.measure.GetStringWidth, D.measure)
+        if ok then return tonumber(value) or 0 end
+    end
+    return #tostring(text or "") * 5
+end
+
+local function estimateHeight(text)
+    if not D.measure then return 0 end
+    local width = 500
+    local spaceWidth = measureWidth(" ")
+    local lines = 0
+    for line in (tostring(text or "") .. "\n"):gmatch("(.-)\n") do
+        lines = lines + 1
+        local current = 0
+        local hasWord = false
+        for word in line:gmatch("%S+") do
+            local wordWidth = measureWidth(word)
+            local add = hasWord and spaceWidth or 0
+            if hasWord and current + add + wordWidth > width then
+                lines = lines + 1
+                current = wordWidth
+            else
+                current = current + add + wordWidth
+            end
+            hasWord = true
+            while current > width do
+                lines = lines + 1
+                current = current - width
+            end
+        end
+    end
+    -- Etwas Puffer, weil EditBox und Messschrift minimal anders umbrechen.
+    return math.ceil(math.max(1, lines) * 12 * 1.1) + 24
+end
+
+function D:ApplyTheme(force)
+    if not self.frame then return end
+    local theme = currentTheme()
+    if self.theme == theme and not force then return end
+    local p = palettes[theme] or palettes.classic
+    self.theme = theme
+
+    paint(self.frame, p.bg, p.border)
+    if self.accent then
+        if theme == "journal" then
+            self.accent:SetColorTexture(p.accent[1], p.accent[2], p.accent[3], 1)
+        else
+            W:SetGradient(self.accent, true, p.accent, p.cyan)
+        end
+    end
+    if self.title then
+        pcall(self.title.SetFont, self.title, p.titleFont, p.titleSize, p.titleFlags)
+        self.title:SetTextColor(p.titleColor[1], p.titleColor[2], p.titleColor[3], 1)
+    end
+    if self.subtitle then
+        self.subtitle:SetTextColor(p.muted[1], p.muted[2], p.muted[3], 1)
+    end
+    paint(self.scroll, p.editBg, p.editBorder)
+    if self.edit then
+        self.edit:SetTextColor(p.text[1], p.text[2], p.text[3], 1)
+    end
+    for i = 1, #(self.buttons or {}) do
+        tintButton(self.buttons[i], p, theme)
+    end
+    if self.track then
+        self.track:SetColorTexture(p.muted[1], p.muted[2], p.muted[3], 0.25)
+    end
+    if self.thumb then
+        self.thumb:SetColorTexture(p.accent[1], p.accent[2], p.accent[3], 1)
+    end
+end
+
+function D:Refresh(reset)
     if not self.edit then return nil end
     local text = self:Build()
     self.edit:SetText(text)
-    if self.edit.SetCursorPosition then self.edit:SetCursorPosition(0) end
+
+    local viewHeight = self.scroll and tonumber(self.scroll:GetHeight()) or 414
+    local contentHeight = math.max(viewHeight, estimateHeight(text))
+    self.edit:SetHeight(contentHeight)
+
+    local maxScroll = math.max(0, contentHeight - viewHeight)
+    if self.thumb then
+        local thumbHeight = viewHeight
+        if contentHeight > viewHeight then
+            thumbHeight = math.max(36, viewHeight * viewHeight / contentHeight)
+        end
+        self.thumb:SetHeight(thumbHeight)
+    end
+    if self.slider then
+        self.slider:SetMinMaxValues(0, maxScroll)
+        local value = reset and 0 or (tonumber(self.slider:GetValue()) or 0)
+        if value > maxScroll then value = maxScroll end
+        self.slider:SetValue(value)
+        self.slider:SetShown(maxScroll > 0)
+    end
+    if reset and self.scroll and self.scroll.SetVerticalScroll then
+        self.scroll:SetVerticalScroll(0)
+    end
+    self:ApplyTheme()
     return text
 end
 
@@ -525,7 +752,7 @@ function D:Show()
         self:Print()
         return
     end
-    self:Refresh()
+    self:Refresh(true)
     frame:Show()
     if self.edit then
         self.edit:SetFocus()
