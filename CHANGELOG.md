@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.6.0 — 2026-11-13
+
 - Updated the independent loot catalog from DungeonJournal 2.0.5, adding 30 boss and trash item-source entries across Excavation Site: Wetlands, City of Dalaran, Razorfen Downs, Zul'Farrak, and Sunken Temple. Added source-version detection to the catalog generator.
 - Added an independent dungeon loot catalog for boss and trash attribution, based on reviewed DungeonJournal item IDs. Kept unlisted observed gear visible under Other Loot and stopped assigning drops to the last boss solely by time.
 - Stored the primary-stat context with each run and showed it in run details, including a marker when the stat changed during the run. Marked older runs without a stored context as unknown and stopped reclassifying them with the current specialization.

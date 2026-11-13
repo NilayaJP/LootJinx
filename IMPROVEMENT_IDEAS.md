@@ -2,17 +2,17 @@
 
 Updated: 2026-11-13
 
-These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, per-dungeon statistics, manual saved-data cleanup, history date filters, optional local record announcements, run stat context, and the copyable diagnostic snapshot are present in the local `1.6.0-dev` build.
+These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, per-dungeon statistics, manual saved-data cleanup, history date filters, optional local record announcements, run stat context, and the copyable diagnostic snapshot are included in `1.6.0`.
 
 | Priority | Idea | Player benefit | Effort |
 | --- | --- | --- | --- |
-| Done in local build | Detection confidence | Understand which loot and roll results are certain | Medium |
-| Done in local build | Per-dungeon statistics | Compare loot and Need results by dungeon | Medium |
-| Done in local build | Saved-data controls | Keep long-running histories manageable | Medium–high |
-| Done in local build | History date filters | Find a run from a particular day or week | Low–medium |
-| Done in local build | New-record notifications | Notice a personal record when it happens | Low |
-| Done in local build | Diagnostic snapshot | Make missed-loot bug reports easier to investigate | Medium |
-| Done in local build | Run stat context | Understand which specialization/stat a historical run used | Medium |
+| Released in 1.6.0 | Detection confidence | Understand which loot and roll results are certain | Medium |
+| Released in 1.6.0 | Per-dungeon statistics | Compare loot and Need results by dungeon | Medium |
+| Released in 1.6.0 | Saved-data controls | Keep long-running histories manageable | Medium–high |
+| Released in 1.6.0 | History date filters | Find a run from a particular day or week | Low–medium |
+| Released in 1.6.0 | New-record notifications | Notice a personal record when it happens | Low |
+| Released in 1.6.0 | Diagnostic snapshot | Make missed-loot bug reports easier to investigate | Medium |
+| Released in 1.6.0 | Run stat context | Understand which specialization/stat a historical run used | Medium |
 
 ## 1. Show detection confidence
 

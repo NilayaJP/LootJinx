@@ -18,9 +18,9 @@ Each tracker shows your current streak and longest recorded streak.
 
 ## Review Your Runs
 
-The dashboard shows your four most recent runs. Click a supported run to see its dungeon, bosses, observed drops, item recipients, and Need roll results.
+The dashboard shows your four most recent runs, including the latest observed Need roll values. Open the searchable run history to filter all saved runs by dungeon and date. Click a supported run to see its bosses, observed drops, recipients, and per-player roll values. Run details show the primary stat used at the time, or mark older runs when that context is unknown.
 
-Run details show equippable green-quality or better loot by boss. Eligible dungeon trash drops appear in their own section. Older runs recorded before detailed history was introduced remain in the list but have no detailed report.
+Run details show equippable green-quality or better loot by boss. Eligible dungeon trash drops appear in their own section, using a reviewed DungeonJournal loot catalog to identify known boss and trash sources. Unlisted or ambiguous observed items remain visible under Other Loot. Older runs recorded before detailed history was introduced remain in the list but have no detailed report.
 
 If you leave and return to the **same instance copy**, LootJinx continues the run. Entering a different copy starts a new run.
 
@@ -28,7 +28,7 @@ If you leave and return to the **same instance copy**, LootJinx continues the ru
 
 Send a compact statistics report to party chat, raid chat, or a player by whisper. Open LootJinx with `/lj`, the minimap button, or the AddOn Compartment.
 
-The dashboard supports adjustable scale, a compact mode, and a movable window. Settings are available under **ESC → Options → AddOns → LootJinx** or with `/lj options`.
+The dashboard supports adjustable scale, a compact mode, and a movable window. You can opt into local chat notices when you set a new personal record. Settings are available under **ESC → Options → AddOns → LootJinx** or with `/lj options`.
 
 ## Choose Your Design
 
@@ -44,12 +44,13 @@ When a run detail window is open, pressing **ESC** closes that window first and 
 - `/lj scale 0.80–1.30` — Change dashboard scale
 - `/lj resetpos` — Center the dashboard
 - `/lj help` — Show all commands
+- `/lj debug` — Open a copyable diagnostic snapshot without player names or chat text
 
 ## Compatibility
 
 - **Game:** World of Warcraft: Forever
 - **Interface:** 16001
-- **Version:** 1.5.0
+- **Version:** 1.6.0
 - **Languages:** English and German
 - **Dependencies:** None
 

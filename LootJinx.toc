@@ -2,7 +2,7 @@
 ## Title: LootJinx
 ## Notes: Dein Dungeon-Pech im Blick: Primärstat-Drops, Need-Rolls und Rekord-Serien.
 ## Author: LootJinx
-## Version: 1.6.0-dev
+## Version: 1.6.0
 ## IconTexture: Interface\AddOns\LootJinx\Media\LootJinxIcon
 ## SavedVariables: LootJinxDB
 ## SavedVariablesPerCharacter: LootJinxCharDB
