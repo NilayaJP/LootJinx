@@ -1,180 +1,121 @@
 # LootJinx
 
-LootJinx ist ein WoW-Forever-Addon (Interface 16001), das dein Dungeon-Pech dokumentiert:
-Dungeons ohne Beute mit deinem Primärstat, verlorene Need-Rolls und die längsten
-Pech-Serien – inklusive Rekordwerten.
+LootJinx is a World of Warcraft: Forever addon (Interface 16001) that tracks your dungeon bad luck: runs without a drop matching your primary stat, lost Need rolls, unlucky streaks, and personal records.
 
-Die Oberfläche ist auf Deutsch (englischer Fallback) und öffnet sich über `/lj`,
-den Minimap-Button, den Addon-Button oder das AddonCompartment neben der Minimap.
+The interface is available in German and English. Open it with `/lj`, the minimap button, the AddOn button, or the AddOn Compartment next to the minimap.
 
 ## Installation
 
-1. Ordner `LootJinx` nach `World of Warcraft\_forever_\Interface\AddOns\LootJinx` kopieren.
-2. Im Spiel `/reload` ausführen.
-3. `/lj` eingeben.
+1. Copy the `LootJinx` folder to `World of Warcraft\_forever_\Interface\AddOns\LootJinx`.
+2. Enter `/reload` in game.
+3. Enter `/lj` to open the dashboard.
 
-## Befehle
+## Commands
 
-| Befehl | Wirkung |
+| Command | Action |
 | --- | --- |
-| `/lj` | Fenster öffnen oder schließen |
-| `/lj options` | Einstellungen öffnen (Alias: `/lj settings`) |
-| `/lj reset` | Alle Statistiken dieses Charakters löschen (mit Bestätigung) |
-| `/lj scale 0.80–1.30` | Fenstergröße ändern |
-| `/lj resetpos` | Fenster wieder in die Bildschirmmitte setzen |
-| `/lj debug` | Diagnose in den Chat ausgeben |
-| `/lj help` | Befehlsübersicht anzeigen |
+| `/lj` | Open or close the dashboard |
+| `/lj options` | Open settings (alias: `/lj settings`) |
+| `/lj reset` | Reset this character's statistics after confirmation |
+| `/lj scale 0.80–1.30` | Change the dashboard scale |
+| `/lj resetpos` | Center the dashboard |
+| `/lj debug` | Print diagnostic information in chat |
+| `/lj help` | Show available commands |
 
-## Minimap-Button
+## Minimap Button
 
-LootJinx legt einen klassischen runden Button an den Rand der Minimap.
+LootJinx adds a circular button to the edge of the minimap.
 
-- **Linksklick** – Dashboard öffnen oder schließen
-- **Rechtsklick** – Einstellungen öffnen
-- **Ziehen mit gedrückter linker Maustaste** – Position um die Minimap ändern
+- **Left click:** Open or close the dashboard.
+- **Right click:** Open settings.
+- **Left click and drag:** Move the button around the minimap.
 
-Die Position wird accountweit gespeichert (Standard: unten links). Der Button ist
-immer sichtbar.
+The button position is saved account-wide (default: bottom left). The button is always visible.
 
-## Einstellungen
+## Settings
 
-Die Einstellungsseite liegt unter **ESC > Optionen > AddOns > LootJinx**.
-Zusätzlich öffnet das Zahnrad oben rechts im Dashboard die Seite direkt;
-`/lj options` funktioniert ebenfalls.
+Open **ESC > Options > AddOns > LootJinx**. The gear icon in the dashboard and `/lj options` open the same page.
 
-- **Fenstergröße** – Slider von 80 % bis 130 % in 5-%-Schritten.
-- **Position zurücksetzen** – zentriert das Fenster wieder auf dem Bildschirm.
-- **Fensterposition sperren** – verhindert versehentliches Verschieben am Kopfbereich.
-- **Willkommensnachricht bei jedem Login** – zusätzlicher Chat-Hinweis; der
-  einmalige Hinweis beim ersten Start bleibt davon unabhängig.
-- **Wasserzeichen anzeigen** – blendet das große LootJinx-Symbol unten rechts ein oder aus.
-- **Kompakter Modus** – blendet „Letzte Runs“ aus und verkleinert das Fenster
-  von 628 auf 476 px Höhe.
+- **Window size:** Scale from 80% to 130% in 5% steps.
+- **Reset position:** Center the dashboard.
+- **Lock window position:** Prevent accidental dragging by the header.
+- **Welcome message on every login:** Show an additional chat hint. The one-time first-start message is independent of this setting.
+- **Show watermark:** Toggle the large LootJinx symbol in the lower-right corner.
+- **Compact mode:** Hide Recent Runs and reduce the dashboard height from 628 to 476 pixels.
 
-Änderungen werden sofort gespeichert.
+Changes are saved immediately.
 
-## Grafiken
+## Graphics
 
-| Datei | Verwendung |
+| File | Use |
 | --- | --- |
-| `Media/LootJinxIcon.tga` | Addon-/Compartment-Icon, Header-Icon und Wasserzeichen |
-| `Media/CurseChest.tga` | Illustration der Dungeon-Fluch-Karte |
-| `Media/NeedRolls.tga` | Illustration der Need-Rolls-Karte |
-| `Media/NoNeedWin.tga` | Icon der Karte „Ohne Need-Win" |
-| `Media/NoLoot.tga` | Icon der Karte „Ohne Loot" |
-| `Media/SinceNeedWin.tga` | Icon der Karte „Seit Need-Win" |
-| `Media/Report.tga` | Icon am Bericht-Button und im Teilen-Dialog |
+| `Media/LootJinxIcon.tga` | AddOn and Compartment icon, header icon, and watermark |
+| `Media/CurseChest.tga` | Dungeon Curse card illustration |
+| `Media/NeedRolls.tga` | Need Rolls card illustration |
+| `Media/NoNeedWin.tga` | No Need Win card icon |
+| `Media/NoLoot.tga` | No Loot card icon |
+| `Media/SinceNeedWin.tga` | Since Need Win card icon |
+| `Media/Report.tga` | Report button and sharing dialog icon |
 
-Alle Dateien liegen als 32-Bit-TGA (256×256) vor. Beim Austauschen darauf achten,
-dass WoW keine PNG/JPG-Dateien lädt und die Kantenlängen Zweierpotenzen sind.
-Die PNGs in `docs/preview/` dienen nur der Browser-Vorschau.
+All graphics are 32-bit TGA files at 256 × 256 pixels. If you replace them, use power-of-two dimensions; WoW does not load PNG or JPG files for these textures.
 
-## Was gezählt wird
+## What Gets Tracked
 
-**Dungeon-Fluch** – Dungeons, in denen kein Item mit deinem Primärstat gedroppt ist.
-Der Primärstat wird automatisch aus deiner aktuellen Spezialisierung bestimmt, also
-z. B. Druide Balance = Intellekt / Feral = Beweglichkeit, Schamane Elementar =
-Intellekt / Verstärkung = Beweglichkeit, Paladin Heilig = Intellekt / Schutz und
-Vergeltung = Stärke. Liefert der Client keine Spezialisierungsdaten, vergleicht
-LootJinx die Basiswerte über `UnitStat`; erst danach greift eine Klassen-Zuordnung.
-Wechselst du die Spezialisierung, werden bereits gesehene Items des Runs mit dem
-neuen Primärstat neu bewertet.
-Serie = aktuelle Folge solcher Dungeons, Rekord = längste je gemessene Folge.
+**Dungeon Curse:** Dungeons without an observed item matching your primary stat. LootJinx determines the stat from your current specialization. For example, Balance Druid uses Intellect, Feral Druid uses Agility, Elemental Shaman uses Intellect, Enhancement Shaman uses Agility, Holy Paladin uses Intellect, and Protection or Retribution Paladin uses Strength. If specialization data is unavailable, LootJinx compares base stats through `UnitStat` before falling back to a class mapping. Changing specialization during a run re-evaluates items already observed in that run. The tracker shows your current streak and longest recorded streak.
 
-**Need-Rolls** – ausschließlich Need-Würfe. Verlorene Need-Rolls in Folge und der
-höchste Wert ever. Gier-Würfe und per Gier gewonnene Items werden vollständig
-ignoriert und beeinflussen keine Need-Statistik.
+**Need Rolls:** Counts Need rolls, consecutive losses, and your longest losing streak. Greed rolls and items won through Greed do not affect Need statistics.
 
-**Ohne Need-Win** – Dungeons mit mindestens einem Need-Wurf, in denen kein Need-Roll
-gewonnen wurde. Dungeons ganz ohne Need unterbrechen die Serie nicht.
+**No Need Win:** Dungeons where you rolled Need at least once but won no Need roll. Dungeons without a Need roll do not interrupt the streak.
 
-**Ohne Loot** – Dungeons, in denen überhaupt kein Item als Beute beobachtet wurde.
-Questitems (Klassen-ID 12 bzw. Typ „Quest") zählen nicht als Loot.
+**No Loot:** Dungeons where no item was observed as loot. Quest items (class ID 12 or type "Quest") do not count as loot.
 
-**Seit Need-Win** – alle Dungeons seit deinem letzten gewonnenen Need-Roll,
-auch Dungeons ohne Need-Wurf. Vor dem ersten Need-Wurf bleibt der Wert 0.
-Serie = aktueller Wert, Rekord = höchster Wert.
+**Since Need Win:** Dungeons since your last successful Need roll, including dungeons without a Need roll. This counter remains at zero until your first Need roll. The tracker shows the current value and personal record.
 
-Ein *Run* beginnt beim Betreten einer Gruppen- oder Szenario-Instanz. Beim Verlassen
-bleibt er automatisch offen. Beim Wiedereintritt erkennt LootJinx anhand der
-Kreatur- oder Cast-GUID, ob es dieselbe Instanzkopie ist. In diesem Fall wird der
-Run fortgesetzt; bei einer anderen Kopie beginnt ein neuer Run. Bis eine GUID
-verfügbar ist, bleibt die Prüfung offen. Ein Wechsel zu einem anderen Dungeon
-schließt den bisherigen Run ebenfalls ab.
+A *run* starts when you enter a group or scenario instance. It remains open when you leave. On re-entry, LootJinx uses a Creature or Cast GUID to determine whether you returned to the same instance copy. If so, the run continues; a different copy starts a new run. The check remains pending until a GUID is available. Entering a different dungeon also closes the previous run.
 
-## Bericht teilen
+## Share a Report
 
-Der Button **Bericht** in der Fußzeile öffnet einen Teilen-Dialog:
+The **Report** button in the dashboard footer opens the sharing dialog:
 
-- **Partychat** – postet die Statistik in den Partychat; im Raid automatisch in den Raidchat.
-- **Flüstern** – verschickt die Statistik per Whisper. Den Namen kannst du eintippen oder
-  frei lassen: Beim Öffnen wird ein aktuelles Spieler-Ziel vorbefüllt, und ein leeres Feld
-  flüstert ans aktuelle Ziel. Ein Ziel vom eigenen Realm wird ohne Realm-Zusatz eingetragen,
-  ein Ziel von einem anderen Realm als `Name-Realm`.
+- **Party chat:** Post your statistics to party chat, or raid chat when you are in a raid.
+- **Whisper:** Send the report to a named player or your current player target. The target is filled in when the dialog opens. A target on your realm appears without a realm suffix; a cross-realm target appears as `Name-Realm`.
 
-Der Bericht besteht aus sechs Zeilen – Kopf, Dungeon-Fluch, Need-Rolls, ohne Need-Win,
-ohne Loot und seit Need-Win – und wird im Abstand von einer Sekunde gesendet, damit das
-Chat-Limit eingehalten wird. Ist niemand in der Gruppe oder kein Whisper-Ziel vorhanden,
-zeigt der Dialog einen Hinweis und sendet nichts.
+The report has six lines: header, Dungeon Curse, Need Rolls, No Need Win, No Loot, and Since Need Win. Lines are sent one second apart to respect the chat limit. If no party or whisper target is available, the dialog shows a message and sends nothing.
 
-## Run-Details
+## Run Details
 
-Ein Klick auf einen Eintrag unter **„Letzte Runs"** öffnet ein eigenes
-Detailfenster (Version 1.3.0). Es zeigt:
+Click a supported entry in **Recent Runs** to open its detail window (available for runs recorded since version 1.3.0). It shows:
 
-- Kopf mit Dungeonname, Datum/Uhrzeit und Status (`LIVE` oder abgeschlossen),
-- die Kurzzeile „Bosse · Items · Need-Rolls (gewonnen)",
-- Bossen zugeordnete, ausrüstbare Beute ab grüner Qualität, nach Bossen und Drop-Reihenfolge gruppiert,
-- pro Item: Icon und Name in Qualitätsfarbe, Empfänger (Klassenfarbe, „Du" bei dir),
-  Rollart und Rollzahl des Gewinners (z. B. `Need 91`, `Gier 45`) und darunter dein
-  eigener Need-Wurf mit Ergebnis (`Dein Need: 87 · verloren`),
-- Items mit Boss-Zuordnung durch Encounter-ID oder letzten erfolgreichen Boss; graue, weiße, nicht ausrüstbare und nicht zugeordnete Drops bleiben ausgeblendet,
-- Bosse ohne beobachtete Beute mit dem Hinweis „Keine Beute beobachtet".
+- Dungeon name, date and time, and status (`LIVE` or completed).
+- A summary of bosses, items, Need rolls, and Need wins.
+- Equippable green-quality or better loot grouped by boss in drop order.
+- Equippable green-quality or better dungeon trash loot in a separate section.
+- Each item's icon, quality-colored name, recipient (class-colored, or "You" for your character), winner's roll type and value, and your own Need roll and outcome when available.
+- Boss attribution by encounter ID. Gray, white, and non-equippable items are excluded.
+- A "No loot observed" message for bosses without observed drops.
 
-Das Fenster wird zentriert über dem Dashboard geöffnet, lässt sich per `×`, `ESC`
-oder durch Schließen des Dashboards beenden und blättert bei langen Runs über
-„Zurück"/„Weiter" durch die Seiten.
+The detail window opens centered over the dashboard. Close it with **×**, **ESC**, or by closing the dashboard. Use **Back** and **Next** to navigate longer reports.
 
-Boss- und Empfängerdetails werden erst ab Version 1.3.0 erfasst. Runs, die vor
-dieser Version aufgezeichnet wurden, stehen weiterhin unter „Letzte Runs",
-sind aber **nicht anklickbar** – ihr Tooltip weist darauf hin, dass für sie
-keine Details vorliegen.
+Runs recorded before version 1.3.0 remain in Recent Runs but cannot be opened because detailed boss and recipient data was not captured for them. Their tooltip explains this.
 
-## Grenzen der Erkennung
+## Detection Limits
 
-Forever stellt Addons keinen Combat-Log zur Verfügung. LootJinx erkennt Beute daher
-best effort über:
+WoW Forever does not provide a combat log to addons. LootJinx therefore detects loot and roll results on a best-effort basis using:
 
-- `START_LOOT_ROLL` / `CANCEL_LOOT_ROLL` und das Roll-Fenster,
-- `LOOT_OPENED` / `LOOT_READY` (Loot-Fenster),
-- `CHAT_MSG_LOOT` (Gewinn-/Need-/Gier-Meldungen),
-- `ENCOUNTER_END` / `BOSS_KILL` (Boss-Kills) und `ENCOUNTER_LOOT_RECEIVED`
-  (Beute samt Empfänger),
-- den `RollOnLoot`-Hook für deine eigene Need-/Gier-Auswahl,
-- Beutelzählung als Absicherung für Need-Ergebnisse.
+- `START_LOOT_ROLL` / `CANCEL_LOOT_ROLL` and the roll window.
+- `LOOT_OPENED` / `LOOT_READY` and the loot window.
+- `CHAT_MSG_LOOT` for win, Need, and Greed messages.
+- `ENCOUNTER_END` / `BOSS_KILL` for boss kills and `ENCOUNTER_LOOT_RECEIVED` for loot recipients.
+- A `RollOnLoot` hook for your own Need or Greed choice.
+- Bag counts as a fallback for unresolved Need results.
 
-Items, deren Daten noch nicht geladen sind, werden vorgemerkt und über
-`GET_ITEM_INFO_RECEIVED` nachträglich eingeordnet. Ein Item gilt als „für dich",
-wenn `C_Item.GetItemStats` den Primärstat deiner Spezialisierung positiv meldet.
+Items whose data is not yet available are queued and classified after `GET_ITEM_INFO_RECEIVED`. An item matches your primary stat when `C_Item.GetItemStats` reports a positive value for that stat.
 
-Wird ein Need-Roll nicht eindeutig aufgelöst, entscheidet nach kurzer Zeit die
-Beutelzählung; ein gleichzeitig laufender Gier-Roll auf dasselbe Item verhindert
-einen falschen Need-Sieg.
+If a Need result cannot be resolved directly, LootJinx checks your bags after a short delay. A simultaneous Greed roll for the same item prevents a false Need win.
 
-## Datenspeicherung
+## Saved Data
 
-- `LootJinxDB` – Fensterposition, Skalierung, Darstellungsoptionen und Minimap-Winkel (accountweit).
-- `LootJinxCharDB` – Runs, Need-Rolls und Serien (pro Charakter).
+- `LootJinxDB`: Account-wide window position, scale, display options, and minimap button angle.
+- `LootJinxCharDB`: Per-character runs, Need rolls, and streaks.
 
-`/lj reset` löscht nur die Charakterdaten. Die UI-Einstellungen bleiben erhalten.
-
-## Tests
-
-Die Addon-Logik lässt sich ohne WoW ausführen:
-
-```sh
-lua tests/stats_spec.lua   # reine Statistik-Engine (50 Prüfungen)
-lua tests/load_stub.lua    # Integrationstest mit WoW-API-Stubs (195 Prüfungen, inkl. Klassen-/Spec-Matrix, Report, Einstellungen, Minimap-Button und Run-Details)
-```
-
-`luac -p` über alle Lua-Dateien prüft die Syntax (Lua 5.1-kompatibel halten).
+`/lj reset` clears only the current character's statistics. Interface preferences remain unchanged.

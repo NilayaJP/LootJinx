@@ -65,7 +65,7 @@ function LJ:AddOnVersion()
         local ok, version = pcall(getter, "LootJinx", "Version")
         if ok and type(version) == "string" and version ~= "" then return version end
     end
-    return "1.4.0"
+    return "1.4.1"
 end
 
 local function normalizeBoss(b, fallbackAt)
@@ -99,9 +99,11 @@ local function normalizeDrop(d, fallbackAt)
         winner = winner,
         winnerClass = type(d.winnerClass) == "string" and d.winnerClass or nil,
         roll = tonumber(d.roll),
+        rollID = tonumber(d.rollID),
         rollKind = kind,
         passed = d.passed == true,
         source = type(d.source) == "string" and d.source or nil,
+        sources = type(d.sources) == "table" and d.sources or nil,
     }
 end
 
@@ -163,6 +165,7 @@ local function normalizeRun(run, fallbackID)
     run.key = type(run.key) == "string" and run.key or nil
     run.instanceID = tonumber(run.instanceID)
     run.zoneID = tonumber(run.zoneID)
+    run.provisionalPreviousID = tonumber(run.provisionalPreviousID)
     run.difficulty = type(run.difficulty) == "string" and run.difficulty or nil
     run.started = tonumber(run.started) or 0
     run.lastSeen = tonumber(run.lastSeen) or run.started
@@ -535,7 +538,7 @@ end
 local function itemInfoCall(linkOrID)
     local fn = (C_Item and C_Item.GetItemInfo) or GetItemInfo
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c, d, e, f, g, h, i, j, k = pcall(fn, linkOrID)
+    local ok, a, b, c, d, e, f, g, h, i, j, k, l, m = pcall(fn, linkOrID)
     if not ok then return nil end
     if type(a) == "table" then
         local info = a
@@ -546,7 +549,7 @@ local function itemInfoCall(linkOrID)
             tonumber(Plain(info.sellPrice))
     end
     return Plain(a), Plain(b), tonumber(Plain(c)), tonumber(Plain(d)), tonumber(Plain(e)),
-        tonumber(Plain(f)), tonumber(Plain(g)), tonumber(Plain(h)), Plain(i),
+        tonumber(Plain(l)), tonumber(Plain(m)), tonumber(Plain(h)), Plain(i),
         Plain(j), tonumber(Plain(k))
 end
 

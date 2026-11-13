@@ -9,14 +9,12 @@ LJ.Tracker = T
 local NEED_TIMEOUT = 5 * 60
 local DEDUPE_SECONDS = 5
 local REPAIR_SECONDS = 15 * 60
-local BOSS_LINK_SECONDS = 5 * 60
 local MAX_BOSSES = 20
 local MAX_DROPS = 120
 local MAX_ROLLS = 200
 
 local inside = false
 local blocked = false
-local pendingCopyCheck = false
 local repairScheduled = false
 local reclassifyScheduled = false
 local started = false
@@ -26,6 +24,8 @@ local recentGreed = {}
 local rollLinks = {}
 local rollLinkAt = {}
 local rollLinkCount = 0
+local lootWindowOpen = false
+local seenLootSlots = {}
 
 local function now()
     return LJ.Now()
@@ -99,11 +99,10 @@ local function activeRun()
     return nil
 end
 
-local function lastRecentBoss(run, at)
-    at = at or now()
-    for i = #((run and run.bosses) or {}), 1, -1 do
-        local boss = run.bosses[i]
-        if boss and at - (boss.at or 0) <= BOSS_LINK_SECONDS then return boss end
+local function runByID(id)
+    local data = db()
+    for i = #((data and data.runs) or {}), 1, -1 do
+        if data.runs[i].id == id then return data.runs[i] end
     end
     return nil
 end
@@ -123,7 +122,8 @@ local function rollFor(run, id, name)
     if not id or not name then return nil end
     for i = #((run and run.rolls) or {}), 1, -1 do
         local roll = run.rolls[i]
-        if roll.id == id and lower(roll.name) == name then
+        if roll.id == id and lower(roll.name) == name
+            and now() - (roll.at or 0) <= 180 then
             return roll.kind, roll.value
         end
     end
@@ -161,7 +161,6 @@ local function getDungeon()
     if not okI then return nil end
     name = LJ.Plain(name)
     instanceType = LJ.Plain(instanceType)
-    if kind ~= "party" and instanceType ~= "party" then return nil end
     if type(name) ~= "string" or name == "" then
         name = LJ.L("UNKNOWN_DUNGEON")
     end
@@ -184,6 +183,12 @@ end
 function T:CloseActive(reason)
     local run = activeRun()
     if not run then return false end
+    local previous = run.provisionalPreviousID and runByID(run.provisionalPreviousID)
+    if previous then
+        T:ResolveStaleNeeds(previous, true)
+        T:FinalizeRunItems(previous)
+    end
+    run.provisionalPreviousID = nil
     T:ResolveStaleNeeds(run, true)
     T:FinalizeRunItems(run)
     run.closed = true
@@ -192,7 +197,6 @@ function T:CloseActive(reason)
     run.closedReason = reason or "closed"
     local data = db()
     if data then data.activeID = nil end
-    pendingCopyCheck = false
     LJ:Changed()
     return true
 end
@@ -241,7 +245,8 @@ function T:StartRun(d, partial)
     data.activeID = run.id
     inside = true
     blocked = false
-    pendingCopyCheck = false
+    lootWindowOpen = false
+    seenLootSlots = {}
     LJ:Changed()
     return run
 end
@@ -262,13 +267,46 @@ function T:ObserveInstanceGUID(guid)
     local zoneID = guidZoneID(guid)
     local run = activeRun()
     if not zoneID or not run then return false end
-    if pendingCopyCheck and run.zoneID and run.zoneID ~= zoneID then
-        local d = getDungeon()
-        if not d then return false end
-        T:CloseActive("switched-instance-copy")
-        run = T:StartRun(d, false)
+    local previous = run.provisionalPreviousID and runByID(run.provisionalPreviousID)
+    if previous then
+        run.provisionalPreviousID = nil
+        if previous.zoneID == zoneID then
+            local data = db()
+            local candidate = run
+            for _, field in ipairs({ "needs", "pending", "greeds", "bosses", "drops", "rolls" }) do
+                previous[field] = previous[field] or {}
+                for _, entry in ipairs(candidate[field] or {}) do
+                    previous[field][#previous[field] + 1] = entry
+                end
+            end
+            previous.seenLinks = previous.seenLinks or {}
+            for link in pairs(candidate.seenLinks or {}) do previous.seenLinks[link] = true end
+            previous.lootSeen = previous.lootSeen or candidate.lootSeen
+            previous.itemsSeen = (previous.itemsSeen or 0) + (candidate.itemsSeen or 0)
+            previous.agiItemsSeen = (previous.agiItemsSeen or 0) + (candidate.agiItemsSeen or 0)
+            previous.agilityDropped = previous.agilityDropped or candidate.agilityDropped
+            previous.agilityLink = previous.agilityLink or candidate.agilityLink
+            previous.agilityAt = previous.agilityAt or candidate.agilityAt
+            previous.agilityName = previous.agilityName or candidate.agilityName
+            previous.lastSeen = now()
+            previous.outsideAt = nil
+            previous.paused = false
+            previous.closed = false
+            previous.ended = nil
+            previous.closedReason = nil
+            for i = #data.runs, 1, -1 do
+                if data.runs[i] == candidate then table.remove(data.runs, i); break end
+            end
+            data.activeID = previous.id
+            run = previous
+            if LJ.RunDetail and LJ.RunDetail.ReplaceRun then
+                LJ.RunDetail:ReplaceRun(candidate, previous)
+            end
+        else
+            T:ResolveStaleNeeds(previous, true)
+            T:FinalizeRunItems(previous)
+        end
     end
-    pendingCopyCheck = false
     if run and not run.zoneID then
         run.zoneID = zoneID
         LJ:Changed()
@@ -291,7 +329,22 @@ function T:CheckZone()
         if blocked then return end
         local run = activeRun()
         if run and sameInstance(run, d) then
-            if not inside or run.outsideAt then pendingCopyCheck = run.zoneID ~= nil end
+            if not inside or run.outsideAt then
+                if run.zoneID then
+                    run.closed = true
+                    run.ended = now()
+                    run.closedReason = "pending-copy"
+                    db().activeID = nil
+                    local candidate = T:StartRun(d, false)
+                    if candidate then candidate.provisionalPreviousID = run.id end
+                else
+                    T:CloseActive("unknown-copy")
+                    T:StartRun(d, false)
+                end
+                observeUnit("target")
+                observeUnit("mouseover")
+                return
+            end
             inside = true
             run.paused = false
             run.outsideAt = nil
@@ -320,7 +373,6 @@ function T:CheckZone()
             run.paused = true
             if wasInside then LJ:Changed() end
         end
-        pendingCopyCheck = false
     end
 end
 
@@ -771,8 +823,9 @@ end
 
 -- ---------------------------------------------------------------- Loot-Events
 -- ---------------------------------------------------------------- Boss-/Drop-Details
-local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, passed, winnerClass)
+local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, passed, winnerClass, rollID)
     if not run then return false end
+    source = source or "seen"
     link = LJ:NormalizeLink(link)
     local id = LJ:ItemID(link)
     if not id then return false end
@@ -787,28 +840,33 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
     if not bossID or bossID <= 0 then bossID = 0 end
     local bossName = boss and boss.name or nil
     rollValue = tonumber(rollValue)
+    rollID = tonumber(rollID)
     rollKind = (rollKind == "need" or rollKind == "greed") and rollKind or nil
     local at = now()
 
     run.drops = run.drops or {}
     for i = #run.drops, 1, -1 do
         local d = run.drops[i]
-        local sameBoss
-        if bossID > 0 then
-            sameBoss = (d.bossID or 0) == bossID
-        else
-            sameBoss = (d.bossID or 0) == 0 and lower(d.bossName) == lower(bossName)
-        end
-        if d.id == id and sameBoss and at - (d.at or 0) <= 15 * 60 then
+        local sources = d.sources or { [d.source or "unknown"] = true }
+        local age = at - (d.at or 0)
+        local mergeAge = (source == "roll" or sources.roll) and 180 or 30
+        if d.id == id and age >= 0 and age <= mergeAge
+            and (not sources[source] or (rollID and d.rollID == rollID))
+            and (not rollID or not d.rollID or d.rollID == rollID) then
             local sameWinner = not d.winner or not winner or lower(d.winner) == lower(winner)
             if sameWinner then
                 local changed = false
+                d.sources = sources
+                sources[source] = true
                 if winner and not d.winner then d.winner = winner; changed = true end
                 if winner and winnerClass and not d.winnerClass then d.winnerClass = winnerClass; changed = true end
                 if rollValue and not d.roll then d.roll = rollValue; changed = true end
                 if rollKind and not d.rollKind then d.rollKind = rollKind; changed = true end
+                if rollID and not d.rollID then d.rollID = rollID; changed = true end
                 if source == "encounter" and d.source ~= "encounter" then
                     d.source = "encounter"
+                    d.bossID = bossID
+                    d.bossName = bossName
                     changed = true
                 end
                 if passed and not d.passed and not d.winner then d.passed = true; changed = true end
@@ -833,9 +891,11 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
         winner = winner,
         winnerClass = winnerClass,
         roll = rollValue,
+        rollID = rollID,
         rollKind = rollKind,
         passed = passed == true and not winner or false,
         source = source,
+        sources = { [source or "unknown"] = true },
     }
     while #run.drops > MAX_DROPS do table.remove(run.drops, 1) end
     LJ:Changed()
@@ -860,38 +920,27 @@ function T:NoteRoll(link, name, kind, value)
     kind = kind == "greed" and "greed" or "need"
     run.rolls = run.rolls or {}
     local at = now()
-    local found
-    for i = 1, #run.rolls do
-        local roll = run.rolls[i]
-        if roll.id == id and roll.kind == kind and lower(roll.name) == lower(name) then
-            found = roll
-            break
-        end
-    end
-    if found then
-        found.value = value
-        found.at = at
-    else
-        run.rolls[#run.rolls + 1] = { id = id, name = name, kind = kind, value = value, at = at }
-        while #run.rolls > MAX_ROLLS do table.remove(run.rolls, 1) end
-    end
+    run.rolls[#run.rolls + 1] = { id = id, name = name, kind = kind, value = value, at = at }
+    while #run.rolls > MAX_ROLLS do table.remove(run.rolls, 1) end
 
     local changed = false
-    for i = 1, #(run.drops or {}) do
+    for i = #(run.drops or {}), 1, -1 do
         local drop = run.drops[i]
         if drop.id == id and drop.winner and lower(drop.winner) == lower(name) and not drop.roll then
             drop.roll = value
             drop.rollKind = kind
             changed = true
+            break
         end
     end
-    if LJ:IsMe(name) then
+    if kind == "need" and LJ:IsMe(name) then
         for i = 1, #(run.needs or {}) do
             local need = run.needs[i]
             if need.id == id and not need.roll then
                 need.roll = value
                 need.rollKind = kind
                 changed = true
+                break
             end
         end
     end
@@ -902,13 +951,13 @@ end
 function T:NotePassed(link)
     local run = activeRun()
     if not run then return false end
-    return noteDrop(run, link, nil, lastRecentBoss(run), "chat", nil, nil, true)
+    return noteDrop(run, link, nil, nil, "chat", nil, nil, true)
 end
 
-function T:NoteSeenDrop(link, source)
+function T:NoteSeenDrop(link, source, rollID)
     local run = activeRun()
     if not run then return false end
-    return noteDrop(run, link, nil, lastRecentBoss(run), source or "seen")
+    return noteDrop(run, link, nil, nil, source or "seen", nil, nil, nil, nil, rollID)
 end
 
 function T:OnBossEvent(event, ...)
@@ -963,7 +1012,11 @@ function T:OnEncounterLoot(...)
     end
     if not link then return end
     local encounterID = tonumber(LJ.Plain(args[1]))
-    local boss = bossByID(run, encounterID) or lastRecentBoss(run)
+    local boss = bossByID(run, encounterID)
+    if not boss and encounterID and encounterID > 0 then
+        boss = { id = encounterID, name = LJ.L("DETAIL_UNKNOWN_BOSS"), at = now() }
+        run.bosses[#run.bosses + 1] = boss
+    end
     local winner = LJ.Plain(args[5])
     if type(winner) == "string" then
         winner = winner:match("^%s*(.-)%s*$")
@@ -984,7 +1037,7 @@ function T:OnStartRoll(rollID)
     local link = rollLink(rollID)
     if link then
         T:RecordItem(link, "loot-roll")
-        T:NoteSeenDrop(link, "roll")
+        T:NoteSeenDrop(link, "roll", rollID)
         return
     end
     local function retry()
@@ -992,7 +1045,7 @@ function T:OnStartRoll(rollID)
         local l = rollLink(rollID)
         if l then
             T:RecordItem(l, "loot-roll-late")
-            T:NoteSeenDrop(l, "roll-late")
+            T:NoteSeenDrop(l, "roll", rollID)
         end
     end
     after(0.4, retry)
@@ -1012,12 +1065,20 @@ function T:OnLootWindow()
     local ok, count = pcall(GetNumLootItems)
     count = ok and tonumber(LJ.Plain(count)) or nil
     if not count then return end
+    if not lootWindowOpen then
+        lootWindowOpen = true
+        seenLootSlots = {}
+    end
     for slot = 1, count do
         local okL, link = pcall(GetLootSlotLink, slot)
         link = okL and LJ.Plain(link) or nil
         if type(link) == "string" and link ~= "" then
-            T:RecordItem(link, "loot-window")
-            T:NoteSeenDrop(link, "loot-window")
+            local key = tostring(slot) .. ":" .. link
+            if not seenLootSlots[key] then
+                seenLootSlots[key] = true
+                T:RecordItem(link, "loot-window")
+                T:NoteSeenDrop(link, "loot-window")
+            end
         end
     end
 end
@@ -1118,7 +1179,7 @@ local function noteChatDrop(link, winner, guid)
     else
         classFile = classFileFromGUID(guid)
     end
-    noteDrop(run, link, winner, lastRecentBoss(run), "chat", nil, nil, nil, classFile)
+    noteDrop(run, link, winner, nil, "chat", nil, nil, nil, classFile)
 end
 
 function T:OnLootChat(text, _who, guid)
@@ -1274,6 +1335,9 @@ local function onEvent(event, ...)
         T:OnCancelRoll((...))
     elseif event == "LOOT_OPENED" or event == "LOOT_READY" then
         T:OnLootWindow()
+    elseif event == "LOOT_CLOSED" then
+        lootWindowOpen = false
+        seenLootSlots = {}
     elseif event == "CHAT_MSG_LOOT" then
         T:OnLootChat(select(1, ...), select(2, ...), select(12, ...))
     elseif event == "CHAT_MSG_SYSTEM" then
@@ -1297,7 +1361,7 @@ local function registerEvents()
         "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_SUCCEEDED", "NAME_PLATE_UNIT_ADDED",
         "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT",
         "ENCOUNTER_END", "BOSS_KILL", "ENCOUNTER_LOOT_RECEIVED",
-        "START_LOOT_ROLL", "CANCEL_LOOT_ROLL", "LOOT_OPENED", "LOOT_READY",
+        "START_LOOT_ROLL", "CANCEL_LOOT_ROLL", "LOOT_OPENED", "LOOT_READY", "LOOT_CLOSED",
         "CHAT_MSG_LOOT", "CHAT_MSG_SYSTEM", "GET_ITEM_INFO_RECEIVED", "BAG_UPDATE_DELAYED",
         "PLAYER_SPECIALIZATION_CHANGED", "PLAYER_TALENT_UPDATE",
     }
@@ -1343,13 +1407,14 @@ function T:ResetAll()
     end
     inside = false
     blocked = false
-    pendingCopyCheck = false
     firstCheck = false
     lastPrimaryStat = nil
     recentGreed = {}
     rollLinks = {}
     rollLinkAt = {}
     rollLinkCount = 0
+    lootWindowOpen = false
+    seenLootSlots = {}
     LJ:Changed()
     after(0.2, function() T:CheckZone() end)
 end

@@ -71,12 +71,20 @@ local function sortedNeeds(run)
     return out
 end
 
-local function findNeed(run, id)
-    local found
+local function findNeed(run, drop, used)
+    local found, nearest
     for i = 1, #(run.needs or {}) do
         local n = run.needs[i]
-        if n.id == id then
-            if not found or (n.at or 0) >= (found.at or 0) then found = n end
+        if n.id == drop.id and not used[n] then
+            if drop.rollID and n.rollID == drop.rollID then return n end
+            local selfWon = drop.winner and LJ:IsMe(drop.winner)
+            local compatible = not drop.winner or not n.result
+                or (selfWon and n.result == "won")
+                or (not selfWon and n.result == "lost")
+            local distance = math.abs((tonumber(drop.at) or 0) - (tonumber(n.at) or 0))
+            if compatible and (not nearest or distance < nearest) then
+                found, nearest = n, distance
+            end
         end
     end
     return found
@@ -154,6 +162,13 @@ local function bossIndexFor(drop, bosses)
             if type(bossName) == "string" and bossName:lower() == name then return i end
         end
     end
+    if (id and id > 0) or drop.source == "encounter" then return nil end
+    local at = tonumber(drop.at)
+    if not at then return nil end
+    for i = #bosses, 1, -1 do
+        local bossAt = tonumber(bosses[i].at)
+        if bossAt and at >= bossAt and at - bossAt <= 120 then return i end
+    end
     return nil
 end
 
@@ -161,9 +176,11 @@ local function bossLootQuality(drop)
     LJ:LoadItem(drop.link, drop.id)
     local info = LJ:ItemInfo(drop.link or drop.id)
     local instant = LJ:ItemInfoInstant(drop.link or drop.id) or LJ:ItemInfoInstant(drop.id)
-    if info.classID == 12 or (instant and instant.classID == 12) then return nil end
+    local classID = (instant and instant.classID) or info.classID
+    if classID ~= 2 and classID ~= 4 then return nil end
     local equipLoc = instant and instant.equipLoc or info.equipLoc
-    if type(equipLoc) ~= "string" or equipLoc == "" then return nil end
+    if type(equipLoc) ~= "string" or equipLoc == ""
+        or equipLoc == "INVTYPE_NON_EQUIP" then return nil end
     if info.quality ~= nil then return tonumber(info.quality) end
     local getQuality = C_Item and C_Item.GetItemQualityByID
     if type(getQuality) == "function" then
@@ -180,14 +197,26 @@ local function buildLines(run)
     local lines = {}
     local bosses = run.bosses or {}
     local byBoss = {}
+    local other = {}
+    local needByDrop = {}
+    local usedNeeds = {}
     local dropCount = 0
 
     for i = 1, #(run.drops or {}) do
         local drop = run.drops[i]
-        local index = bossIndexFor(drop, bosses)
-        if index and (bossLootQuality(drop) or 0) >= 2 then
-            byBoss[index] = byBoss[index] or {}
-            byBoss[index][#byBoss[index] + 1] = drop
+        if (bossLootQuality(drop) or 0) >= 2 then
+            local need = findNeed(run, drop, usedNeeds)
+            if need then
+                needByDrop[drop] = need
+                usedNeeds[need] = true
+            end
+            local index = bossIndexFor(drop, bosses)
+            if index then
+                byBoss[index] = byBoss[index] or {}
+                byBoss[index][#byBoss[index] + 1] = drop
+            else
+                other[#other + 1] = drop
+            end
             dropCount = dropCount + 1
         end
     end
@@ -204,8 +233,17 @@ local function buildLines(run)
             lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_BOSS_EMPTY"), muted = true }
         else
             for j = 1, #items do
-                lines[#lines + 1] = { kind = "item", drop = items[j] }
+                lines[#lines + 1] = { kind = "item", drop = items[j], need = needByDrop[items[j]] }
             end
+        end
+    end
+
+    if #other > 0 then
+        lines[#lines + 1] = {
+            kind = "boss", name = LJ.L("DETAIL_OTHER"), count = #other, other = true,
+        }
+        for i = 1, #other do
+            lines[#lines + 1] = { kind = "item", drop = other[i], need = needByDrop[other[i]] }
         end
     end
 
@@ -364,7 +402,7 @@ local function configureRow(row, line)
     row.recipient:SetWidth(190)
     row.recipient:SetText(colored(recipientColor, recipientText))
 
-    need = findNeed(currentRun, drop.id)
+    need = line.need
     if need then
         local meta, metaColor = needStatusText(need, drop)
         row.meta:SetText(colored(metaColor, meta))
@@ -427,7 +465,7 @@ function M:Create()
     M.frame = f
     f:SetSize(WIDTH, HEIGHT)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-    f:SetFrameStrata("DIALOG")
+    f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:SetFrameLevel(100)
     f:SetToplevel(true)
     f:EnableMouse(true)
@@ -583,6 +621,10 @@ end
 
 function M:Hide()
     if frame then frame:Hide() end
+end
+
+function M:ReplaceRun(previous, replacement)
+    if currentRun == previous then self:Show(replacement) end
 end
 
 function M:IsShown()

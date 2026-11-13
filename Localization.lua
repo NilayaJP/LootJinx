@@ -107,7 +107,7 @@ local S = {
     DETAIL_SUMMARY = { de = "%d Bosse · %d Items · %d Need-Rolls (%d gewonnen)", en = "%d bosses · %d items · %d need rolls (%d won)" },
     DETAIL_BOSS_ITEMS = { de = "%d Items", en = "%d items" },
     DETAIL_BOSS_EMPTY = { de = "Keine Beute beobachtet", en = "No loot observed" },
-    DETAIL_OTHER = { de = "Weitere Beute", en = "Other loot" },
+    DETAIL_OTHER = { de = "Dungeon-Trash", en = "Dungeon trash" },
     DETAIL_NEED_SECTION = { de = "Need-Rolls", en = "Need rolls" },
     DETAIL_LEGACY = { de = "Boss- und Empfängerdetails werden erst ab Version 1.3.0 erfasst.", en = "Boss and recipient details are only recorded from version 1.3.0 onward." },
     DETAIL_EMPTY = { de = "Keine Beute aufgezeichnet.", en = "No loot recorded." },
