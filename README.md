@@ -89,6 +89,8 @@ Click **History** in the dashboard footer to browse all saved runs, including in
 
 The history window follows the selected Classic or Dungeon Journal design. ESC closes the detail report first, then the history window, then the dashboard.
 
+The header shows how many runs are displayed and how many are saved. **Clean up** removes boss, drop, roll, and per-item Need details from completed runs older than 30 days after a confirmation prompt. It keeps the run summaries, Need outcomes, lifetime statistics, and active run. Runs with pending items or unresolved Need results are skipped. Cleaned runs remain in history but cannot open a detailed report. Cleanup is manual and cannot be undone.
+
 ## Run Details
 
 Click a supported entry in **Recent Runs** to open its detail window (available for runs recorded since version 1.3.0). It shows:

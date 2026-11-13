@@ -160,6 +160,11 @@ function H:Create()
     local close = addButton(f, "×", 24, 24)
     close:SetPoint("TOPRIGHT", -14, -12)
     close:SetScript("OnClick", function() H:Hide() end)
+    self.cleanupButton = addButton(f, "", 130, 24)
+    self.cleanupButton:SetPoint("TOPRIGHT", -46, -12)
+    self.cleanupButton:SetScript("OnClick", function() H:ConfirmCleanup() end)
+    W:Tooltip(self.cleanupButton, LJ.L("HISTORY_CLEANUP_ACCEPT"),
+        { LJ.L("HISTORY_CLEANUP_HINT") })
 
     self.search = CreateFrame("EditBox", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
     self.search:SetSize(278, 25)
@@ -291,7 +296,10 @@ end
 
 function H:Refresh()
     if not self.frame or not LJ.Tracker then return end
-    local matches = self:Filter(LJ.Tracker:GetRuns(), self.query, self.dungeon)
+    local runs = LJ.Tracker:GetRuns()
+    local matches = self:Filter(runs, self.query, self.dungeon)
+    local preview = LJ.Storage:Preview(runs, LJ.Tracker:GetActive(), LJ.Now())
+    self.cleanupButton.label:SetText(LJ.L("HISTORY_CLEANUP_BUTTON", preview.eligible))
     local summary = self:Summarize(matches)
     self.summaryTitle:SetText(LJ.L("HISTORY_SUMMARY_TITLE",
         W:Truncate(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"), 55)))
@@ -302,7 +310,7 @@ function H:Refresh()
     local pages = math.max(1, math.ceil(#matches / PAGE_SIZE))
     self.page = math.max(1, math.min(self.page, pages))
     self.filterButton.label:SetText(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"))
-    self.count:SetText(LJ.L("HISTORY_COUNT", #matches))
+    self.count:SetText(LJ.L("HISTORY_COUNT", #matches, preview.savedRuns))
     self.empty:SetShown(#matches == 0)
     self.pageText:SetText(self.page .. " / " .. pages)
     self.prev:SetShown(self.page > 1)
@@ -318,6 +326,36 @@ function H:Refresh()
         end
     end
     self:ApplyTheme()
+end
+
+function H:ConfirmCleanup()
+    if not LJ.Storage or not LJ.Tracker then return end
+    local preview = LJ.Storage:Preview(LJ.Tracker:GetRuns(), LJ.Tracker:GetActive(), LJ.Now())
+    if preview.eligible == 0 then
+        LJ:Print(LJ.L("HISTORY_CLEANUP_NONE"))
+        return
+    end
+    if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then
+        LJ:Print(LJ.L("HISTORY_CLEANUP_UNAVAILABLE"))
+        return
+    end
+    StaticPopupDialogs.LOOTJINX_CLEANUP = {
+        text = LJ.L("HISTORY_CLEANUP_CONFIRM", preview.eligible, LJ.Storage.AGE_DAYS),
+        button1 = LJ.L("HISTORY_CLEANUP_ACCEPT"),
+        button2 = LJ.L("REPORT_CANCEL"),
+        OnAccept = function()
+            local cleaned = LJ.Storage:Clean(LJ.Tracker:GetRuns(), LJ.Tracker:GetActive(), LJ.Now())
+            if cleaned > 0 then
+                LJ:Changed()
+                LJ:Print(LJ.L("HISTORY_CLEANUP_DONE", cleaned))
+            end
+        end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+    }
+    StaticPopup_Show("LOOTJINX_CLEANUP")
 end
 
 function H:Show()

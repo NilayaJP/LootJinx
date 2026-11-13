@@ -2,13 +2,13 @@
 
 Updated: 2026-11-13
 
-These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, and per-dungeon statistics are present in the local `1.6.0-dev` build.
+These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, per-dungeon statistics, and manual saved-data cleanup are present in the local `1.6.0-dev` build.
 
 | Priority | Idea | Player benefit | Effort |
 | --- | --- | --- | --- |
 | Done in local build | Detection confidence | Understand which loot and roll results are certain | Medium |
 | Done in local build | Per-dungeon statistics | Compare loot and Need results by dungeon | Medium |
-| 3 | Saved-data controls | Keep long-running histories manageable | Medium–high |
+| Done in local build | Saved-data controls | Keep long-running histories manageable | Medium–high |
 | 4 | History date filters | Find a run from a particular day or week | Low–medium |
 | 5 | New-record notifications | Notice a personal record when it happens | Low |
 | 6 | Diagnostic snapshot | Make missed-loot bug reports easier to investigate | Medium |
@@ -34,7 +34,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 
 **Problem:** Individual runs have caps for bosses, drops, and rolls, but the number of saved runs has no cap. Long-term play can grow `LootJinxCharDB` indefinitely.
 
-**Proposal:** Show the number of saved runs and offer an explicit cleanup action for old run details. Preserve lifetime totals and records before any pruning; today, statistics are computed from the run list, so deleting runs directly would change the displayed all-time numbers.
+**Implemented locally:** History shows the saved run count and offers a confirmed cleanup action for completed runs older than 30 days. Cleanup removes heavy details while keeping each run's summary and ordered Need outcomes, so lifetime totals and records remain derived from the same run list. Active runs and unresolved data are skipped.
 
 **Done when:** Cleanup explains exactly what will be removed, asks for confirmation, preserves all-time statistics, and leaves the active run untouched.
 
@@ -72,7 +72,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 
 ## Suggested order
 
-After in-game validation of the completed items, plan **saved-data controls** before the history becomes large; they need special care because lifetime statistics currently depend on saved runs.
+After in-game validation of the completed items, consider **history date filters** next. All saved-data cleanup remains manual so players decide when older detail reports are removed.
 
 ## Reference points
 

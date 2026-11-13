@@ -14,6 +14,7 @@ Localization.lua
 Core.lua
 Evidence.lua
 Stats.lua
+Storage.lua
 Widgets.lua
 Tracker.lua
 Report.lua
