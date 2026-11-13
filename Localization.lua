@@ -129,10 +129,6 @@ local S = {
     DETAIL_PREV = { de = "Zurück", en = "Back" },
     DETAIL_NEXT = { de = "Weiter", en = "Next" },
     DETAIL_HINT = { de = "ESC schließt das Fenster.", en = "ESC closes the window." },
-    RUN_EXIT_PROMPT = { de = "%s verlassen. Was soll mit dem Run geschehen?\nOhne Speichern werden alle Daten dieses Runs verworfen.", en = "Left %s. What should happen to this run?\nWithout saving, all data from this run is discarded." },
-    RUN_PAUSE = { de = "Pausieren", en = "Pause" },
-    RUN_END = { de = "Beenden", en = "End" },
-    RUN_DISCARD = { de = "Beenden ohne Speichern?", en = "End without saving?" },
 
     FOOTER_HINT = { de = "Gier zählt nicht", en = "Greed doesn't count" },
     FOOTER_CLASS = { de = "%s · %s", en = "%s · %s" },

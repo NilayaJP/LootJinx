@@ -162,6 +162,7 @@ local function normalizeRun(run, fallbackID)
     run.name = type(run.name) == "string" and run.name or ""
     run.key = type(run.key) == "string" and run.key or nil
     run.instanceID = tonumber(run.instanceID)
+    run.zoneID = tonumber(run.zoneID)
     run.difficulty = type(run.difficulty) == "string" and run.difficulty or nil
     run.started = tonumber(run.started) or 0
     run.lastSeen = tonumber(run.lastSeen) or run.started

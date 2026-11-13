@@ -95,12 +95,12 @@ Questitems (Klassen-ID 12 bzw. Typ „Quest") zählen nicht als Loot.
 auch Dungeons ohne Need-Wurf. Vor dem ersten Need-Wurf bleibt der Wert 0.
 Serie = aktueller Wert, Rekord = höchster Wert.
 
-Ein *Run* beginnt beim Betreten einer Gruppen- oder Szenario-Instanz. Verlässt du
-die Instanz, fragt ein Dialog nach **Pausieren**, **Beenden** oder **Beenden ohne Speichern?**.
-Pausieren hält den Run bis zum Wiedereintritt in dieselbe Instanz offen; Beenden
-schließt ihn sofort. Beenden ohne Speichern entfernt ihn samt allen erfassten Daten.
-Ohne Auswahl gilt weiter die Frist von 15 Minuten. Ein Instanzwechsel schließt
-den bisherigen Run ab.
+Ein *Run* beginnt beim Betreten einer Gruppen- oder Szenario-Instanz. Beim Verlassen
+bleibt er automatisch offen. Beim Wiedereintritt erkennt LootJinx anhand der
+Kreatur- oder Cast-GUID, ob es dieselbe Instanzkopie ist. In diesem Fall wird der
+Run fortgesetzt; bei einer anderen Kopie beginnt ein neuer Run. Bis eine GUID
+verfügbar ist, bleibt die Prüfung offen. Ein Wechsel zu einem anderen Dungeon
+schließt den bisherigen Run ebenfalls ab.
 
 ## Bericht teilen
 

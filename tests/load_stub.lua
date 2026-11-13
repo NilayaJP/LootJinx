@@ -216,10 +216,16 @@ function _G.time() return clock end
 function _G.GetTime() return clock end
 local function advance(seconds) clock = clock + seconds end
 
-local zone = { inside = false, kind = "none", name = "", instanceID = 0 }
+local zone = { inside = false, kind = "none", name = "", instanceID = 0, copyID = nil }
 function _G.IsInInstance() return zone.inside, zone.kind end
 function _G.GetInstanceInfo()
     return zone.name, zone.kind, 0, "Normal", 5, false, false, zone.instanceID
+end
+function _G.UnitGUID(unit)
+    if unit == "target" and zone.inside and zone.copyID then
+        return "Creature-0-0-0-" .. zone.copyID .. "-123-00000001"
+    end
+    return nil
 end
 
 -- ---------------------------------------------------------------- Charakter
@@ -960,19 +966,22 @@ _G.LootJinxCharDB = savedCharDB
 LJ:InitDB()
 ok(LJ.CharDB.runs[1].legacy == false, "Run mit Detailfeldern ist kein Legacy-Run")
 
--- ---------------------------------------------------------------- Run beim Verlassen pausieren oder beenden
+-- ---------------------------------------------------------------- Instanzkopie erkennt Wiedereintritt ohne Dialog
+zone.copyID = 222
+fire(trackerFrame, "UNIT_SPELLCAST_START", "target", "Cast-0-0-0-222-123-00000001")
+ok(runs[2].zoneID == 222, "Cast-GUID speichert konkrete Instanzkopie")
 zone.inside, zone.kind = false, "none"
 local popupCount = popupShows
 LJ.Tracker:CheckZone()
-ok(shownPopup and shownPopup.which == "LOOTJINX_RUN_EXIT" and shownPopup.data == runs[2].id,
-    "Beim Verlassen erscheint Run-Dialog")
-LJ.Tracker:CheckZone()
-ok(popupShows == popupCount + 1, "Run-Dialog erscheint nur einmal pro Verlassen")
-local exitDialog = _G.StaticPopupDialogs["LOOTJINX_RUN_EXIT"]
-ok(exitDialog and exitDialog.button1 == "Pausieren" and exitDialog.button2 == "Beenden",
-    "Run-Dialog bietet Pausieren und Beenden")
-if exitDialog then exitDialog.OnButton1(nil, runs[2].id) end
-ok(runs[2].paused == true and runs[2].closed == false, "Pausieren hält Run offen")
+ok(popupShows == popupCount and shownPopup == nil, "Beim Verlassen erscheint kein Run-Dialog")
+ok(runs[2].paused == true and runs[2].closed == false, "Verlassen hält Run automatisch offen")
+items[1099] = { name = "Outside Prize", classID = 2, quality = 3,
+    equipLoc = "INVTYPE_WEAPON" }
+local outsideLink = "|cff0070dd|Hitem:1099::::::::|h[Outside Prize]|h|r"
+local dropsBeforeOutside = #runs[2].drops
+LJ.Tracker:OnLootChat("You receive loot: " .. outsideLink)
+ok(#runs[2].drops == dropsBeforeOutside,
+    "Loot außerhalb des Dungeons gehört nicht zum offenen Run")
 LJ.UI:Refresh()
 ok(recentRow.name:GetText():find("PAUSE", 1, true) ~= nil,
     "Pausierter Recent Run zeigt PAUSE statt LIVE")
@@ -980,47 +989,50 @@ detail:Show(runs[2])
 ok(detail.subtitle and detail.subtitle:GetText():find("PAUSE", 1, true) ~= nil,
     "Pausierte Run-Details zeigen PAUSE statt LIVE")
 LJ:InitDB()
-ok(runs[2].paused == true, "Pausierter Run bleibt gespeichert")
+ok(runs[2].paused == true and runs[2].zoneID == 222,
+    "Pausierter Run und Instanzkopie bleiben gespeichert")
 advance(901)
-LJ.Tracker:CloseStale()
-ok(runs[2].closed == false, "Pausierter Run verfällt nicht nach 15 Minuten")
+LJ.Tracker:CheckZone()
+ok(runs[2].closed == false, "Run verfällt außerhalb nicht nach 15 Minuten")
 zone.inside, zone.kind = true, "party"
 zone.name, zone.instanceID = "Wailing Caverns", 102
 LJ.Tracker:CheckZone()
 ok(runs[2].paused == false and LJ.Tracker:GetActive() == runs[2],
-    "Wiedereintritt setzt pausierten Run fort")
-ok(shownPopup == nil, "Wiedereintritt schließt Run-Dialog")
+    "Dieselbe Instanzkopie setzt Run fort")
 zone.inside, zone.kind = false, "none"
 LJ.Tracker:CheckZone()
-if exitDialog then exitDialog.OnButton2(nil, runs[2].id) end
-ok(runs[2].closed == true and LJ.Tracker:GetActive() == nil,
-    "Beenden schließt Run sofort")
-
--- Beenden ohne Speichern entfernt nur den aktuellen Run.
-local savedStats = LJ.Stats.Compute(LJ.Tracker:GetRuns())
+zone.copyID = 333
 zone.inside, zone.kind = true, "party"
-zone.name, zone.instanceID = "Discard Test", 103
+zone.name, zone.instanceID = "Wailing Caverns", 102
 LJ.Tracker:CheckZone()
-local discardRun = LJ.Tracker:GetActive()
-ok(discardRun ~= nil, "Test-Run für Verwerfen gestartet")
-local nextRunID = LJ.CharDB.nextRunID
+local newCopy = LJ.Tracker:GetActive()
+ok(newCopy and newCopy ~= runs[2] and runs[2].closed == true,
+    "Neue Kopie desselben Dungeons startet eigenen Run")
+ok(newCopy and newCopy.zoneID == 333, "Neue Instanzkopie bekommt eigene GUID-ID")
+ok(#LJ.Tracker:GetRuns() == 3, "Beide Instanzkopien bleiben in Historie")
 zone.inside, zone.kind = false, "none"
 LJ.Tracker:CheckZone()
-ok(exitDialog and exitDialog.button3 == "Beenden ohne Speichern?"
-    and type(exitDialog.OnButton3) == "function",
-    "Run-Dialog bietet Beenden ohne Speichern")
-if exitDialog and exitDialog.OnButton3 then exitDialog.OnButton3(nil, runs[2].id) end
-ok(LJ.Tracker:GetActive() == discardRun, "Veralteter Dialog verwirft keinen neuen Run")
-detail:Show(discardRun)
-if exitDialog and exitDialog.OnButton3 then exitDialog.OnButton3(nil, discardRun.id) end
-local discardedStats = LJ.Stats.Compute(LJ.Tracker:GetRuns())
-ok(LJ.Tracker:GetActive() == nil and #LJ.Tracker:GetRuns() == 2,
-    "Verworfener Run aus Historie entfernt")
-ok(discardedStats.totalDungeons == savedStats.totalDungeons
-    and discardedStats.needRolls == savedStats.needRolls,
-    "Verworfener Run beeinflusst Statistik nicht")
-ok(detail:IsShown() == false, "Details des verworfenen Runs schließen")
-ok(LJ.CharDB.nextRunID == nextRunID, "Run-IDs werden nach Verwerfen nicht wiederverwendet")
+zone.copyID = nil
+zone.inside, zone.kind = true, "party"
+LJ.Tracker:CheckZone()
+ok(LJ.Tracker:GetActive() == newCopy, "Ohne GUID bleibt Kopienprüfung offen")
+fire(trackerFrame, "UNIT_SPELLCAST_SUCCEEDED", "target", "Cast-0-0-0-555-123-00000001")
+local lateCopy = LJ.Tracker:GetActive()
+ok(lateCopy and lateCopy ~= newCopy and newCopy.closed == true and lateCopy.zoneID == 555,
+    "Spätere Cast-GUID trennt neue Instanzkopie")
+fire(trackerFrame, "PLAYER_LEAVING_WORLD")
+zone.copyID = 666
+LJ.Tracker:CheckZone()
+local loadedCopy = LJ.Tracker:GetActive()
+ok(loadedCopy and loadedCopy ~= lateCopy and lateCopy.closed == true
+    and loadedCopy.zoneID == 666,
+    "Ladebildschirm zur neuen Kopie erkennt Wechsel ohne Zwischenzone")
+zone.name, zone.instanceID, zone.copyID = "The Deadmines", 101, 444
+LJ.Tracker:CheckZone()
+ok(loadedCopy.closed == true and LJ.Tracker:GetActive() ~= loadedCopy,
+    "Dungeonwechsel schließt vorherige Kopie")
+ok(_G.StaticPopupDialogs["LOOTJINX_RUN_EXIT"] == nil,
+    "Verlassen-Dialog ist nicht registriert")
 
 -- ---------------------------------------------------------------- Reset
 zone.inside, zone.kind = false, "none"

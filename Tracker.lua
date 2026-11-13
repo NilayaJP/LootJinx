@@ -6,7 +6,6 @@ if not LJ then return end
 local T = {}
 LJ.Tracker = T
 
-local RESUME_SECONDS = 15 * 60
 local NEED_TIMEOUT = 5 * 60
 local DEDUPE_SECONDS = 5
 local REPAIR_SECONDS = 15 * 60
@@ -17,7 +16,7 @@ local MAX_ROLLS = 200
 
 local inside = false
 local blocked = false
-local staleTimer
+local pendingCopyCheck = false
 local repairScheduled = false
 local reclassifyScheduled = false
 local started = false
@@ -182,38 +181,9 @@ local function sameInstance(run, d)
     return lower(run.name) == lower(d.name)
 end
 
-local function cancelStaleTimer()
-    if staleTimer and staleTimer.Cancel then
-        pcall(staleTimer.Cancel, staleTimer)
-    end
-    staleTimer = nil
-end
-
-function T:ScheduleStaleClose()
-    if not (C_Timer and C_Timer.NewTimer) then return end
-    cancelStaleTimer()
-    staleTimer = C_Timer.NewTimer(RESUME_SECONDS + 2, function()
-        pcall(T.CloseStale, T)
-        LJ:Changed()
-    end)
-end
-
-function T:CloseStale()
-    local run = activeRun()
-    if not run or inside then return false end
-    if run.paused then return false end
-    local since = run.outsideAt or run.lastSeen or run.started or 0
-    if since > 0 and now() - since >= RESUME_SECONDS then
-        T:CloseActive("stale")
-        return true
-    end
-    return false
-end
-
 function T:CloseActive(reason)
     local run = activeRun()
     if not run then return false end
-    if type(StaticPopup_Hide) == "function" then StaticPopup_Hide("LOOTJINX_RUN_EXIT") end
     T:ResolveStaleNeeds(run, true)
     T:FinalizeRunItems(run)
     run.closed = true
@@ -222,35 +192,7 @@ function T:CloseActive(reason)
     run.closedReason = reason or "closed"
     local data = db()
     if data then data.activeID = nil end
-    LJ:Changed()
-    return true
-end
-
-function T:PauseActive(runID)
-    local run = activeRun()
-    if not run or inside or run.id ~= tonumber(runID) then return false end
-    run.paused = true
-    LJ:Changed()
-    return true
-end
-
-function T:DiscardActive(runID)
-    local run = activeRun()
-    if not run or inside or run.id ~= tonumber(runID) then return false end
-    local data = db()
-    if not data then return false end
-    for i = #data.runs, 1, -1 do
-        if data.runs[i] == run then
-            table.remove(data.runs, i)
-            break
-        end
-    end
-    data.activeID = nil
-    cancelStaleTimer()
-    if type(StaticPopup_Hide) == "function" then StaticPopup_Hide("LOOTJINX_RUN_EXIT") end
-    if LJ.RunDetail and type(LJ.RunDetail.Hide) == "function" then
-        LJ.RunDetail:Hide()
-    end
+    pendingCopyCheck = false
     LJ:Changed()
     return true
 end
@@ -273,6 +215,7 @@ function T:StartRun(d, partial)
         name = d.name,
         key = d.key,
         instanceID = d.instanceID,
+        zoneID = nil,
         difficulty = d.difficulty,
         started = now(),
         lastSeen = now(),
@@ -298,24 +241,58 @@ function T:StartRun(d, partial)
     data.activeID = run.id
     inside = true
     blocked = false
-    T:ScheduleStaleClose()
+    pendingCopyCheck = false
     LJ:Changed()
     return run
+end
+
+-- Die ID aus GetInstanceInfo bezeichnet die Karte. Feld 5 einer Kreatur-
+-- oder Cast-GUID bezeichnet die konkrete Instanzkopie (wie in NIT).
+local function guidZoneID(guid)
+    if type(issecretvalue) == "function" and issecretvalue(guid) then return nil end
+    if type(guid) ~= "string" then return nil end
+    local kind, id = guid:match("^(%a+)%-[^-]*%-[^-]*%-[^-]*%-(%d+)%-")
+    if kind ~= "Creature" and kind ~= "Cast" then return nil end
+    id = tonumber(id)
+    return id and id > 0 and id or nil
+end
+
+function T:ObserveInstanceGUID(guid)
+    if not inside then return false end
+    local zoneID = guidZoneID(guid)
+    local run = activeRun()
+    if not zoneID or not run then return false end
+    if pendingCopyCheck and run.zoneID and run.zoneID ~= zoneID then
+        local d = getDungeon()
+        if not d then return false end
+        T:CloseActive("switched-instance-copy")
+        run = T:StartRun(d, false)
+    end
+    pendingCopyCheck = false
+    if run and not run.zoneID then
+        run.zoneID = zoneID
+        LJ:Changed()
+    end
+    return true
+end
+
+local function observeUnit(unit)
+    if type(UnitGUID) ~= "function" then return end
+    local ok, guid = pcall(UnitGUID, unit)
+    if ok then T:ObserveInstanceGUID(guid) end
 end
 
 function T:CheckZone()
     if not db() then return end
     local wasFirst = firstCheck
     firstCheck = false
-    T:CloseStale()
-
     local d = getDungeon()
     if d then
         if blocked then return end
         local run = activeRun()
         if run and sameInstance(run, d) then
+            if not inside or run.outsideAt then pendingCopyCheck = run.zoneID ~= nil end
             inside = true
-            if type(StaticPopup_Hide) == "function" then StaticPopup_Hide("LOOTJINX_RUN_EXIT") end
             run.paused = false
             run.outsideAt = nil
             run.lastSeen = now()
@@ -323,12 +300,15 @@ function T:CheckZone()
             run.instanceID = d.instanceID or run.instanceID
             run.difficulty = d.difficulty or run.difficulty
             if d.name and d.name ~= "" then run.name = d.name end
-            T:ScheduleStaleClose()
+            observeUnit("target")
+            observeUnit("mouseover")
             LJ:Changed()
             return
         end
         if run then T:CloseActive("switched-instance") end
         T:StartRun(d, wasFirst)
+        observeUnit("target")
+        observeUnit("mouseover")
     else
         local wasInside = inside
         inside = false
@@ -337,12 +317,10 @@ function T:CheckZone()
         if run then
             run.outsideAt = run.outsideAt or now()
             run.lastSeen = now()
+            run.paused = true
             if wasInside then LJ:Changed() end
-            if wasInside and type(StaticPopup_Show) == "function" then
-                StaticPopup_Show("LOOTJINX_RUN_EXIT", run.name, nil, run.id)
-            end
         end
-        T:ScheduleStaleClose()
+        pendingCopyCheck = false
     end
 end
 
@@ -934,6 +912,7 @@ function T:NoteSeenDrop(link, source)
 end
 
 function T:OnBossEvent(event, ...)
+    if not inside then return end
     local run = activeRun()
     if not run then return end
     local id, name, success
@@ -970,6 +949,7 @@ function T:OnBossEvent(event, ...)
 end
 
 function T:OnEncounterLoot(...)
+    if not inside then return end
     local run = activeRun()
     if not run then return end
     local args = { ... }
@@ -997,6 +977,7 @@ function T:OnEncounterLoot(...)
 end
 
 function T:OnStartRoll(rollID)
+    if not inside then return end
     rollID = tonumber(rollID)
     if not rollID then return end
     pruneRollLinks()
@@ -1007,6 +988,7 @@ function T:OnStartRoll(rollID)
         return
     end
     local function retry()
+        if not inside then return end
         local l = rollLink(rollID)
         if l then
             T:RecordItem(l, "loot-roll-late")
@@ -1140,6 +1122,7 @@ local function noteChatDrop(link, winner, guid)
 end
 
 function T:OnLootChat(text, _who, guid)
+    if not inside then return end
     text = LJ.Plain(text)
     if type(text) ~= "string" then return end
     local p = Patterns()
@@ -1253,7 +1236,6 @@ end
 local eventFrame
 local function onEvent(event, ...)
     if event == "PLAYER_ENTERING_WORLD" then
-        T:CloseStale()
         after(1, function()
             T:CheckZone()
             T:ResolveStaleNeedsAll(false)
@@ -1274,6 +1256,14 @@ local function onEvent(event, ...)
         after(2, function() T:CheckZone() end)
     elseif event == "ZONE_CHANGED" then
         if inside then after(1, function() T:CheckZone() end) end
+    elseif event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_SUCCEEDED" then
+        T:ObserveInstanceGUID(select(2, ...))
+    elseif event == "NAME_PLATE_UNIT_ADDED" then
+        observeUnit((...))
+    elseif event == "PLAYER_TARGET_CHANGED" then
+        observeUnit("target")
+    elseif event == "UPDATE_MOUSEOVER_UNIT" then
+        observeUnit("mouseover")
     elseif event == "ENCOUNTER_END" or event == "BOSS_KILL" then
         T:OnBossEvent(event, ...)
     elseif event == "ENCOUNTER_LOOT_RECEIVED" then
@@ -1304,6 +1294,8 @@ local function registerEvents()
     eventFrame = CreateFrame("Frame")
     local events = {
         "PLAYER_ENTERING_WORLD", "PLAYER_LEAVING_WORLD", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED",
+        "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_SUCCEEDED", "NAME_PLATE_UNIT_ADDED",
+        "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT",
         "ENCOUNTER_END", "BOSS_KILL", "ENCOUNTER_LOOT_RECEIVED",
         "START_LOOT_ROLL", "CANCEL_LOOT_ROLL", "LOOT_OPENED", "LOOT_READY",
         "CHAT_MSG_LOOT", "CHAT_MSG_SYSTEM", "GET_ITEM_INFO_RECEIVED", "BAG_UPDATE_DELAYED",
@@ -1332,34 +1324,12 @@ end
 function T:Start()
     if started then return end
     started = true
-    if StaticPopupDialogs then
-        StaticPopupDialogs["LOOTJINX_RUN_EXIT"] = {
-            text = LJ.L("RUN_EXIT_PROMPT"),
-            button1 = LJ.L("RUN_PAUSE"),
-            button2 = LJ.L("RUN_END"),
-            button3 = LJ.L("RUN_DISCARD"),
-            selectCallbackByIndex = true,
-            OnButton1 = function(_, runID) T:PauseActive(runID) end,
-            OnButton2 = function(_, runID)
-                local run = activeRun()
-                if run and not inside and run.id == tonumber(runID) then T:CloseActive("manual") end
-            end,
-            OnButton3 = function(_, runID) T:DiscardActive(runID) end,
-            OnEscape = function(_, runID) T:PauseActive(runID) end,
-            timeout = 0,
-            whileDead = true,
-            hideOnEscape = true,
-            preferredIndex = 3,
-        }
-    end
     T.startedAt = now()
     lastPrimaryStat = LJ:PlayerStat()
     registerEvents()
     hookRolls()
-    T:CloseStale()
     if C_Timer and C_Timer.NewTicker then
         C_Timer.NewTicker(60, function()
-            pcall(T.CloseStale, T)
             pcall(T.ResolveStaleNeedsAll, T, false)
             pcall(T.RepairLostNeeds, T)
         end)
@@ -1367,14 +1337,13 @@ function T:Start()
 end
 
 function T:ResetAll()
-    cancelStaleTimer()
-    if type(StaticPopup_Hide) == "function" then StaticPopup_Hide("LOOTJINX_RUN_EXIT") end
     LJ:ResetChar()
     if LJ.RunDetail and type(LJ.RunDetail.Hide) == "function" then
         pcall(LJ.RunDetail.Hide, LJ.RunDetail)
     end
     inside = false
     blocked = false
+    pendingCopyCheck = false
     firstCheck = false
     lastPrimaryStat = nil
     recentGreed = {}
