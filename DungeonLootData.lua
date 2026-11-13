@@ -1,4 +1,4 @@
--- Curated item ID/source index from ForeverDungeonJournal 2.0.4 (WoW Forever 1.60.1).
+-- Curated item ID/source index from ForeverDungeonJournal 2.0.5 (WoW Forever 1.60.1).
 -- Sources: Data/Dungeons.lua and Data/SharedLoot.lua.
 -- Reference data only: observations and client events decide whether an item actually dropped.
 -- Regenerate with tools/build_dungeon_loot.lua after reviewing upstream data changes.
@@ -80,6 +80,7 @@ LJ.DungeonLootData = {
         { "Saltspine", false, { 273024, 273022, 273023 } },
         { "Shadetooth", false, { 273025, 273026, 273027, 273106 } },
         { "Relic Guardian", false, { 273028, 273029, 273030, 270866, 273097 } },
+        { "Trash Drops", true, { 286982, 286983, 286984, 286985, 286986, 287068 } },
     },
     ["The Stockade"] = {
         { "Targorr the Dread", false, { 273805, 273804, 273806, 251380, 251382, 253942 } },
@@ -99,7 +100,7 @@ LJ.DungeonLootData = {
         { "Arcanic Enigma", false, { 273045, 273044, 273043 } },
         { "Lyn the Ignored", false, { 273055, 273054, 273053 } },
         { "Shade of the Archmage", false, { 273052, 273049, 273051, 273103 } },
-        { "Trash Drops", true, { 286987, 286989, 286988, 286995 } },
+        { "Trash Drops", true, { 286987, 286989, 286988, 286995, 286990, 286991, 286992, 286993, 286994, 286996 } },
     },
     ["Gnomeregan"] = {
         { "Grubbis", false, { 9445, 274043, 274042 } },
@@ -162,6 +163,7 @@ LJ.DungeonLootData = {
         { "Glutton", false, { 10772, 10774, 274385, 251402 } },
         { "Ragglesnout", false, { 10758, 10767, 10768, 251399 } },
         { "Amnennar the Coldbringer", false, { 10762, 10763, 10764, 10765, 10761, 274381 } },
+        { "Trash Drops", true, { 10574, 10581, 10583, 10584, 10578, 10582, 10572, 10567, 10571, 10570, 10573 } },
     },
     ["Uldaman"] = {
         { "Revelosh", false, { 9389, 9388, 9387, 9390 } },
@@ -191,7 +193,7 @@ LJ.DungeonLootData = {
         { "Nekrum Gutchewer", false, { 274644, 274645, 274643 } },
         { "Shadowpriest Sezz'ziz", false, { 9470, 9473, 9474, 9475 } },
         { "Sergeant Bly", false, { 274646, 274647, 274648, 8548, 252896 } },
-        { "Hydromancer Velratha", false, { 274653 } },
+        { "Hydromancer Velratha", false, { 274653, 274651, 274652 } },
         { "Gahz'rilla", false, { 9467, 9469, 274657 } },
         { "Zerillis", false, { 274658, 12470 } },
         { "Sandarr Dunereaver", false, { 274660, 274659 } },
@@ -224,7 +226,7 @@ LJ.DungeonLootData = {
         { "Jammal'an the Prophet", false, { 10806, 10807, 10808 } },
         { "Ogom the Wretched", false, { 10804, 10803, 10805 } },
         { "Dreamscythe & Weaver", false, { 10795, 10796, 10797, 12243, 12463, 12464, 12465, 12466 } },
-        { "Shade of Eranikus", false, { 10829, 10833, 10835, 10836, 10828, 10837 } },
+        { "Shade of Eranikus", false, { 10829, 10833, 10835, 10836, 10828, 10837, 10847, 254106, 252919, 251403, 10454 } },
         { "Avatar of Hakkar", false, { 12462, 10838, 10842, 10843, 10844, 10845, 10846, 10663 } },
     },
     ["Blackrock Depths"] = {

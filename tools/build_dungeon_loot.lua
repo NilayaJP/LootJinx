@@ -1,6 +1,14 @@
 -- One-time build helper: lua tools/build_dungeon_loot.lua <ForeverDungeonJournal/Data/Dungeons.lua>
 -- Produces factual item-ID/source references. LootJinx never loads the source addon.
 local input = assert(arg[1], "pass the DungeonJournal Dungeons.lua path")
+local root = assert(input:match("^(.*)[/\\]Data[/\\]Dungeons%.lua$"), "expected Data/Dungeons.lua")
+local toc = assert(io.open(root .. "/ForeverDungeonJournal.toc", "r"))
+local version
+for line in toc:lines() do
+    version = version or line:match("^## Version:%s*(%S+)")
+end
+toc:close()
+assert(version, "DungeonJournal version missing from .toc")
 local source = { Constants = { ALBA_FAIRMOON_LOCATION = "" } }
 assert(loadfile(input))("ForeverDungeonJournal", source)
 local sharedPath = input:gsub("Dungeons%.lua$", "SharedLoot.lua")
@@ -8,7 +16,7 @@ local sharedFile = loadfile(sharedPath)
 if sharedFile then sharedFile("ForeverDungeonJournal", source) end
 
 local out = assert(io.open("DungeonLootData.lua", "w"))
-out:write("-- Curated item ID/source index from ForeverDungeonJournal 2.0.4 (WoW Forever 1.60.1).\n")
+out:write("-- Curated item ID/source index from ForeverDungeonJournal " .. version .. " (WoW Forever 1.60.1).\n")
 out:write("-- Sources: Data/Dungeons.lua and Data/SharedLoot.lua.\n")
 out:write("-- Reference data only: observations and client events decide whether an item actually dropped.\n")
 out:write("-- Regenerate with tools/build_dungeon_loot.lua after reviewing upstream data changes.\n")
