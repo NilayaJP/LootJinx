@@ -135,7 +135,7 @@ local function makeRecent(f)
         row.date:SetJustifyH("RIGHT")
         row:SetScript("OnClick", function(self)
             if self.run and self.run.legacy ~= true and LJ.RunDetail then
-                LJ.RunDetail:Show(self.run)
+                LJ.RunDetail:Show(self.run, "journal")
             end
         end)
         row:Hide()

@@ -10,6 +10,8 @@ The Journal remains an independent WoW frame with its own saved position. It mat
 
 Both views use the same tracker, statistics, run details, and report service. The Journal frame changes only presentation and keeps the current account-wide layout selection. No CurseForge release or push to `origin/main` is part of this preview.
 
+The shared Run Details window follows the selected view's appearance when opened from Recent Runs. Journal uses leather, bronze, parchment, and gold in that window; Classic restores its original colors and font when opened from Classic.
+
 ## Approach
 
 Keep the separate Journal view and give it Classic's geometry. This preserves the current Classic implementation and its look. Retheming the Classic frame in place would require restoring every texture and text color on each switch; duplicating the entire Classic module would couple two large UI implementations.

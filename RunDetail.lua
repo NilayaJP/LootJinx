@@ -7,7 +7,22 @@ local M = {}
 LJ.RunDetail = M
 
 local W = LJ.Widgets
-local C = LJ.COLORS
+local CLASSIC = LJ.COLORS
+local JOURNAL = {
+    bg = { 0.141, 0.102, 0.102, 0.98 },
+    card = { 0.190, 0.145, 0.133, 0.98 },
+    border = { 0.545, 0.384, 0.267, 1 },
+    accent = { 0.918, 0.769, 0.494, 1 },
+    cyan = { 0.906, 0.835, 0.729, 1 },
+    gold = { 0.918, 0.769, 0.494, 1 },
+    green = { 0.560, 0.800, 0.500, 1 },
+    red = { 0.900, 0.420, 0.340, 1 },
+    orange = { 0.910, 0.600, 0.340, 1 },
+    text = { 0.906, 0.835, 0.729, 1 },
+    muted = { 0.690, 0.608, 0.510, 1 },
+    dim = { 0.545, 0.460, 0.380, 1 },
+}
+local C = CLASSIC
 local FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local UNKNOWN_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
@@ -18,6 +33,7 @@ local ROWS_PER_PAGE = 12
 local CONTENT_HEIGHT = ROW_HEIGHT * ROWS_PER_PAGE
 
 local frame, content, summary, subtitle, title, eyebrow, pageText, prevButton, nextButton
+local summaryPanel, hint, closeButton, topAccent
 local rows = {}
 local pages = {}
 local currentRun
@@ -487,14 +503,15 @@ function M:Create()
     subtitle:SetWidth(470)
     subtitle:SetWordWrap(false)
 
-    local close = W:Button(f, "×", 22, 22)
-    close:SetPoint("TOPRIGHT", -14, -14)
-    close.label:SetFont(FONT, 15, "")
-    close.label:SetPoint("CENTER", 0, 1)
-    close:SetScript("OnClick", function() M:Hide() end)
-    W:Tooltip(close, LJ.L("CLOSE"), { LJ.L("CLOSE") })
+    closeButton = W:Button(f, "×", 22, 22)
+    closeButton:SetPoint("TOPRIGHT", -14, -14)
+    closeButton.label:SetFont(FONT, 15, "")
+    closeButton.label:SetPoint("CENTER", 0, 1)
+    closeButton:SetScript("OnClick", function() M:Hide() end)
+    W:Tooltip(closeButton, LJ.L("CLOSE"), { LJ.L("CLOSE") })
 
-    local summaryPanel = W:Panel(f, "BACKGROUND")
+    summaryPanel = W:Panel(f, "BACKGROUND")
+    M.summaryPanel = summaryPanel
     summaryPanel:SetPoint("TOPLEFT", 16, -70)
     summaryPanel:SetSize(528, 34)
     summary = W:Font(summaryPanel, 10, C.text, "")
@@ -572,7 +589,7 @@ function M:Create()
     separator:SetPoint("BOTTOMRIGHT", -16, 48)
     separator:SetHeight(1)
 
-    local hint = W:Font(f, 8, C.dim, "")
+    hint = W:Font(f, 8, C.dim, "")
     hint:SetPoint("BOTTOMLEFT", 16, 28)
     hint:SetText(LJ.L("DETAIL_HINT"))
 
@@ -587,6 +604,13 @@ function M:Create()
     nextButton = W:Button(f, LJ.L("DETAIL_NEXT"), 58, 20)
     nextButton:SetPoint("BOTTOMRIGHT", -16, 10)
     nextButton:SetScript("OnClick", function() M:Page(1) end)
+
+    topAccent = f:CreateTexture(nil, "ARTWORK")
+    topAccent:SetPoint("TOPLEFT", 1, -1)
+    topAccent:SetPoint("TOPRIGHT", -1, -1)
+    topAccent:SetHeight(2)
+    topAccent:SetColorTexture(JOURNAL.accent[1], JOURNAL.accent[2], JOURNAL.accent[3], 1)
+    topAccent:Hide()
 
     f:SetScript("OnHide", function()
         if GameTooltip then GameTooltip:Hide() end
@@ -604,10 +628,82 @@ function M:Create()
     return f
 end
 
-function M:Show(run)
+local function tintButton(button, journal)
+    if not button then return end
+    if not button.classicOnEnter then
+        button.classicOnEnter = button:GetScript("OnEnter")
+        button.classicOnLeave = button:GetScript("OnLeave")
+    end
+    if journal then
+        if button.SetBackdropColor then button:SetBackdropColor(0.114, 0.086, 0.082, 0.96) end
+        if button.SetBackdropBorderColor then
+            button:SetBackdropBorderColor(JOURNAL.border[1], JOURNAL.border[2], JOURNAL.border[3], 1)
+        end
+        button.label:SetTextColor(JOURNAL.text[1], JOURNAL.text[2], JOURNAL.text[3], 1)
+        button:SetScript("OnEnter", function(self)
+            if self.SetBackdropColor then
+                self:SetBackdropColor(JOURNAL.card[1], JOURNAL.card[2], JOURNAL.card[3], 1)
+            end
+            if self.SetBackdropBorderColor then
+                self:SetBackdropBorderColor(JOURNAL.accent[1], JOURNAL.accent[2], JOURNAL.accent[3], 1)
+            end
+        end)
+        button:SetScript("OnLeave", function(self)
+            if self.SetBackdropColor then self:SetBackdropColor(0.114, 0.086, 0.082, 0.96) end
+            if self.SetBackdropBorderColor then
+                self:SetBackdropBorderColor(JOURNAL.border[1], JOURNAL.border[2], JOURNAL.border[3], 1)
+            end
+        end)
+    else
+        if button.SetBackdropColor then button:SetBackdropColor(0.10, 0.11, 0.14, 0.96) end
+        if button.SetBackdropBorderColor then
+            button:SetBackdropBorderColor(CLASSIC.border[1], CLASSIC.border[2], CLASSIC.border[3], 1)
+        end
+        button.label:SetTextColor(CLASSIC.muted[1], CLASSIC.muted[2], CLASSIC.muted[3], 1)
+        button:SetScript("OnEnter", button.classicOnEnter)
+        button:SetScript("OnLeave", button.classicOnLeave)
+    end
+end
+
+function M:ApplyTheme(theme)
+    theme = theme == "journal" and "journal" or "classic"
+    C = theme == "journal" and JOURNAL or CLASSIC
+    self.theme = theme
+    if not frame then return end
+    applyBackdrop(frame)
+    if summaryPanel and summaryPanel.SetBackdropColor then
+        summaryPanel:SetBackdropColor(C.card[1], C.card[2], C.card[3], C.card[4] or 1)
+        summaryPanel:SetBackdropBorderColor(C.border[1], C.border[2], C.border[3], 1)
+    end
+    eyebrow:SetTextColor(C.accent[1], C.accent[2], C.accent[3], 1)
+    title:SetTextColor(C.text[1], C.text[2], C.text[3], 1)
+    if theme == "journal" then
+        pcall(title.SetFont, title, "Fonts\\MORPHEUS.TTF", 19, "")
+    else
+        title:SetFont(FONT, 17, "OUTLINE")
+    end
+    subtitle:SetTextColor(C.muted[1], C.muted[2], C.muted[3], 1)
+    summary:SetTextColor(C.text[1], C.text[2], C.text[3], 1)
+    hint:SetTextColor(C.dim[1], C.dim[2], C.dim[3], 1)
+    pageText:SetTextColor(C.muted[1], C.muted[2], C.muted[3], 1)
+    for i = 1, #rows do
+        local row = rows[i]
+        row.name:SetTextColor(C.text[1], C.text[2], C.text[3], 1)
+        row.recipient:SetTextColor(C.text[1], C.text[2], C.text[3], 1)
+        row.meta:SetTextColor(C.muted[1], C.muted[2], C.muted[3], 1)
+        row.roll:SetTextColor(C.gold[1], C.gold[2], C.gold[3], 1)
+    end
+    tintButton(closeButton, theme == "journal")
+    tintButton(prevButton, theme == "journal")
+    tintButton(nextButton, theme == "journal")
+    topAccent:SetShown(theme == "journal")
+end
+
+function M:Show(run, theme)
     if type(run) ~= "table" then return false end
     if not frame then self:Create() end
     if not frame then return false end
+    self:ApplyTheme(theme or (LJ.UI and LJ.UI.GetLayout and LJ.UI:GetLayout()))
     currentRun = run
     page = 1
     local ok, err = pcall(M.Refresh, M)
