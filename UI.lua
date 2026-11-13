@@ -472,9 +472,14 @@ local function createFooter()
 
     local footer = W:Font(frame, 9, C.muted, "")
     footer:SetPoint("BOTTOMLEFT", 16, 16)
-    footer:SetWidth(340)
+    footer:SetWidth(310)
     footer:SetWordWrap(false)
     frame.footer = footer
+
+    local history = W:Button(frame, LJ.L("HISTORY"), 72, 20)
+    history:SetPoint("BOTTOMRIGHT", -228, 14)
+    history:SetScript("OnClick", function() if LJ.History then LJ.History:Show() end end)
+    UI.historyButton = history
 
     local report = W:Button(frame, LJ.L("REPORT"), 72, 20)
     report:SetPoint("BOTTOMRIGHT", -148, 14)
@@ -627,6 +632,7 @@ local function createFrame()
     end)
     frame:SetScript("OnHide", function()
         if reportPopup then reportPopup:Hide() end
+        if LJ.History then LJ.History:Hide() end
         if LJ.RunDetail and type(LJ.RunDetail.Hide) == "function" then
             pcall(LJ.RunDetail.Hide, LJ.RunDetail)
         end

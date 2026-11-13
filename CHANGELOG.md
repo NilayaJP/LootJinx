@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add a searchable, paginated history of all saved dungeon runs with a dungeon filter, accessible from both designs and compact mode.
+- Open existing run details from history and close detail, history, and dashboard in order with ESC.
+
 ## 1.5.0 — 2026-11-13
 
 - Add a Design dropdown in Options to switch between Classic and Dungeon Journal. The selected design takes effect immediately and is saved account-wide; Classic remains the default.

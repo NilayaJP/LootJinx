@@ -22,6 +22,7 @@ end
 
 local function syncFrame()
     R.frame = view().frame
+    R.historyButton = view().historyButton
 end
 
 function R:GetLayout()
@@ -38,6 +39,7 @@ function R:SetLayout(id)
         elseif Journal and Journal.frame == old then Journal:Hide() end
     end
     if LJ.RunDetail then LJ.RunDetail:Hide() end
+    if LJ.History then LJ.History:Hide() end
     LJ.DB.layoutPreview = id
     self:Create()
     if wasVisible then self:Show() end

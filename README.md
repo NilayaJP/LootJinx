@@ -83,6 +83,12 @@ The **Report** button in the dashboard footer opens the sharing dialog:
 
 The report has six lines: header, Dungeon Curse, Need Rolls, No Need Win, No Loot, and Since Need Win. Lines are sent one second apart to respect the chat limit. If no party or whisper target is available, the dialog shows a message and sends nothing.
 
+## Dungeon History
+
+Click **History** in the dashboard footer to browse all saved runs, including in compact mode. Search dungeon names, filter by dungeon, and use **Back** and **Next** to page through older runs. The list is newest first. Click a run to open its existing detail report; runs recorded before detailed history was introduced remain listed with a "Details unavailable" label.
+
+The history window follows the selected Classic or Dungeon Journal design. ESC closes the detail report first, then the history window, then the dashboard.
+
 ## Run Details
 
 Click a supported entry in **Recent Runs** to open its detail window (available for runs recorded since version 1.3.0). It shows:

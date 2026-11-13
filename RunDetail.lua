@@ -38,34 +38,52 @@ local rows = {}
 local pages = {}
 local currentRun
 local page = 1
-local suspendedSpecialName
+local suspendedSpecialNames
 local restoreToken = 0
 local deferredRestoreFrame
 
 local function suspendDashboardEscape()
+    if type(UISpecialFrames) ~= "table" then return end
     local dashboard = LJ.UI and LJ.UI.frame
-    local name = dashboard and dashboard.IsShown and dashboard:IsShown()
-        and dashboard.GetName and dashboard:GetName()
-    if not name or type(UISpecialFrames) ~= "table" then return end
-    for i = #UISpecialFrames, 1, -1 do
-        if UISpecialFrames[i] == name then table.remove(UISpecialFrames, i) end
+    local history = LJ.History and LJ.History.frame
+    local historyShown = history and history.IsShown and history:IsShown()
+    local windows = { dashboard, history }
+    local names = {}
+    for _, window in ipairs(windows) do
+        local name = window and window.IsShown and window:IsShown()
+            and window.GetName and window:GetName()
+        if name then
+            local removed = false
+            for i = #UISpecialFrames, 1, -1 do
+                if UISpecialFrames[i] == name then
+                    table.remove(UISpecialFrames, i)
+                    removed = true
+                end
+            end
+            if removed or (window == dashboard and not historyShown) then
+                names[#names + 1] = name
+            end
+        end
     end
-    suspendedSpecialName = name
+    suspendedSpecialNames = names
     restoreToken = restoreToken + 1
 end
 
 local function restoreDashboardEscape()
-    local name = suspendedSpecialName
-    if not name then return end
-    suspendedSpecialName = nil
+    local names = suspendedSpecialNames
+    if not names then return end
+    suspendedSpecialNames = nil
     restoreToken = restoreToken + 1
     local token = restoreToken
     local function restore()
         if token ~= restoreToken or type(UISpecialFrames) ~= "table" then return end
-        for i = 1, #UISpecialFrames do
-            if UISpecialFrames[i] == name then return end
+        for _, name in ipairs(names) do
+            local found = false
+            for i = 1, #UISpecialFrames do
+                if UISpecialFrames[i] == name then found = true break end
+            end
+            if not found then table.insert(UISpecialFrames, name) end
         end
-        table.insert(UISpecialFrames, name)
     end
     -- CloseSpecialWindows iterates this table; restore after its ESC pass ends.
     if C_Timer and C_Timer.After then
@@ -754,7 +772,7 @@ function M:Show(run, theme)
         LJ:Print(LJ.L("ERROR_PART", "Run-Details", tostring(err)))
         return false
     end
-    suspendDashboardEscape()
+    if not frame:IsShown() then suspendDashboardEscape() end
     frame:Show()
     return true
 end
