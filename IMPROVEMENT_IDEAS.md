@@ -2,14 +2,14 @@
 
 Updated: 2026-11-13
 
-These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, per-dungeon statistics, and manual saved-data cleanup are present in the local `1.6.0-dev` build.
+These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, per-dungeon statistics, manual saved-data cleanup, and history date filters are present in the local `1.6.0-dev` build.
 
 | Priority | Idea | Player benefit | Effort |
 | --- | --- | --- | --- |
 | Done in local build | Detection confidence | Understand which loot and roll results are certain | Medium |
 | Done in local build | Per-dungeon statistics | Compare loot and Need results by dungeon | Medium |
 | Done in local build | Saved-data controls | Keep long-running histories manageable | Medium–high |
-| 4 | History date filters | Find a run from a particular day or week | Low–medium |
+| Done in local build | History date filters | Find a run from a particular day or week | Low–medium |
 | 5 | New-record notifications | Notice a personal record when it happens | Low |
 | 6 | Diagnostic snapshot | Make missed-loot bug reports easier to investigate | Medium |
 | 7 | Run stat context | Understand which specialization/stat a historical run used | Medium |
@@ -42,7 +42,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 
 **Problem:** Dungeon-name search cannot find “the run from last night” when the player does not remember the dungeon.
 
-**Proposal:** Add simple date ranges such as **Today**, **Last 7 days**, **Last 30 days**, and **All time** to the existing history. Combine the range with the dungeon search and filter.
+**Implemented locally:** History offers **Today**, **Last 7 days**, **Last 30 days**, and **All time**. The range follows local calendar days and combines with the dungeon search and filter.
 
 **Done when:** Filtering and pagination still work together, and runs at the local midnight boundary appear in the expected range.
 
@@ -72,7 +72,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 
 ## Suggested order
 
-After in-game validation of the completed items, consider **history date filters** next. All saved-data cleanup remains manual so players decide when older detail reports are removed.
+After in-game validation of the completed items, consider **optional new-record notifications** next. All saved-data cleanup remains manual so players decide when older detail reports are removed.
 
 ## Reference points
 

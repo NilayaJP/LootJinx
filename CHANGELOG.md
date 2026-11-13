@@ -8,6 +8,7 @@
 - Added evidence labels and explanations for Need results and drop recipients in run details, including clear states for inferred, unresolved, and older entries without a saved source.
 - Added a history summary for the selected dungeon or search, showing primary-stat loot runs, no-loot runs, and Need outcomes.
 - Added a confirmed cleanup action for completed run details older than 30 days, while preserving saved runs, Need outcomes, and lifetime statistics.
+- Added local-calendar date filters for Today, Last 7 days, Last 30 days, and All time to the run history; they combine with dungeon search and filtering.
 
 ## 1.5.0 — 2026-11-13
 

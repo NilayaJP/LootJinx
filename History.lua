@@ -3,7 +3,8 @@ local ADDON, ns = ...
 local LJ = ns or _G.LootJinx
 if not LJ then return end
 
-local H = { query = "", dungeon = nil, page = 1, filterPage = 1, rows = {}, filterRows = {} }
+local H = { query = "", dungeon = nil, range = "all", page = 1, filterPage = 1,
+    rows = {}, filterRows = {}, dateRows = {} }
 LJ.History = H
 local W = LJ.Widgets
 local WHITE = "Interface\\Buttons\\WHITE8X8"
@@ -52,13 +53,30 @@ local function normalized(text)
     return string.lower(tostring(text or ""))
 end
 
-function H:Filter(runs, query, dungeon)
+local function localDayStart(now, daysBack)
+    local gameClock = type(date) == "function" and type(time) == "function"
+    local dateFn = gameClock and date or (os and os.date)
+    local timeFn = gameClock and time or (os and os.time)
+    if not dateFn or not timeFn then return nil end
+    local day = dateFn("*t", now)
+    if type(day) ~= "table" then return nil end
+    return tonumber(timeFn({ year = day.year, month = day.month,
+        day = day.day - daysBack, hour = 0, min = 0, sec = 0 }))
+end
+
+function H:Filter(runs, query, dungeon, range, now)
     local result, needle = {}, normalized(query)
+    range = range or "all"
+    now = tonumber(now) or (LJ.Now and LJ.Now()) or 0
+    local daysBack = ({ today = 0, week = 6, month = 29 })[range]
+    local cutoff = daysBack and localDayStart(now, daysBack) or nil
     for i = #(runs or {}), 1, -1 do
         local run = runs[i]
         local name = type(run) == "table" and tostring(run.name or "") or ""
+        local started = type(run) == "table" and tonumber(run.started) or nil
         if type(run) == "table" and (not dungeon or name == dungeon)
-            and (needle == "" or normalized(name):find(needle, 1, true)) then
+            and (needle == "" or normalized(name):find(needle, 1, true))
+            and (not daysBack or (cutoff and started and started >= cutoff and started <= now)) then
             result[#result + 1] = run
         end
     end
@@ -123,6 +141,7 @@ function H:ApplyTheme()
     paint(self.frame, p.bg, p.border)
     paint(self.search, p.card, p.border)
     paint(self.menu, p.card, p.border)
+    paint(self.dateMenu, p.card, p.border)
     paint(self.summaryPanel, p.card, p.border)
     for _, f in ipairs(self.labels) do f:SetTextColor(rgba(p.text)) end
     for _, f in ipairs(self.mutedLabels) do f:SetTextColor(rgba(p.muted)) end
@@ -165,6 +184,33 @@ function H:Create()
     self.cleanupButton:SetScript("OnClick", function() H:ConfirmCleanup() end)
     W:Tooltip(self.cleanupButton, LJ.L("HISTORY_CLEANUP_ACCEPT"),
         { LJ.L("HISTORY_CLEANUP_HINT") })
+    self.dateButton = addButton(f, "", 150, 24)
+    self.dateButton:SetPoint("TOPRIGHT", -184, -12)
+    local dateArrow = label(self.dateButton, 10, "v")
+    dateArrow:SetPoint("RIGHT", -8, 0)
+    self.labels[#self.labels + 1] = dateArrow
+    self.dateButton:SetScript("OnClick", function()
+        H.menu:Hide()
+        H.dateMenu:SetShown(not H.dateMenu:IsShown())
+    end)
+    self.dateMenu = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    self.dateMenu:SetSize(150, 104)
+    self.dateMenu:SetPoint("TOPLEFT", self.dateButton, "BOTTOMLEFT", 0, -2)
+    self.dateMenu:SetFrameLevel(f:GetFrameLevel() + 25)
+    for i, range in ipairs({ "all", "today", "week", "month" }) do
+        local choice = addButton(self.dateMenu,
+            LJ.L("HISTORY_DATE_" .. string.upper(range)), 138, 23)
+        choice:SetPoint("TOPLEFT", 6, -4 - (i - 1) * 24)
+        choice.range = range
+        choice:SetScript("OnClick", function(self)
+            H.range = self.range
+            H.page = 1
+            H.dateMenu:Hide()
+            H:Refresh()
+        end)
+        self.dateRows[i] = choice
+    end
+    self.dateMenu:Hide()
 
     self.search = CreateFrame("EditBox", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
     self.search:SetSize(278, 25)
@@ -187,6 +233,7 @@ function H:Create()
     self.filterButton = addButton(f, LJ.L("HISTORY_ALL_DUNGEONS"), 278, 25)
     self.filterButton:SetPoint("TOPLEFT", 310, -64)
     self.filterButton:SetScript("OnClick", function()
+        H.dateMenu:Hide()
         H.menu:SetShown(not H.menu:IsShown())
         if H.menu:IsShown() then H:RefreshFilterMenu() end
     end)
@@ -269,6 +316,7 @@ function H:Create()
     f:SetScript("OnShow", function() suspendDashboardEscape(); H:Refresh() end)
     f:SetScript("OnHide", function()
         H.menu:Hide()
+        H.dateMenu:Hide()
         if LJ.RunDetail and LJ.RunDetail:IsShown() then LJ.RunDetail:Hide() end
         restoreDashboardEscape()
     end)
@@ -297,7 +345,7 @@ end
 function H:Refresh()
     if not self.frame or not LJ.Tracker then return end
     local runs = LJ.Tracker:GetRuns()
-    local matches = self:Filter(runs, self.query, self.dungeon)
+    local matches = self:Filter(runs, self.query, self.dungeon, self.range, LJ.Now())
     local preview = LJ.Storage:Preview(runs, LJ.Tracker:GetActive(), LJ.Now())
     self.cleanupButton.label:SetText(LJ.L("HISTORY_CLEANUP_BUTTON", preview.eligible))
     local summary = self:Summarize(matches)
@@ -310,6 +358,7 @@ function H:Refresh()
     local pages = math.max(1, math.ceil(#matches / PAGE_SIZE))
     self.page = math.max(1, math.min(self.page, pages))
     self.filterButton.label:SetText(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"))
+    self.dateButton.label:SetText(LJ.L("HISTORY_DATE_" .. string.upper(self.range)))
     self.count:SetText(LJ.L("HISTORY_COUNT", #matches, preview.savedRuns))
     self.empty:SetShown(#matches == 0)
     self.pageText:SetText(self.page .. " / " .. pages)
