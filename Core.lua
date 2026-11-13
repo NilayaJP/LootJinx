@@ -275,6 +275,7 @@ function LJ:InitDB()
     db.showWelcome = db.showWelcome == true
     db.showWatermark = db.showWatermark ~= false
     db.compact = db.compact == true
+    db.announceRecords = db.announceRecords == true
     db.layoutPreview = db.layoutPreview == "journal" and "journal" or "classic"
     db.minimapAngle = tonumber(db.minimapAngle) or 225
     if db.minimapAngle ~= db.minimapAngle then db.minimapAngle = 225 end

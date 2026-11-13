@@ -103,7 +103,7 @@ end
 local function buildPanel()
     panel = CreateFrame("Frame", "LootJinxOptionsPanel")
     panel.name = LJ.L("OPTIONS_TAB")
-    panel:SetSize(600, 560)
+    panel:SetSize(600, 600)
     panel:SetScript("OnShow", function() O:Refresh() end)
     panel:SetScript("OnHide", function()
         if controls.layoutMenu then controls.layoutMenu:Hide() end
@@ -189,7 +189,7 @@ local function buildPanel()
 
     local behavior = W:Card(panel)
     behavior:SetPoint("TOPLEFT", 16, -224)
-    behavior:SetSize(568, 96)
+    behavior:SetSize(568, 132)
 
     local behaviorTitle = W:Font(behavior, 9, C.accent, "OUTLINE")
     behaviorTitle:SetPoint("TOPLEFT", 14, -10)
@@ -197,9 +197,10 @@ local function buildPanel()
 
     controls.lock = createCheck(behavior, "locked", LJ.L("OPT_LOCK"), LJ.L("OPT_LOCK_HINT"), -30)
     controls.welcome = createCheck(behavior, "showWelcome", LJ.L("OPT_WELCOME"), LJ.L("OPT_WELCOME_HINT"), -66)
+    controls.records = createCheck(behavior, "announceRecords", LJ.L("OPT_RECORDS"), LJ.L("OPT_RECORDS_HINT"), -102)
 
     local appearance = W:Card(panel)
-    appearance:SetPoint("TOPLEFT", 16, -332)
+    appearance:SetPoint("TOPLEFT", 16, -368)
     appearance:SetSize(568, 96)
 
     local appearanceTitle = W:Font(appearance, 9, C.accent, "OUTLINE")
@@ -210,7 +211,7 @@ local function buildPanel()
     controls.compact = createCheck(appearance, "compact", LJ.L("OPT_COMPACT"), LJ.L("OPT_COMPACT_HINT"), -66)
 
     local layoutCard = W:Card(panel)
-    layoutCard:SetPoint("TOPLEFT", 16, -440)
+    layoutCard:SetPoint("TOPLEFT", 16, -476)
     layoutCard:SetSize(568, 76)
     local layoutTitle = W:Font(layoutCard, 9, C.accent, "OUTLINE")
     layoutTitle:SetPoint("TOPLEFT", 14, -10)
@@ -247,7 +248,7 @@ local function buildPanel()
     layoutHint:SetText(LJ.L("OPT_LAYOUT_HINT"))
 
     local footer = W:Font(panel, 9, C.muted, "")
-    footer:SetPoint("TOPLEFT", 18, -530)
+    footer:SetPoint("TOPLEFT", 18, -566)
     footer:SetWidth(560)
     footer:SetText(LJ.L("OPT_FOOTER"))
 end
@@ -293,6 +294,7 @@ function O:Refresh()
     end
     if controls.lock then setCheck(controls.lock, LJ.DB.locked) end
     if controls.welcome then setCheck(controls.welcome, LJ.DB.showWelcome) end
+    if controls.records then setCheck(controls.records, LJ.DB.announceRecords) end
     if controls.watermark then setCheck(controls.watermark, LJ.DB.showWatermark ~= false) end
     if controls.compact then setCheck(controls.compact, LJ.DB.compact) end
     if controls.layoutDropdown then

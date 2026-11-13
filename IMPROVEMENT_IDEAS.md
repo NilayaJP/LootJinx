@@ -2,7 +2,7 @@
 
 Updated: 2026-11-13
 
-These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, per-dungeon statistics, manual saved-data cleanup, and history date filters are present in the local `1.6.0-dev` build.
+These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, per-dungeon statistics, manual saved-data cleanup, history date filters, and optional local record announcements are present in the local `1.6.0-dev` build.
 
 | Priority | Idea | Player benefit | Effort |
 | --- | --- | --- | --- |
@@ -10,7 +10,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 | Done in local build | Per-dungeon statistics | Compare loot and Need results by dungeon | Medium |
 | Done in local build | Saved-data controls | Keep long-running histories manageable | Medium–high |
 | Done in local build | History date filters | Find a run from a particular day or week | Low–medium |
-| 5 | New-record notifications | Notice a personal record when it happens | Low |
+| Done in local build | New-record notifications | Notice a personal record when it happens | Low |
 | 6 | Diagnostic snapshot | Make missed-loot bug reports easier to investigate | Medium |
 | 7 | Run stat context | Understand which specialization/stat a historical run used | Medium |
 
@@ -50,7 +50,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 
 **Problem:** A new longest losing streak can happen while the dashboard is closed.
 
-**Proposal:** Add an opt-in, local-only chat notification when a personal record is exceeded. Show the record name and new value once per change. Do not post automatically to party or raid chat.
+**Implemented locally:** The settings option **Announce records in chat** is off by default. When enabled, LootJinx posts one local chat line with the record name and new value. Run-based records are evaluated from closed runs, so a dungeon in progress cannot announce a premature record; a resolved Need loss is evaluated immediately. Ties and decreases update the baseline silently. No message is sent to party, raid, or whisper chat.
 
 **Done when:** A new record triggers exactly one notification, ties do not trigger one, and the option is off by default.
 
@@ -72,7 +72,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 
 ## Suggested order
 
-After in-game validation of the completed items, consider **optional new-record notifications** next. All saved-data cleanup remains manual so players decide when older detail reports are removed.
+After in-game validation of the completed items, consider **a diagnostic snapshot** next. All saved-data cleanup remains manual so players decide when older detail reports are removed.
 
 ## Reference points
 

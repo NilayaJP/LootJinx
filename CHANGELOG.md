@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added an opt-in, local-only chat notice for new personal records, disabled by default; ties do not trigger a notice.
 - Added the latest observed personal and other-player Need values to Recent Runs in both designs, with per-item roll values and players in the hover tooltip.
 - Added a searchable, paginated history of all saved dungeon runs with a dungeon filter, accessible from both designs and compact mode.
 - Enabled opening run details from history and closing the detail window, history, and dashboard in order with ESC.

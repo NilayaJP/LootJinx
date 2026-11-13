@@ -17,6 +17,7 @@ Stats.lua
 Storage.lua
 Widgets.lua
 Tracker.lua
+Records.lua
 Report.lua
 RecentRolls.lua
 UI.lua

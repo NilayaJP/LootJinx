@@ -40,6 +40,7 @@ Open **ESC > Options > AddOns > LootJinx**. The gear icon in the dashboard and `
 - **Reset position:** Center the dashboard.
 - **Lock window position:** Prevent accidental dragging by the header.
 - **Welcome message on every login:** Show an additional chat hint. The one-time first-start message is independent of this setting.
+- **Announce records in chat:** Show a local-only chat notice when you exceed a personal record. Off by default; ties do not announce.
 - **Show watermark:** Toggle the large LootJinx symbol in the lower-right corner.
 - **Compact mode:** Hide Recent Runs and reduce the dashboard height from 628 to 476 pixels.
 - **Design:** Choose Classic or Dungeon Journal from the dropdown. The choice applies to all characters and takes effect immediately. Both designs show the same trackers and run history; the detail window follows the selected design. Pressing ESC with run details open closes the details first.
@@ -71,6 +72,8 @@ All graphics are 32-bit TGA files at 256 × 256 pixels. If you replace them, use
 **No Loot:** Dungeons where no item was observed as loot. Quest items (class ID 12 or type "Quest") do not count as loot.
 
 **Since Need Win:** Dungeons since your last successful Need roll, including dungeons without a Need roll. This counter remains at zero until your first Need roll. The tracker shows the current value and personal record.
+
+Record announcements are optional and local to your client. When enabled, LootJinx posts one chat line for each personal record that increases. Run-based records are checked when a run closes, so a dungeon in progress cannot announce a premature record; a lost Need roll is checked as soon as its result is known. Ties and decreases do not announce, and nothing is sent to party, raid, or whisper chat.
 
 A *run* starts when you enter a group or scenario instance. It remains open when you leave. On re-entry, LootJinx uses a Creature or Cast GUID to determine whether you returned to the same instance copy. If so, the run continues; a different copy starts a new run. The check remains pending until a GUID is available. Entering a different dungeon also closes the previous run.
 
