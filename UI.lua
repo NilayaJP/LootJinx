@@ -1033,15 +1033,19 @@ function LJ:HandleCommand(msg)
             LJ:Print(LJ.L("OPTIONS_UNAVAILABLE"))
         end
     elseif cmd == "debug" then
-        LJ.debugMode = true
-        if LJ.Tracker then LJ.Tracker:Debug() end
-        LJ:Print(LJ.L("CHAT_DEBUG_UI",
-            tostring(LJ.UI ~= nil),
-            tostring(LJ.dbReady == true),
-            tostring(LJ.RunDetail ~= nil),
-            tostring(LJ.UI and LJ.UI.frame and LJ.UI.frame:IsShown())))
-        if LJ.UI and LJ.UI.DebugInfo then
-            LJ:Print(LJ.UI:DebugInfo())
+        if LJ.Diagnostics then
+            LJ.Diagnostics:Show()
+        else
+            LJ.debugMode = true
+            if LJ.Tracker then LJ.Tracker:Debug() end
+            LJ:Print(LJ.L("CHAT_DEBUG_UI",
+                tostring(LJ.UI ~= nil),
+                tostring(LJ.dbReady == true),
+                tostring(LJ.RunDetail ~= nil),
+                tostring(LJ.UI and LJ.UI.frame and LJ.UI.frame:IsShown())))
+            if LJ.UI and LJ.UI.DebugInfo then
+                LJ:Print(LJ.UI:DebugInfo())
+            end
         end
     elseif cmd == "scale" then
         local value = tonumber(rest)

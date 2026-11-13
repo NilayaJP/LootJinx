@@ -2,7 +2,7 @@
 
 Updated: 2026-11-13
 
-These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, per-dungeon statistics, manual saved-data cleanup, history date filters, and optional local record announcements are present in the local `1.6.0-dev` build.
+These are proposals for future versions unless marked complete. LootJinx's focus remains **tracking personal dungeon and Need-roll bad luck in WoW Forever**. The searchable run history, compact chat report, detection-confidence labels, per-dungeon statistics, manual saved-data cleanup, history date filters, optional local record announcements, and the copyable diagnostic snapshot are present in the local `1.6.0-dev` build.
 
 | Priority | Idea | Player benefit | Effort |
 | --- | --- | --- | --- |
@@ -11,7 +11,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 | Done in local build | Saved-data controls | Keep long-running histories manageable | Medium–high |
 | Done in local build | History date filters | Find a run from a particular day or week | Low–medium |
 | Done in local build | New-record notifications | Notice a personal record when it happens | Low |
-| 6 | Diagnostic snapshot | Make missed-loot bug reports easier to investigate | Medium |
+| Done in local build | Diagnostic snapshot | Make missed-loot bug reports easier to investigate | Medium |
 | 7 | Run stat context | Understand which specialization/stat a historical run used | Medium |
 
 ## 1. Show detection confidence
@@ -58,7 +58,7 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 
 **Problem:** Missed loot and duplicate rolls are difficult to reproduce from a description alone.
 
-**Proposal:** Extend `/lj debug` with a concise snapshot of the current run: instance-copy state, recent loot event types, pending rolls, and the last item-classification decisions. Avoid including player names or whisper targets in text intended for sharing.
+**Implemented locally:** `/lj debug` opens a copyable snapshot of the current session and run. It reports the instance-copy state, recent loot event types and counts, open Need rolls, pending item classifications, and the latest classification decisions. The report uses item IDs, roll IDs, and flags only; player names, chat text, and whisper targets are excluded. In-chat output of the same snapshot remains available from the window.
 
 **Done when:** A player can copy a short report into an issue, and it gives enough context to distinguish event gaps from classification errors.
 
@@ -72,10 +72,10 @@ These are proposals for future versions unless marked complete. LootJinx's focus
 
 ## Suggested order
 
-After in-game validation of the completed items, consider **a diagnostic snapshot** next. All saved-data cleanup remains manual so players decide when older detail reports are removed.
+After in-game validation of the completed items, consider **run stat context** next. All saved-data cleanup remains manual so players decide when older detail reports are removed.
 
 ## Reference points
 
-- LootJinx: [`Tracker.lua`](Tracker.lua) limits details per run; [`Core.lua`](Core.lua) normalizes the full saved run list; [`History.lua`](History.lua) searches and paginates it.
+- LootJinx: [`Diagnostics.lua`](Diagnostics.lua) builds the copyable snapshot from recent event and classification buffers; [`Tracker.lua`](Tracker.lua) records events without player names; [`Core.lua`](Core.lua) normalizes the full saved run list; [`History.lua`](History.lua) searches and paginates it.
 - [PlayerTracker on CurseForge](https://www.curseforge.com/wow/addons/playertracker) shows date-range history filters and distinguishes observed from unavailable information.
 - [LootTracker on CurseForge](https://www.curseforge.com/wow/addons/loottracker) uses timestamps and roll history to make results easier to inspect.

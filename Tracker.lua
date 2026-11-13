@@ -37,6 +37,23 @@ local function after(seconds, fn)
     end
 end
 
+-- Diagnose speichert nur Ereignistypen, IDs und Flags. Namen, Chattexte und
+-- Whisper-Ziele gehören nicht in den kopierbaren Snapshot.
+local function diag(kind, id, detail)
+    local diagnostics = LJ.Diagnostics
+    if diagnostics and diagnostics.Event then diagnostics:Event(kind, id, detail) end
+end
+
+local function diagItem(id, info, source)
+    local diagnostics = LJ.Diagnostics
+    if diagnostics and diagnostics.NoteItem then diagnostics:NoteItem(id, info, source) end
+end
+
+local function diagDuplicate()
+    local diagnostics = LJ.Diagnostics
+    if diagnostics and diagnostics.NoteDuplicate then diagnostics:NoteDuplicate() end
+end
+
 local function lower(s)
     s = LJ.Plain(s)
     if type(s) ~= "string" then return nil end
@@ -183,6 +200,7 @@ end
 function T:CloseActive(reason)
     local run = activeRun()
     if not run then return false end
+    diag("run-close", run.id, reason or "closed")
     local previous = run.provisionalPreviousID and runByID(run.provisionalPreviousID)
     if previous then
         T:ResolveStaleNeeds(previous, true)
@@ -247,6 +265,7 @@ function T:StartRun(d, partial)
     blocked = false
     lootWindowOpen = false
     seenLootSlots = {}
+    diag("run-start", run.id, "partial=" .. tostring(run.partial))
     LJ:Changed()
     return run
 end
@@ -299,16 +318,19 @@ function T:ObserveInstanceGUID(guid)
             end
             data.activeID = previous.id
             run = previous
+            diag("copy-merged", previous.id, "new=" .. tostring(candidate.id))
             if LJ.RunDetail and LJ.RunDetail.ReplaceRun then
                 LJ.RunDetail:ReplaceRun(candidate, previous)
             end
         else
             T:ResolveStaleNeeds(previous, true)
             T:FinalizeRunItems(previous)
+            diag("copy-mismatch", previous.id, "zone=" .. tostring(zoneID))
         end
     end
     if run and not run.zoneID then
         run.zoneID = zoneID
+        diag("copy-confirmed", run.id, "zone=" .. tostring(zoneID))
         LJ:Changed()
     end
     return true
@@ -330,14 +352,19 @@ function T:CheckZone()
         local run = activeRun()
         if run and sameInstance(run, d) then
             if not inside or run.outsideAt then
+                diag("zone-reenter", run.id, run.zoneID and "known-copy" or "unknown-copy")
                 if run.zoneID then
                     run.closed = true
                     run.ended = now()
                     run.closedReason = "pending-copy"
                     db().activeID = nil
                     local candidate = T:StartRun(d, false)
-                    if candidate then candidate.provisionalPreviousID = run.id end
+                    if candidate then
+                        candidate.provisionalPreviousID = run.id
+                        diag("copy-pending", candidate.id, "previous=" .. tostring(run.id))
+                    end
                 else
+                    diag("copy-unknown", run.id)
                     T:CloseActive("unknown-copy")
                     T:StartRun(d, false)
                 end
@@ -371,7 +398,10 @@ function T:CheckZone()
             run.outsideAt = run.outsideAt or now()
             run.lastSeen = now()
             run.paused = true
-            if wasInside then LJ:Changed() end
+            if wasInside then
+                diag("zone-leave", run.id)
+                LJ:Changed()
+            end
         end
     end
 end
@@ -421,7 +451,7 @@ local function pendingRun()
     return activeRun()
 end
 
-local function queuePending(run, link, id, info)
+local function queuePending(run, link, id, info, source)
     if not run or not link then return end
     run.pending = run.pending or {}
     for i = 1, #run.pending do
@@ -433,8 +463,10 @@ local function queuePending(run, link, id, info)
         id = id,
         added = now(),
         countedLoot = info and info.loot == true or false,
+        source = source,
     }
     while #run.pending > 80 do table.remove(run.pending, 1) end
+    diag("item-pending", id, source)
     LJ:LoadItem(link, id)
     if not reclassifyScheduled then
         reclassifyScheduled = true
@@ -453,16 +485,24 @@ function T:RecordItem(link, source)
     local id = LJ:ItemID(link)
     if not id then return false end
     run.seenLinks = run.seenLinks or {}
-    if run.seenLinks[link] then return false end
+    if run.seenLinks[link] then
+        diagDuplicate()
+        return false
+    end
     run.seenLinks[link] = true
 
     local info = LJ:ClassifyItem(link)
+    diagItem(id, info, source)
     if LJ.debugMode then LJ:NoteItemDebug(link, source) end
     if not info then
-        queuePending(run, link, id, nil)
+        diag("item-defer", id, source)
+        queuePending(run, link, id, nil, source)
         return false
     end
-    if info.quest then return false end
+    if info.quest then
+        diag("item-quest", id, source)
+        return false
+    end
 
     local changed = false
     local knownLoot = info.loot == true
@@ -470,11 +510,14 @@ function T:RecordItem(link, source)
         run.lootSeen = true
         run.itemsSeen = (run.itemsSeen or 0) + 1
         changed = true
+        diag("item-counted", id, source)
     end
     if info.agi == true then
         if markAgility(run, link, info) then changed = true end
+        diag("item-stat", id, source)
     elseif info.agi == nil then
-        queuePending(run, link, id, info)
+        diag("item-stat-pending", id, source)
+        queuePending(run, link, id, info, source)
     end
     if changed then LJ:Changed() end
     return changed
@@ -501,16 +544,21 @@ function T:ReclassifyPending(itemID)
                 local info = LJ:ClassifyItem(p.link)
                 if info and (not itemID or p.id == itemID or info.id == itemID) then
                     local action, counted, agi = finalizePending(p, info)
+                    diagItem(p.id or info.id, info, "reclassify")
                     if counted and not p.countedLoot then
                         p.countedLoot = true
                         run.lootSeen = true
                         run.itemsSeen = (run.itemsSeen or 0) + 1
                         changed = true
+                        diag("pending-counted", p.id or info.id)
                     end
                     if action == "agi" then
                         if markAgility(run, p.link, info) then changed = true end
+                        diag("pending-stat", p.id or info.id)
                     elseif action == "keep" then
                         keep[#keep + 1] = p
+                    else
+                        diag("pending-" .. tostring(action), p.id or info.id)
                     end
                     if action ~= "keep" then changed = true end
                 else
@@ -527,6 +575,7 @@ function T:FinalizeRunItems(run)
     if not run then return end
     local pending = run.pending
     if type(pending) == "table" then
+        if #pending > 0 then diag("pending-finalized", run.id, "n=" .. tostring(#pending)) end
         for i = 1, #pending do
             local p = pending[i]
             local info = LJ:ClassifyItem(p.link)
@@ -582,7 +631,9 @@ function T:CheckPrimaryStatChanged()
         return false
     end
     if lastPrimaryStat == stat then return false end
+    local previous = lastPrimaryStat
     lastPrimaryStat = stat
+    diag("stat-change", nil, tostring(previous) .. "->" .. tostring(stat))
     T:ReclassifyAll()
     return true
 end
@@ -625,6 +676,7 @@ function T:ResolveNeed(need, result, reason)
     need.result = result
     need.resolvedAt = now()
     need.reason = reason or "event"
+    diag("need-result", need.id, tostring(result) .. ":" .. tostring(need.reason))
     LJ:Changed()
     return true
 end
@@ -650,9 +702,11 @@ function T:ResolveNeedByBags(need, run, force)
     end
     local count = LJ:ItemCount(id)
     local before = tonumber(need.before) or 0
+    diag("bags-check", id, "count=" .. tostring(count) .. " before=" .. tostring(before))
     if count > before then
         if T:HasGreedConflict(need, run) then
             need.noRepair = true
+            diag("greed-guard", id)
             return T:ResolveNeed(need, "lost", "greed-guard")
         end
         return T:ResolveNeed(need, "won", "bags")
@@ -735,10 +789,12 @@ function T:OnNeedRoll(rollID, link)
             local sameCached = id and n.rollID and LJ:ItemID(rollLinks[n.rollID]) == id
                 and now() - (n.at or 0) <= DEDUPE_SECONDS
             if sameRoll or sameItem or sameCached then
-                if not n.link and link then n.link = link end
-                if not n.id and id then n.id = id end
-                n.rollID = n.rollID or rollID
+                local filled = false
+                if not n.link and link then n.link = link; filled = true end
+                if not n.id and id then n.id = id; filled = true end
+                if not n.rollID and rollID then n.rollID = rollID; filled = true end
                 if n.id and not n.before then n.before = LJ:ItemCount(n.id) end
+                if filled then diag("need-link", n.id or id, "roll=" .. tostring(rollID)) end
                 LJ:Changed()
                 return
             end
@@ -753,6 +809,7 @@ function T:OnNeedRoll(rollID, link)
         before = id and LJ:ItemCount(id) or 0,
     }
     run.needs[#run.needs + 1] = need
+    diag("need-open", id, "roll=" .. tostring(rollID))
     LJ:Changed()
 
     if not link and rollID then
@@ -766,11 +823,17 @@ function T:FillNeedLink(need, rollID)
     if not need then return end
     local link = need.link or rollLink(rollID)
     if not link then return end
-    need.link = need.link or link
-    if not need.id then need.id = LJ:ItemID(link) end
+    local filled = false
+    if not need.link then need.link = link; filled = true end
+    if not need.id then
+        local id = LJ:ItemID(link)
+        if id then need.id = id; filled = true end
+    end
     if need.id and (not need.before or need.before == 0) then
         need.before = LJ:ItemCount(need.id)
+        filled = true
     end
+    if filled then diag("need-link", need.id, "roll=" .. tostring(rollID)) end
     LJ:Changed()
 end
 
@@ -788,6 +851,7 @@ function T:MarkGreed(rollID, link)
     run.greeds[#run.greeds + 1] = { at = now(), id = id, link = link, rollID = rollID }
     while #run.greeds > 25 do table.remove(run.greeds, 1) end
     recentGreed[id] = now()
+    diag("greed", id, "roll=" .. tostring(rollID))
 end
 
 function T:ResolveNeedByLink(link, result, reason)
@@ -819,6 +883,7 @@ function T:ResolveNeedByRoll(rollID)
     for _, run in ipairs(data.runs) do
         for _, n in ipairs(run.needs or {}) do
             if n.result == nil and n.rollID == rollID then
+                diag("roll-resolve", n.id, "roll=" .. tostring(rollID))
                 T:ResolveNeedByBags(n, run, true)
                 return
             end
@@ -880,7 +945,10 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
                 end
                 if passed and not d.passed and not d.winner then d.passed = true; changed = true end
                 if d.winner and d.passed then d.passed = false; changed = true end
-                if changed then LJ:Changed() end
+                if changed then
+                    diag("drop-merge", id, source)
+                    LJ:Changed()
+                end
                 return true
             end
         end
@@ -908,6 +976,7 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
         sources = { [source or "unknown"] = true },
     }
     while #run.drops > MAX_DROPS do table.remove(run.drops, 1) end
+    diag("drop-new", id, source)
     LJ:Changed()
     return true
 end
@@ -927,11 +996,13 @@ function T:NoteRoll(link, name, kind, value)
         name = name:match("^%s*(.-)%s*$")
     end
     if not id or not value or type(name) ~= "string" or name == "" then return false end
+    local mine = LJ:IsMe(name)
     kind = kind == "greed" and "greed" or "need"
     run.rolls = run.rolls or {}
     local at = now()
     run.rolls[#run.rolls + 1] = { id = id, name = name, kind = kind, value = value, at = at }
     while #run.rolls > MAX_ROLLS do table.remove(run.rolls, 1) end
+    diag("roll", id, kind .. "=" .. tostring(value) .. (mine and " self" or " other"))
 
     local changed = false
     for i = #(run.drops or {}), 1, -1 do
@@ -961,6 +1032,7 @@ end
 function T:NotePassed(link)
     local run = activeRun()
     if not run then return false end
+    diag("passed", LJ:ItemID(link))
     return noteDrop(run, link, nil, nil, "chat", nil, nil, true)
 end
 
@@ -989,6 +1061,7 @@ function T:OnBossEvent(event, ...)
     success = LJ.Plain(success)
     if not (success == 1 or success == true or success == "1") then return end
     if type(name) ~= "string" or name == "" then name = LJ.L("DETAIL_UNKNOWN_BOSS") end
+    diag("boss", id, event)
 
     run.bosses = run.bosses or {}
     local at = now()
@@ -1022,6 +1095,7 @@ function T:OnEncounterLoot(...)
     end
     if not link then return end
     local encounterID = tonumber(LJ.Plain(args[1]))
+    diag("encounter-loot", LJ:ItemID(link), "boss=" .. tostring(encounterID))
     local boss = bossByID(run, encounterID)
     if not boss and encounterID and encounterID > 0 then
         boss = { id = encounterID, name = LJ.L("DETAIL_UNKNOWN_BOSS"), at = now() }
@@ -1046,14 +1120,17 @@ function T:OnStartRoll(rollID)
     pruneRollLinks()
     local link = rollLink(rollID)
     if link then
+        diag("roll-start", LJ:ItemID(link), "roll=" .. tostring(rollID))
         T:RecordItem(link, "loot-roll")
         T:NoteSeenDrop(link, "roll", rollID)
         return
     end
+    diag("roll-start-unlinked", nil, "roll=" .. tostring(rollID))
     local function retry()
         if not inside then return end
         local l = rollLink(rollID)
         if l then
+            diag("roll-start-late", LJ:ItemID(l), "roll=" .. tostring(rollID))
             T:RecordItem(l, "loot-roll-late")
             T:NoteSeenDrop(l, "roll", rollID)
         end
@@ -1066,6 +1143,7 @@ end
 function T:OnCancelRoll(rollID)
     rollID = tonumber(rollID)
     if not rollID then return end
+    diag("roll-cancel", nil, "roll=" .. tostring(rollID))
     after(4, function() T:ResolveNeedByRoll(rollID) end)
     after(20, function() T:ResolveNeedByRoll(rollID) end)
 end
@@ -1078,6 +1156,7 @@ function T:OnLootWindow()
     if not lootWindowOpen then
         lootWindowOpen = true
         seenLootSlots = {}
+        diag("loot-open", nil, "slots=" .. tostring(count))
     end
     for slot = 1, count do
         local okL, link = pcall(GetLootSlotLink, slot)
@@ -1086,6 +1165,7 @@ function T:OnLootWindow()
             local key = tostring(slot) .. ":" .. link
             if not seenLootSlots[key] then
                 seenLootSlots[key] = true
+                diag("loot-window", LJ:ItemID(link), "slot=" .. tostring(slot))
                 T:RecordItem(link, "loot-window")
                 T:NoteSeenDrop(link, "loot-window")
             end
@@ -1201,6 +1281,7 @@ function T:OnLootChat(text, _who, guid)
 
     args = Match(p.youWon, text)
     if args then
+        diag("chat", nil, "you-won")
         recordChatItems(args[1])
         noteChatDrop(firstItemLink(args[1]), LJ:PlayerName(), nil)
         T:ResolveNeedByLink(firstItemLink(args[1]), "won", "chat-won")
@@ -1209,6 +1290,7 @@ function T:OnLootChat(text, _who, guid)
 
     args = Match(p.won, text)
     if args then
+        diag("chat", nil, "won")
         recordChatItems(args[2])
         noteChatDrop(firstItemLink(args[2]), args[1], guid)
         if LJ:IsMe(args[1]) then
@@ -1221,6 +1303,7 @@ function T:OnLootChat(text, _who, guid)
 
     args = Match(p.allPassed, text)
     if args then
+        diag("chat", nil, "all-passed")
         recordChatItems(args[1])
         T:NotePassed(firstItemLink(args[1]))
         T:ResolveNeedByLink(firstItemLink(args[1]), "lost", "chat-all-passed")
@@ -1229,6 +1312,7 @@ function T:OnLootChat(text, _who, guid)
 
     args = Match(p.needSelf, text)
     if args then
+        diag("chat", nil, "need-self")
         recordChatItems(args[1])
         T:OnNeedRoll(nil, firstItemLink(args[1]))
         return
@@ -1236,6 +1320,7 @@ function T:OnLootChat(text, _who, guid)
 
     args = Match(p.greedSelf, text)
     if args then
+        diag("chat", nil, "greed-self")
         recordChatItems(args[1])
         T:MarkGreed(nil, firstItemLink(args[1]))
         return
@@ -1243,18 +1328,21 @@ function T:OnLootChat(text, _who, guid)
 
     args = Match(p.needOther, text)
     if args then
+        diag("chat", nil, "need-other")
         recordChatItems(args[2])
         return
     end
 
     args = Match(p.greedOther, text)
     if args then
+        diag("chat", nil, "greed-other")
         recordChatItems(args[2])
         return
     end
 
     args = Match(p.rolledNeed, text) or Match(p.rolledNeedBonus, text)
     if args then
+        diag("chat", nil, "rolled-need")
         recordChatItems(args[2])
         T:NoteRoll(firstItemLink(args[2]), args[3], "need", Number(args[1]))
         return
@@ -1262,6 +1350,7 @@ function T:OnLootChat(text, _who, guid)
 
     args = Match(p.rolledGreed, text)
     if args then
+        diag("chat", nil, "rolled-greed")
         recordChatItems(args[2])
         T:NoteRoll(firstItemLink(args[2]), args[3], "greed", Number(args[1]))
         return
@@ -1269,6 +1358,7 @@ function T:OnLootChat(text, _who, guid)
 
     args = Match(p.lootSelf, text)
     if args then
+        diag("chat", nil, "loot-self")
         recordChatItems(args[1])
         noteChatDrop(firstItemLink(args[1]), LJ:PlayerName(), nil)
         T:ResolveNeedByLink(firstItemLink(args[1]), "won", "chat-loot-self")
@@ -1277,6 +1367,7 @@ function T:OnLootChat(text, _who, guid)
 
     args = Match(p.lootOther, text)
     if args then
+        diag("chat", nil, "loot-other")
         recordChatItems(args[2])
         noteChatDrop(firstItemLink(args[2]), args[1], guid)
         if not LJ:IsMe(args[1]) then
@@ -1284,7 +1375,11 @@ function T:OnLootChat(text, _who, guid)
         else
             T:ResolveNeedByLink(firstItemLink(args[2]), "won", "chat-loot-self")
         end
+        return
     end
+    diag("chat-unmatched", nil, "len=" .. tostring(#text)
+        .. " item=" .. tostring(firstItemLink(text) ~= nil)
+        .. " num=" .. tostring(text:find("%d") ~= nil))
 end
 
 function T:OnSystem(text)
@@ -1299,6 +1394,7 @@ function T:OnSystem(text)
     local runName = lower(run.name)
     if resetName and runName and resetName ~= runName then return end
     if inside then blocked = true end
+    diag("system-reset", run.id, "blocked=" .. tostring(blocked))
     T:CloseActive("instance-reset")
     LJ:Changed()
 end
@@ -1348,6 +1444,7 @@ local function onEvent(event, ...)
     elseif event == "LOOT_CLOSED" then
         lootWindowOpen = false
         seenLootSlots = {}
+        diag("loot-close")
     elseif event == "CHAT_MSG_LOOT" then
         T:OnLootChat(select(1, ...), select(2, ...), select(12, ...))
     elseif event == "CHAT_MSG_SYSTEM" then
@@ -1402,6 +1499,7 @@ function T:Start()
     lastPrimaryStat = LJ:PlayerStat()
     registerEvents()
     hookRolls()
+    diag("tracker-start", nil, "version=" .. tostring(LJ:AddOnVersion()))
     if C_Timer and C_Timer.NewTicker then
         C_Timer.NewTicker(60, function()
             pcall(T.ResolveStaleNeedsAll, T, false)
@@ -1425,8 +1523,146 @@ function T:ResetAll()
     rollLinkCount = 0
     lootWindowOpen = false
     seenLootSlots = {}
+    if LJ.Diagnostics and LJ.Diagnostics.Reset then LJ.Diagnostics:Reset() end
     LJ:Changed()
     after(0.2, function() T:CheckZone() end)
+end
+
+local function countTable(value)
+    local count = 0
+    for _ in pairs(value or {}) do count = count + 1 end
+    return count
+end
+
+local function diagnosticNeedCounts(needs)
+    local total, won, lost, open = 0, 0, 0, 0
+    for i = 1, #(needs or {}) do
+        total = total + 1
+        local result = needs[i].result
+        if result == "won" then
+            won = won + 1
+        elseif result == "lost" then
+            lost = lost + 1
+        else
+            open = open + 1
+        end
+    end
+    return total, won, lost, open
+end
+
+local function diagnosticPending(run)
+    local out = {}
+    local pending = run and run.pending or {}
+    for i = 1, #pending do
+        local p = pending[i]
+        out[#out + 1] = {
+            id = p.id,
+            source = p.source,
+            added = p.added,
+            age = now() - (tonumber(p.added) or now()),
+            countedLoot = p.countedLoot == true,
+            link = p.link ~= nil,
+        }
+    end
+    return out
+end
+
+local function diagnosticOpenNeeds(run)
+    local out = {}
+    for i = 1, #((run and run.needs) or {}) do
+        local n = run.needs[i]
+        if n.result == nil then
+            out[#out + 1] = {
+                id = n.id,
+                rollID = n.rollID,
+                at = n.at,
+                age = now() - (tonumber(n.at) or now()),
+                link = n.link ~= nil,
+                roll = n.roll,
+                rollKind = n.rollKind,
+            }
+        end
+    end
+    return out
+end
+
+local function diagnosticCopy(run)
+    local copy = { state = "none" }
+    if blocked then
+        copy.state = "blocked"
+        return copy
+    end
+    if not run then
+        if inside then copy.state = "blocked" end
+        return copy
+    end
+    if run.zoneID then
+        copy.state = "confirmed"
+        copy.zoneID = run.zoneID
+    elseif run.provisionalPreviousID then
+        copy.state = "pending"
+    else
+        copy.state = "unconfirmed"
+    end
+    if run.provisionalPreviousID then
+        copy.previousID = run.provisionalPreviousID
+        local previous = runByID(run.provisionalPreviousID)
+        if previous then
+            copy.previousZoneID = previous.zoneID
+            copy.previousClosedReason = previous.closedReason
+        end
+    end
+    return copy
+end
+
+function T:GetDiagnosticState()
+    local run = activeRun()
+    local state = {
+        inside = inside,
+        blocked = blocked,
+        live = inside and run ~= nil,
+        runCount = #(T:GetRuns()),
+        lootWindowOpen = lootWindowOpen,
+        lootSlots = countTable(seenLootSlots),
+        copy = diagnosticCopy(run),
+        start = T.startedAt,
+    }
+    if run then
+        local total, won, lost, open = diagnosticNeedCounts(run.needs)
+        state.run = {
+            id = run.id,
+            name = run.name,
+            key = run.key,
+            instanceID = run.instanceID,
+            zoneID = run.zoneID,
+            difficulty = run.difficulty,
+            started = run.started,
+            ended = run.ended,
+            lastSeen = run.lastSeen,
+            outsideAt = run.outsideAt,
+            closed = run.closed == true,
+            paused = run.paused == true,
+            closedReason = run.closedReason,
+            provisionalPreviousID = run.provisionalPreviousID,
+            partial = run.partial == true,
+            lootSeen = run.lootSeen == true,
+            agilityDropped = run.agilityDropped == true,
+            itemsSeen = run.itemsSeen or 0,
+            agiItemsSeen = run.agiItemsSeen or 0,
+            bosses = #(run.bosses or {}),
+            drops = #(run.drops or {}),
+            rolls = #(run.rolls or {}),
+            needs = total,
+            won = won,
+            lost = lost,
+            open = open,
+            pendingCount = #(run.pending or {}),
+            seenLinks = countTable(run.seenLinks),
+            pendingItems = diagnosticPending(run),
+            openNeeds = diagnosticOpenNeeds(run),
+        }
+    end
+    return state
 end
 
 function T:Debug()

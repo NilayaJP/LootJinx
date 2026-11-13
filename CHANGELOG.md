@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Extended `/lj debug` with a copyable diagnostic snapshot of the current run: instance-copy state, recent loot event types, open Need rolls, pending classifications, and the latest item-classification decisions. The snapshot uses IDs and flags only and excludes player names, chat text, and whisper targets.
 - Added an opt-in, local-only chat notice for new personal records, disabled by default; ties do not trigger a notice.
 - Added the latest observed personal and other-player Need values to Recent Runs in both designs, with per-item roll values and players in the hover tooltip.
 - Added a searchable, paginated history of all saved dungeon runs with a dungeon filter, accessible from both designs and compact mode.

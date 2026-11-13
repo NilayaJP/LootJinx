@@ -16,6 +16,7 @@ Evidence.lua
 Stats.lua
 Storage.lua
 Widgets.lua
+Diagnostics.lua
 Tracker.lua
 Records.lua
 Report.lua
