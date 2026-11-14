@@ -72,6 +72,11 @@ local function candidates(run)
     return nil
 end
 
+function Catalog:Candidates(run)
+    indexData()
+    return candidates(run)
+end
+
 function Catalog:Source(run, itemID)
     indexData()
     itemID = tonumber(itemID)

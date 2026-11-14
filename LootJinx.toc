@@ -18,6 +18,8 @@ Storage.lua
 Widgets.lua
 DungeonLootData.lua
 DungeonLoot.lua
+DungeonCompletionData.lua
+DungeonCompletion.lua
 Diagnostics.lua
 Tracker.lua
 Records.lua

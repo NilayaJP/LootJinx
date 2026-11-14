@@ -12,6 +12,7 @@ local REPAIR_SECONDS = 15 * 60
 local MAX_BOSSES = 20
 local MAX_DROPS = 120
 local MAX_ROLLS = 200
+local LOGIN_STALE_OUTSIDE_SECONDS = 6 * 60 * 60
 
 local inside = false
 local blocked = false
@@ -28,6 +29,7 @@ local lootWindowOpen = false
 local seenLootSlots = {}
 local lootHistoryDrops = 0
 local lootHistoryRolls = 0
+local worldEntries = 0
 
 local function now()
     return LJ.Now()
@@ -413,6 +415,15 @@ function T:CheckZone()
         blocked = false
         local run = activeRun()
         if run then
+            if wasInside and LJ.DungeonCompletion then
+                local dungeon, observed, required = LJ.DungeonCompletion:Match(run)
+                if dungeon then
+                    diag("completion-close", run.id, "bosses=" .. observed .. "/" .. required)
+                    T:CloseActive("all-bosses-cleared")
+                    return
+                end
+                diag("completion-pending", run.id, "bosses=" .. observed .. "/" .. required)
+            end
             run.outsideAt = run.outsideAt or now()
             run.lastSeen = now()
             run.paused = true
@@ -1568,7 +1579,19 @@ end
 local eventFrame
 local function onEvent(event, ...)
     if event == "PLAYER_ENTERING_WORLD" then
+        worldEntries = worldEntries + 1
+        local isStartupEntry = worldEntries == 1
         after(1, function()
+            -- Ein lange pausierter Run kann nach einem neuen Clientstart
+            -- nicht mehr zuverlässig derselben Instanzkopie zugeordnet
+            -- werden. Kurze Reconnects bleiben pausiert; Zonenwechsel
+            -- verwenden weiterhin die GUID-basierte Kopienprüfung.
+            local run = activeRun()
+            local outsideAt = run and tonumber(run.outsideAt)
+            local staleOutside = outsideAt and now() - outsideAt >= LOGIN_STALE_OUTSIDE_SECONDS
+            if not getDungeon() and isStartupEntry and staleOutside then
+                T:CloseActive("login-outside")
+            end
             T:CheckZone()
             T:ResolveStaleNeedsAll(false)
             T:RepairLostNeeds()

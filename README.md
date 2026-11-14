@@ -81,7 +81,7 @@ All graphics are 32-bit TGA files at 256 × 256 pixels. If you replace them, use
 
 Record announcements are optional and local to your client. When enabled, LootJinx posts one chat line for each personal record that increases. Run-based records are checked when a run closes, so a dungeon in progress cannot announce a premature record; a lost Need roll is checked as soon as its result is known. Ties and decreases do not announce, and nothing is sent to party, raid, or whisper chat.
 
-A *run* starts when you enter a group or scenario instance. It remains open when you leave. On re-entry, LootJinx uses a Creature or Cast GUID to determine whether you returned to the same instance copy. If so, the run continues; a different copy starts a new run. The check remains pending until a GUID is available. Entering a different dungeon also closes the previous run.
+A *run* starts when you enter a group or scenario instance. When you leave, LootJinx closes it if all required bosses for a resolved dungeon or wing were observed killed. Rare bosses are excluded. Missing boss events leave the run paused. On re-entry, a Creature or Cast GUID determines whether you returned to the same instance copy. A different copy or dungeon starts a new run. At the first world entry outside, a run already paused for six hours closes; short reconnects do not expire it.
 
 ## Share a Report
 

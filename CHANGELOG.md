@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Closed runs on dungeon exit after all required bosses for a resolved dungeon or wing were observed killed; excluded rare spawns and retained incomplete runs as paused.
+- Fixed stale runs remaining paused after a long login gap outside their dungeon. Short reconnects and zone changes still use the instance-copy check.
+
 ## 1.6.0 — 2026-11-13
 
 - Updated the independent loot catalog from DungeonJournal 2.0.5, adding 30 boss and trash item-source entries across Excavation Site: Wetlands, City of Dalaran, Razorfen Downs, Zul'Farrak, and Sunken Temple. Added source-version detection to the catalog generator.
