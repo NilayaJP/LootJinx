@@ -3,8 +3,9 @@ local ADDON, ns = ...
 local LJ = ns or _G.LootJinx
 if not LJ then return end
 
-local H = { query = "", dungeon = nil, range = "all", page = 1, filterPage = 1,
-    rows = {}, filterRows = {}, dateRows = {} }
+local H = { query = "", dungeon = nil, range = "all", status = "all",
+    page = 1, filterPage = 1,
+    rows = {}, filterRows = {}, dateRows = {}, statusRows = {} }
 LJ.History = H
 local W = LJ.Widgets
 local WHITE = "Interface\\Buttons\\WHITE8X8"
@@ -64,7 +65,21 @@ local function localDayStart(now, daysBack)
         day = day.day - daysBack, hour = 0, min = 0, sec = 0 }))
 end
 
-function H:Filter(runs, query, dungeon, range, now)
+function H:StatusMatches(run, status)
+    status = status or "all"
+    if status == "all" then return true end
+    if status == "paused" then return run.paused == true end
+    if status == "clear" then return run.closedReason == "all-bosses-cleared" end
+    if status == "manual" then return run.closedReason == "manual" end
+    if status == "pending" then
+        for _, need in ipairs(run.needs or {}) do
+            if need.result == nil then return true end
+        end
+    end
+    return false
+end
+
+function H:Filter(runs, query, dungeon, range, now, status)
     local result, needle = {}, normalized(query)
     range = range or "all"
     now = tonumber(now) or (LJ.Now and LJ.Now()) or 0
@@ -76,11 +91,44 @@ function H:Filter(runs, query, dungeon, range, now)
         local started = type(run) == "table" and tonumber(run.started) or nil
         if type(run) == "table" and (not dungeon or name == dungeon)
             and (needle == "" or normalized(name):find(needle, 1, true))
-            and (not daysBack or (cutoff and started and started >= cutoff and started <= now)) then
+            and (not daysBack or (cutoff and started and started >= cutoff and started <= now))
+            and self:StatusMatches(run, status) then
             result[#result + 1] = run
         end
     end
     return result
+end
+
+local function comparisonState(run)
+    if run.closedReason == "all-bosses-cleared" then return "HISTORY_COMPARE_CLEAR" end
+    if run.closedReason == "manual" then return "HISTORY_COMPARE_MANUAL" end
+    if run.paused then return "HISTORY_COMPARE_PAUSED" end
+    if run.partial then return "HISTORY_COMPARE_PARTIAL" end
+    if run.closed then return "HISTORY_COMPARE_CLOSED" end
+    return "HISTORY_COMPARE_OPEN"
+end
+
+local function comparisonRun(run)
+    local won, lost, pending = 0, 0, 0
+    for _, need in ipairs(run.needs or {}) do
+        if need.result == "won" then won = won + 1
+        elseif need.result == "lost" then lost = lost + 1
+        else pending = pending + 1 end
+    end
+    return {
+        started = tonumber(run.started) or 0,
+        stat = run.stat and (run.agilityDropped and "HISTORY_COMPARE_STAT_YES"
+            or "HISTORY_COMPARE_STAT_NO") or "HISTORY_COMPARE_STAT_UNKNOWN",
+        won = won, lost = lost, pending = pending,
+        state = comparisonState(run),
+    }
+end
+
+function H:ComparisonData(first, second)
+    if type(first) ~= "table" or type(second) ~= "table" or first == second
+        or type(first.name) ~= "string" or first.name == ""
+        or first.name ~= second.name then return nil end
+    return { name = first.name, first = comparisonRun(first), second = comparisonRun(second) }
 end
 
 function H:Dungeons(runs)
@@ -142,11 +190,14 @@ function H:ApplyTheme()
     paint(self.search, p.card, p.border)
     paint(self.menu, p.card, p.border)
     paint(self.dateMenu, p.card, p.border)
+    paint(self.statusMenu, p.card, p.border)
     paint(self.summaryPanel, p.card, p.border)
+    paint(self.comparePanel, p.bg, p.border)
     for _, f in ipairs(self.labels) do f:SetTextColor(rgba(p.text)) end
     for _, f in ipairs(self.mutedLabels) do f:SetTextColor(rgba(p.muted)) end
     self.title:SetTextColor(rgba(p.accent))
     self.summaryTitle:SetTextColor(rgba(p.accent))
+    self.compareTitle:SetTextColor(rgba(p.accent))
     for _, b in ipairs(self.buttons) do
         paint(b, p.card, p.border)
         b.label:SetTextColor(rgba(p.text))
@@ -191,6 +242,7 @@ function H:Create()
     self.labels[#self.labels + 1] = dateArrow
     self.dateButton:SetScript("OnClick", function()
         H.menu:Hide()
+        H.statusMenu:Hide()
         H.dateMenu:SetShown(not H.dateMenu:IsShown())
     end)
     self.dateMenu = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
@@ -205,6 +257,7 @@ function H:Create()
         choice:SetScript("OnClick", function(self)
             H.range = self.range
             H.page = 1
+            H:ClearComparison()
             H.dateMenu:Hide()
             H:Refresh()
         end)
@@ -222,6 +275,7 @@ function H:Create()
     self.search:SetScript("OnTextChanged", function(edit)
         H.query = edit:GetText() or ""
         H.page = 1
+        H:ClearComparison()
         H:Refresh()
     end)
     self.search:SetScript("OnEnterPressed", function(edit) edit:ClearFocus() end)
@@ -234,6 +288,7 @@ function H:Create()
     self.filterButton:SetPoint("TOPLEFT", 310, -64)
     self.filterButton:SetScript("OnClick", function()
         H.dateMenu:Hide()
+        H.statusMenu:Hide()
         H.menu:SetShown(not H.menu:IsShown())
         if H.menu:IsShown() then H:RefreshFilterMenu() end
     end)
@@ -250,6 +305,7 @@ function H:Create()
         choice:SetScript("OnClick", function(self)
             H.dungeon = self.dungeon
             H.page = 1
+            H:ClearComparison()
             H.menu:Hide()
             H:Refresh()
         end)
@@ -271,7 +327,36 @@ function H:Create()
     self.summaryPanel:SetSize(578, 54)
     self.summaryTitle = label(self.summaryPanel, 10, "")
     self.summaryTitle:SetPoint("TOPLEFT", 10, -5)
-    self.summaryTitle:SetWidth(550)
+    self.summaryTitle:SetWidth(320)
+    self.statusButton = addButton(self.summaryPanel, LJ.L("HISTORY_STATUS_ALL"), 138, 20)
+    self.statusButton:SetPoint("TOPRIGHT", -102, -4)
+    self.statusButton:SetScript("OnClick", function()
+        H.menu:Hide()
+        H.dateMenu:Hide()
+        H.statusMenu:SetShown(not H.statusMenu:IsShown())
+    end)
+    self.resetFilters = addButton(self.summaryPanel, LJ.L("HISTORY_RESET_FILTERS"), 88, 20)
+    self.resetFilters:SetPoint("TOPRIGHT", -8, -4)
+    self.resetFilters:SetScript("OnClick", function() H:ResetFilters() end)
+    self.statusMenu = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    self.statusMenu:SetSize(138, 130)
+    self.statusMenu:SetPoint("TOPLEFT", self.statusButton, "BOTTOMLEFT", 0, -2)
+    self.statusMenu:SetFrameLevel(f:GetFrameLevel() + 25)
+    for i, status in ipairs({ "all", "paused", "clear", "manual", "pending" }) do
+        local choice = addButton(self.statusMenu,
+            LJ.L("HISTORY_STATUS_" .. string.upper(status)), 126, 22)
+        choice:SetPoint("TOPLEFT", 6, -5 - (i - 1) * 24)
+        choice.status = status
+        choice:SetScript("OnClick", function(self)
+            H.status = self.status
+            H.page = 1
+            H:ClearComparison()
+            H.statusMenu:Hide()
+            H:Refresh()
+        end)
+        self.statusRows[i] = choice
+    end
+    self.statusMenu:Hide()
     self.summaryLine1 = label(self.summaryPanel, 9, "")
     self.summaryLine1:SetPoint("TOPLEFT", 10, -22)
     self.summaryLine1:SetWidth(550)
@@ -286,8 +371,15 @@ function H:Create()
         row:SetPoint("TOPLEFT", 16, -162 - (i - 1) * 34)
         row.label:ClearAllPoints()
         row.label:SetPoint("LEFT", 10, 0)
-        row.label:SetWidth(400)
+        row.label:SetWidth(355)
         row.label:SetJustifyH("LEFT")
+        row.compare = addButton(row, LJ.L("HISTORY_COMPARE_PICK"), 76, 22)
+        row.compare:SetPoint("RIGHT", row, "RIGHT", -124, 0)
+        row.compare:SetScript("OnClick", function()
+            if row.run then H:SelectForComparison(row.run) end
+        end)
+        W:Tooltip(row.compare, LJ.L("HISTORY_COMPARE_PICK"),
+            { LJ.L("HISTORY_COMPARE_HINT") })
         row.date = label(row, 9, "")
         row.date:SetPoint("RIGHT", -10, 0)
         row.date:SetWidth(105)
@@ -313,10 +405,44 @@ function H:Create()
     self.next = addButton(f, LJ.L("DETAIL_NEXT"), 75, 22)
     self.next:SetPoint("BOTTOMRIGHT", -16, 12)
     self.next:SetScript("OnClick", function() H.page = H.page + 1; H:Refresh() end)
+    self.comparePanel = CreateFrame("Frame", nil, f,
+        BackdropTemplateMixin and "BackdropTemplate" or nil)
+    self.comparePanel:SetSize(540, 220)
+    self.comparePanel:SetPoint("CENTER", f, "CENTER", 0, 0)
+    self.comparePanel:SetFrameLevel(f:GetFrameLevel() + 40)
+    self.comparePanel:EnableMouse(true)
+    self.compareTitle = label(self.comparePanel, 13, "")
+    self.compareTitle:SetPoint("TOPLEFT", 16, -14)
+    self.compareTitle:SetWidth(460)
+    local compareClose = addButton(self.comparePanel, "×", 24, 22)
+    compareClose:SetPoint("TOPRIGHT", -12, -10)
+    compareClose:SetScript("OnClick", function() H.comparePanel:Hide() end)
+    self.compareValues = {}
+    for i = 1, 2 do
+        local x = i == 1 and 18 or 278
+        local column = { title = label(self.comparePanel, 11,
+            LJ.L(i == 1 and "HISTORY_COMPARE_A" or "HISTORY_COMPARE_B")) }
+        column.title:SetPoint("TOPLEFT", x, -42)
+        self.labels[#self.labels + 1] = column.title
+        for _, field in ipairs({ "date", "stat", "need", "state" }) do
+            column[field] = label(self.comparePanel, 10, "")
+            column[field]:SetWidth(240)
+            column[field]:SetWordWrap(true)
+            self.mutedLabels[#self.mutedLabels + 1] = column[field]
+        end
+        column.date:SetPoint("TOPLEFT", x, -66)
+        column.stat:SetPoint("TOPLEFT", x, -92)
+        column.need:SetPoint("TOPLEFT", x, -123)
+        column.state:SetPoint("TOPLEFT", x, -156)
+        self.compareValues[i] = column
+    end
+    self.comparePanel:Hide()
     f:SetScript("OnShow", function() suspendDashboardEscape(); H:Refresh() end)
     f:SetScript("OnHide", function()
         H.menu:Hide()
         H.dateMenu:Hide()
+        H.statusMenu:Hide()
+        H:ClearComparison()
         if LJ.RunDetail and LJ.RunDetail:IsShown() then LJ.RunDetail:Hide() end
         restoreDashboardEscape()
     end)
@@ -342,15 +468,70 @@ function H:RefreshFilterMenu()
     self.filterNext:SetShown(self.filterPage < pages)
 end
 
+function H:ClearComparison()
+    self.compareA, self.compareB = nil, nil
+    if self.comparePanel then self.comparePanel:Hide() end
+end
+
+function H:ResetFilters()
+    self.query, self.dungeon, self.range, self.status = "", nil, "all", "all"
+    self.page, self.filterPage = 1, 1
+    self:ClearComparison()
+    if self.search then self.search:SetText("") end
+    if self.menu then self.menu:Hide() end
+    if self.dateMenu then self.dateMenu:Hide() end
+    if self.statusMenu then self.statusMenu:Hide() end
+    self:Refresh()
+end
+
+function H:ShowComparison(first, second)
+    local data = self:ComparisonData(first, second)
+    if not data or not self.comparePanel then return false end
+    self.compareTitle:SetText(LJ.L("HISTORY_COMPARE_TITLE",
+        W:Truncate(data.name or LJ.L("UNKNOWN_DUNGEON"), 37)))
+    for i, run in ipairs({ data.first, data.second }) do
+        local column = self.compareValues[i]
+        local when = run.started > 0 and date and date("%d.%m.%Y %H:%M", run.started) or "–"
+        column.date:SetText(LJ.L("HISTORY_COMPARE_DATE", when))
+        column.stat:SetText(LJ.L(run.stat))
+        column.need:SetText(LJ.L("HISTORY_COMPARE_NEED", run.won, run.lost, run.pending))
+        column.state:SetText(LJ.L(run.state))
+    end
+    self:ApplyTheme()
+    self.comparePanel:Show()
+    return true
+end
+
+function H:SelectForComparison(run)
+    if type(run) ~= "table" then return false end
+    if self.compareA == run then
+        self.compareA, self.compareB = self.compareB, nil
+        self.comparePanel:Hide()
+    elseif self.compareB == run then
+        self.compareB = nil
+        self.comparePanel:Hide()
+    elseif not self.compareA then
+        self.compareA = run
+    elseif self.compareA.name ~= run.name then
+        LJ:Print(LJ.L("HISTORY_COMPARE_SAME_DUNGEON"))
+        return false
+    else
+        self.compareB = run
+        self:ShowComparison(self.compareA, self.compareB)
+    end
+    self:Refresh()
+    return true
+end
+
 function H:Refresh()
     if not self.frame or not LJ.Tracker then return end
     local runs = LJ.Tracker:GetRuns()
-    local matches = self:Filter(runs, self.query, self.dungeon, self.range, LJ.Now())
+    local matches = self:Filter(runs, self.query, self.dungeon, self.range, LJ.Now(), self.status)
     local preview = LJ.Storage:Preview(runs, LJ.Tracker:GetActive(), LJ.Now())
     self.cleanupButton.label:SetText(LJ.L("HISTORY_CLEANUP_BUTTON", preview.eligible))
     local summary = self:Summarize(matches)
     self.summaryTitle:SetText(LJ.L("HISTORY_SUMMARY_TITLE",
-        W:Truncate(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"), 55)))
+        W:Truncate(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"), 28)))
     self.summaryLine1:SetText(LJ.L("HISTORY_SUMMARY_RUNS", summary.runs,
         summary.statRuns, summary.noLoot))
     self.summaryLine2:SetText(LJ.L("HISTORY_SUMMARY_NEED", summary.needWins,
@@ -359,6 +540,7 @@ function H:Refresh()
     self.page = math.max(1, math.min(self.page, pages))
     self.filterButton.label:SetText(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"))
     self.dateButton.label:SetText(LJ.L("HISTORY_DATE_" .. string.upper(self.range)))
+    self.statusButton.label:SetText(LJ.L("HISTORY_STATUS_" .. string.upper(self.status)))
     self.count:SetText(LJ.L("HISTORY_COUNT", #matches, preview.savedRuns))
     self.empty:SetShown(#matches == 0)
     self.pageText:SetText(self.page .. " / " .. pages)
@@ -369,6 +551,9 @@ function H:Refresh()
         row.run = run
         row:SetShown(run ~= nil)
         if run then
+            row.compare.label:SetText(run == self.compareA and LJ.L("HISTORY_COMPARE_A")
+                or run == self.compareB and LJ.L("HISTORY_COMPARE_B")
+                or LJ.L("HISTORY_COMPARE_PICK"))
             local marker = ""
             if run.legacy then
                 marker = marker .. "  ·  " .. LJ.L("HISTORY_LEGACY")

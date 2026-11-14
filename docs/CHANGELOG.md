@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a per-dungeon comparison for two saved runs, showing visit dates, observed primary-stat loot, Need outcomes, and completion state without adding persistent counters.
+- Added History status filters for paused runs, observed boss clears, manual finishes, and pending Need results. Combined them with existing search, dungeon, date, and paging controls and added a visible filter reset.
 - Kept exiting runs open for a bounded three-second event window so late final-boss kills, encounter loot, and matching rolls could reach the correct run. Rejected ambiguous carryover events during a confirmed switch to another run.
 - Corrected Forever `ENCOUNTER_LOOT_RECEIVED` parsing: used its item ID and link and stopped treating the item name as a recipient or the file name as a class. Kept loot-only encounter evidence from fabricating a boss kill.
 - Explained how each saved run contributes to the five trackers in recent-run and run-detail tooltips. Marked partial, paused, and manually finished runs in both dashboard designs without changing historical totals.

@@ -116,6 +116,10 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 ## Priority 11 — Compare runs of one dungeon
 
+**Status:** Implemented on the feature branch. Client layout remains to be checked in WoW Forever.
+
+**Implemented:** Each history row offers a Compare selection. Selecting two visits to the same dungeon, including visits on different pages, opens a side-by-side view of date, observed primary-stat loot, won/lost/pending Need outcomes, and completion state. Older runs without primary-stat context show an unknown state; no new saved counter is added.
+
 **Problem:** The history summary aggregates runs but makes variation between repeated visits hard to see.
 
 **Proposal:** Add an optional per-dungeon comparison of dates, observed stat loot, Need outcomes, and completion state using existing saved runs.
@@ -123,6 +127,10 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 **Done when:** A player can compare two visits without a new permanent counter or guessed missing data.
 
 ## Priority 12 — Improve history filtering
+
+**Status:** Implemented on the feature branch. Client layout remains to be checked in WoW Forever.
+
+**Implemented:** History now filters paused runs, observed required-boss clears, manual finishes, and runs with pending Need results. The status filter combines with name search, dungeon, and local-day date ranges; counts and paging use the combined result. A visible reset clears all filters and comparison selections.
 
 **Problem:** Name and date filters cannot directly find paused runs, clears, or runs with unresolved Needs.
 
