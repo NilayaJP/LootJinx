@@ -4,8 +4,10 @@
 
 ## 1.6.1 — 2026-11-14
 
-- Closed runs on dungeon exit after all required bosses for a resolved dungeon or wing were observed killed; excluded rare spawns and retained incomplete runs as paused.
-- Fixed stale runs remaining paused after a long login gap outside their dungeon. Short reconnects and zone changes still use the instance-copy check.
+- Added a separate required-boss table for all 35 cataloged dungeons, generated from ForeverDungeonJournal 2.0.5. Excluded rare spawns and trash; kept the existing loot-source catalog independent.
+- Resolved shared instance maps to a specific dungeon wing from observed boss kills, including Scarlet Monastery. Left ambiguous or incomplete boss evidence paused.
+- Closed completed runs when the player left the dungeon after every required boss was observed killed. Kept the run open through the final boss's loot and rolls.
+- Fixed stale runs remaining paused after a long login gap outside their dungeon. Preserved short reconnects and same-copy continuation.
 
 ## 1.6.0 — 2026-11-13
 
