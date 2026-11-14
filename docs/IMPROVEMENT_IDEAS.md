@@ -44,6 +44,8 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 **Done when:** Known materials do not stay pending indefinitely, and primary-stat streaks remain stable.
 
+**Progress:** Known non-equipment classes now receive an explicit not-applicable stat state. Equipment without a stat table remains pending until item data is cached; successful `GET_ITEM_INFO_RECEIVED` and `ITEM_DATA_LOAD_RESULT` events trigger reclassification. On login, saved pending items are checked and unresolved item data is requested again. Old runs without a stored stat context only clear items proven stat-free. Stub regressions cover materials, uncached equipment, empty stat tables, failed and successful events, and historical stat preservation. Client behavior remains to be checked in game.
+
 ## Priority 5 — Backup and migration guidance
 
 **Problem:** Players fear losing history when switching from a manual install to CurseForge.

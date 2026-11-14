@@ -28,7 +28,7 @@ Project documents: [Changelog](docs/CHANGELOG.md), [improvement ideas](docs/IMPR
 
 `/lj debug` opens a snapshot of the current session and run. It shows the instance-copy state, the stored primary-stat context, recent loot event types, observed boss encounter IDs and names, open Need rolls, pending item classifications, and the latest classification decisions. The report is designed to be copied into a bug report. The window follows the active Classic or Journal design and scrolls long snapshots.
 
-The snapshot contains item IDs, roll IDs, boss encounter IDs and names, event counts, and classification flags. Player names, chat text, and whisper targets are not included. The **Print to chat** button outputs the same snapshot locally if you prefer plain text.
+The snapshot contains item IDs, roll IDs, boss encounter IDs and names, event counts, and classification flags, including whether a primary stat is absent, not applicable, or still pending. Player names, chat text, and whisper targets are not included. The **Print to chat** button outputs the same snapshot locally if you prefer plain text.
 
 ## Minimap Button
 
@@ -84,6 +84,8 @@ All graphics are 32-bit TGA files at 256 × 256 pixels. If you replace them, use
 Record announcements are optional and local to your client. When enabled, LootJinx posts one chat line for each personal record that increases. Run-based records are checked when a run closes, so a dungeon in progress cannot announce a premature record; a lost Need roll is checked as soon as its result is known. Ties and decreases do not announce, and nothing is sent to party, raid, or whisper chat.
 
 A *run* starts when you enter a group or scenario instance. When you leave, LootJinx closes it if all required bosses for a resolved dungeon or wing were observed killed. Rare, summoned, and documented optional bosses are excluded. Available German encounter names and known combined encounter labels are recognized across the 35 cataloged dungeons; unknown names leave the run paused. Run details show the wing indicated by boss evidence, the required-boss count, and each boss without an observed kill event. For shared maps with insufficient evidence, they show the possible wings and their counts. An absent event does not prove the boss is still alive. On re-entry, a Creature or Cast GUID determines whether you returned to the same instance copy. A different copy or dungeon starts a new run. At the first world entry outside, a run already paused for six hours closes; short reconnects do not expire it.
+
+Known materials and consumables are classified without waiting for equipment stats. Equipment with incomplete item data stays pending until the Forever client reports a successful data load; unresolved saved items are requested again after login. Historical runs without a saved primary-stat context are never classified using today's specialization.
 
 ## Share a Report
 

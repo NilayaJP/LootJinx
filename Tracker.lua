@@ -575,6 +575,14 @@ function T:ReclassifyPending(itemID)
                 local p = pending[i]
                 local stat = p.stat or run.stat
                 local info = stat and LJ:ClassifyItem(p.link, stat) or nil
+                if not stat then
+                    -- Alte Runs ohne Stat-Kontext: nur eindeutig statfreie
+                    -- Items bereinigen, niemals Gear mit dem heutigen Stat.
+                    local candidate = LJ:ClassifyItem(p.link)
+                    if candidate and candidate.statState == "not-applicable" then
+                        info = candidate
+                    end
+                end
                 if info and (not itemID or p.id == itemID or info.id == itemID) then
                     local action, counted, agi = finalizePending(p, info)
                     diagItem(p.id or info.id, info, "reclassify")
@@ -602,6 +610,22 @@ function T:ReclassifyPending(itemID)
         end
     end
     if changed then LJ:Changed() end
+end
+
+function T:RefreshPendingItemData()
+    self:ReclassifyPending()
+    local data = db()
+    if not data then return end
+    local requested = {}
+    for _, run in ipairs(data.runs or {}) do
+        for _, pending in ipairs(run.pending or {}) do
+            local id = tonumber(pending.id) or LJ:ItemID(pending.link)
+            if id and not requested[id] then
+                requested[id] = true
+                LJ:LoadItem(pending.link, id)
+            end
+        end
+    end
 end
 
 function T:FinalizeRunItems(run)
@@ -1593,6 +1617,7 @@ local function onEvent(event, ...)
                 T:CloseActive("login-outside")
             end
             T:CheckZone()
+            T:RefreshPendingItemData()
             T:ResolveStaleNeedsAll(false)
             T:RepairLostNeeds()
         end)
@@ -1639,11 +1664,17 @@ local function onEvent(event, ...)
         T:OnLootChat(select(1, ...), select(2, ...), select(12, ...))
     elseif event == "CHAT_MSG_SYSTEM" then
         T:OnSystem((...))
-    elseif event == "GET_ITEM_INFO_RECEIVED" then
-        local id = tonumber(LJ.Plain((...)))
-        T:ReclassifyPending(id)
-        LJ:Changed()
-        after(1, function() T:ReclassifyPending(id) end)
+    elseif event == "GET_ITEM_INFO_RECEIVED" or event == "ITEM_DATA_LOAD_RESULT" then
+        local id, success = ...
+        id = tonumber(LJ.Plain(id))
+        success = LJ.Plain(success)
+        if id and (success == true or success == 1) then
+            T:ReclassifyPending(id)
+            LJ:Changed()
+            after(1, function() T:ReclassifyPending(id) end)
+        else
+            diag("item-data-failed", id, event)
+        end
     elseif event == "PLAYER_SPECIALIZATION_CHANGED" or event == "PLAYER_TALENT_UPDATE" then
         after(1, function() T:CheckPrimaryStatChanged() end)
     elseif event == "BAG_UPDATE_DELAYED" then
@@ -1660,7 +1691,8 @@ local function registerEvents()
         "ENCOUNTER_END", "BOSS_KILL", "ENCOUNTER_LOOT_RECEIVED",
         "START_LOOT_ROLL", "LOOT_HISTORY_UPDATE_DROP", "CANCEL_LOOT_ROLL",
         "LOOT_OPENED", "LOOT_READY", "LOOT_CLOSED",
-        "CHAT_MSG_LOOT", "CHAT_MSG_SYSTEM", "GET_ITEM_INFO_RECEIVED", "BAG_UPDATE_DELAYED",
+        "CHAT_MSG_LOOT", "CHAT_MSG_SYSTEM", "GET_ITEM_INFO_RECEIVED", "ITEM_DATA_LOAD_RESULT",
+        "BAG_UPDATE_DELAYED",
         "PLAYER_SPECIALIZATION_CHANGED", "PLAYER_TALENT_UPDATE",
     }
     for i = 1, #events do pcall(eventFrame.RegisterEvent, eventFrame, events[i]) end

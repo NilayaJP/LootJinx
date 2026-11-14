@@ -641,11 +641,26 @@ end
 
 function LJ:ItemStats(link)
     link = Plain(link)
-    if type(link) ~= "string" then return nil end
+    if type(link) ~= "string" then return nil, false end
     local fn = C_Item and C_Item.GetItemStats
-    if type(fn) ~= "function" then return nil end
+    if type(fn) ~= "function" then return nil, false end
     local ok, stats = pcall(fn, link)
-    if ok and type(stats) == "table" and next(stats) ~= nil then return stats end
+    if not ok then return nil, false end
+    if type(stats) == "table" then
+        local checked, first = pcall(next, stats)
+        if not checked then return nil, false end
+        if first ~= nil then return stats, true end
+        return nil, true
+    end
+    return nil, stats == nil
+end
+
+local function itemDataCached(id)
+    local fn = C_Item and C_Item.IsItemDataCachedByID
+    if type(fn) ~= "function" or not id then return nil end
+    local ok, cached = pcall(fn, id)
+    cached = ok and Plain(cached) or nil
+    if type(cached) == "boolean" then return cached end
     return nil
 end
 
@@ -674,17 +689,24 @@ function LJ:ClassifyItem(link, statKey)
     local classID = instant and instant.classID or info.classID
     local itemType = instant and instant.itemType or nil
     local isQuest = (classID == 12) or (type(itemType) == "string" and itemType == "Quest")
-    local stats = self:ItemStats(link)
+    local stats, statsChecked = self:ItemStats(link)
     local stat, _, keys
     if statKey and STAT_KEYS[statKey] then
         stat, keys = statKey, STAT_KEYS[statKey]
     else
         stat, _, keys = self:PlayerStat()
     end
-    local agi
-    if stats then
+    local agi, statState
+    if isQuest or (classID and classID ~= 2 and classID ~= 4) then
+        agi, statState = false, "not-applicable"
+    elseif stats then
         local v = statValue(stats, keys)
         agi = (v ~= nil and v > 0) or false
+        statState = agi and "present" or "absent"
+    elseif (classID == 2 or classID == 4) and statsChecked and itemDataCached(id) == true then
+        agi, statState = false, "absent"
+    else
+        statState = "pending"
     end
     local known = isQuest or (classID ~= nil) or (stats ~= nil)
     local loot = known and not isQuest
@@ -700,6 +722,7 @@ function LJ:ClassifyItem(link, statKey)
         known = known,
         loot = loot,
         agi = agi,
+        statState = statState,
         stats = stats,
         stat = stat,
     }

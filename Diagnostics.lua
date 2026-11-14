@@ -165,6 +165,7 @@ local function sameDecision(left, id, info, source)
         and left.loot == (info.loot == true)
         and left.quest == (info.quest == true)
         and left.agi == info.agi
+        and left.statState == info.statState
         and left.classID == tonumber(info.classID)
 end
 
@@ -200,7 +201,8 @@ function D:NoteItem(id, info, source)
         known = info and info.known == true or false,
         loot = info and info.loot == true or false,
         quest = info and info.quest == true or false,
-        agi = info and info.agi or nil,
+        agi = info and info.agi,
+        statState = info and info.statState or nil,
         classID = info and tonumber(info.classID) or nil,
     }
     while #self.items > MAX_ITEMS do table.remove(self.items, 1) end
@@ -406,6 +408,7 @@ local function addItems(lines, self)
             .. " loot=" .. boolText(item.loot)
             .. " quest=" .. boolText(item.quest)
             .. " agi=" .. flagText(item.agi)
+            .. " statState=" .. tostring(item.statState or "-")
             .. " class=" .. tostring(item.classID or "-"))
     end
 end
