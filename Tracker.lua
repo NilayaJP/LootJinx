@@ -333,6 +333,7 @@ function T:ObserveInstanceGUID(guid)
             previous.closed = false
             previous.ended = nil
             previous.closedReason = nil
+            previous.copyOutcome = "merged"
             for i = #data.runs, 1, -1 do
                 if data.runs[i] == candidate then table.remove(data.runs, i); break end
             end
@@ -342,10 +343,14 @@ function T:ObserveInstanceGUID(guid)
             if LJ.RunDetail and LJ.RunDetail.ReplaceRun then
                 LJ.RunDetail:ReplaceRun(candidate, previous)
             end
+            LJ:Changed()
         else
+            previous.closedReason = "different-copy"
+            run.copyOutcome = "different"
             T:ResolveStaleNeeds(previous, true)
             T:FinalizeRunItems(previous)
             diag("copy-mismatch", previous.id, "zone=" .. tostring(zoneID))
+            LJ:Changed()
         end
     end
     if run and not run.zoneID then
@@ -382,6 +387,7 @@ function T:CheckZone()
                     if candidate then
                         candidate.provisionalPreviousID = run.id
                         diag("copy-pending", candidate.id, "previous=" .. tostring(run.id))
+                        LJ:Changed()
                     end
                 else
                     diag("copy-unknown", run.id)
@@ -730,6 +736,16 @@ function T:ResolveNeedByBags(need, run, force)
     if not need or need.result == "won" then return false end
     if need.result == "lost" and not force then return false end
     local id = need.id
+    if id then
+        for _, other in ipairs((run and run.needs) or {}) do
+            if other ~= need and other.id == id
+                and math.abs((other.at or 0) - (need.at or 0)) <= 180
+                and other.result ~= "lost" then
+                diag("need-ambiguous", id, "bags")
+                return false
+            end
+        end
+    end
     if not id then
         return T:ResolveNeed(need, "lost", "no-item")
     end
@@ -814,24 +830,32 @@ function T:OnNeedRoll(rollID, link)
 
     if link then T:RecordItem(link, "need-roll") end
 
+    local match, matches = nil, 0
     for i = 1, #(run.needs or {}) do
         local n = run.needs[i]
         if n.result == nil then
             local sameRoll = rollID and n.rollID == rollID
-            local sameItem = id and n.id == id and now() - (n.at or 0) <= DEDUPE_SECONDS
-            local sameCached = id and n.rollID and LJ:ItemID(rollLinks[n.rollID]) == id
+            local sameItem = id and n.id == id and (not rollID or not n.rollID)
                 and now() - (n.at or 0) <= DEDUPE_SECONDS
-            if sameRoll or sameItem or sameCached then
-                local filled = false
-                if not n.link and link then n.link = link; filled = true end
-                if not n.id and id then n.id = id; filled = true end
-                if not n.rollID and rollID then n.rollID = rollID; filled = true end
-                if n.id and not n.before then n.before = LJ:ItemCount(n.id) end
-                if filled then diag("need-link", n.id or id, "roll=" .. tostring(rollID)) end
-                LJ:Changed()
-                return
-            end
+            local sameCached = id and n.rollID and LJ:ItemID(rollLinks[n.rollID]) == id
+                and not rollID and now() - (n.at or 0) <= DEDUPE_SECONDS
+            if sameRoll then match, matches = n, 1; break end
+            if sameItem or sameCached then match, matches = n, matches + 1 end
         end
+    end
+    if matches > 1 then
+        diag("need-ambiguous", id, "open")
+        return
+    end
+    if match then
+        local filled = false
+        if not match.link and link then match.link = link; filled = true end
+        if not match.id and id then match.id = id; filled = true end
+        if not match.rollID and rollID then match.rollID = rollID; filled = true end
+        if match.id and not match.before then match.before = LJ:ItemCount(match.id) end
+        if filled then diag("need-link", match.id or id, "roll=" .. tostring(rollID)) end
+        LJ:Changed()
+        return
     end
 
     local need = {
@@ -892,9 +916,9 @@ function T:ResolveNeedByLink(link, result, reason)
     local id = LJ:ItemID(link)
     local need, run, matches = T:FindPendingNeed(id, link, 900)
     if not need then return false end
-    if matches > 1 and (reason == "chat-won" or reason == "chat-other-won"
-        or reason == "chat-all-passed") then
-        reason = reason .. "-ambiguous"
+    if matches > 1 then
+        diag("need-ambiguous", id, reason or "chat")
+        return false
     end
     if result == "won" then
         return T:ResolveNeed(need, "won", reason)
@@ -1062,13 +1086,15 @@ function T:NoteRoll(link, name, kind, value, source)
             end
         end
         if kind == "need" and mine then
-            for i = 1, #(run.needs or {}) do
-                local need = run.needs[i]
-                if need.id == id and not need.roll then
-                    need.roll = value
-                    need.rollKind = kind
-                    break
+            local match, count
+            count = 0
+            for _, need in ipairs(run.needs or {}) do
+                if need.id == id and not need.roll and math.abs(at - (need.at or 0)) <= 300 then
+                    match, count = need, count + 1
                 end
+            end
+            if count == 1 then
+                match.roll, match.rollKind = value, kind
             end
         end
     end
@@ -1109,6 +1135,24 @@ end
 
 -- C_LootHistory liefert für Encounter-Beute die echten Rollzahlen aller
 -- Spieler. Die Chatmeldungen bleiben der Fallback für Trash und ältere Runs.
+local function bindHistoryNeed(run, id, name, kind, value, historyKey)
+    if kind ~= "need" or not LJ:IsMe(name) then return end
+    local drop = recentDrop(run, id, now(), historyKey)
+    local rollID = drop and drop.lootHistoryKey == historyKey and drop.rollID
+    local match, count = nil, 0
+    for _, need in ipairs(run.needs or {}) do
+        if need.id == id and (not need.lootHistoryKey or need.lootHistoryKey == historyKey)
+            and math.abs(now() - (need.at or 0)) <= 300
+            and (not rollID or need.rollID == rollID) then
+            match, count = need, count + 1
+        end
+    end
+    if count == 1 and (not match.roll or match.roll == value) then
+        match.roll, match.rollKind, match.lootHistoryKey = value, kind, historyKey
+        LJ:Changed()
+    end
+end
+
 function T:NoteRollFromHistory(link, name, kind, value, historyKey)
     local run = activeRun()
     if not run then return false end
@@ -1124,16 +1168,21 @@ function T:NoteRollFromHistory(link, name, kind, value, historyKey)
         if at - (tonumber(roll.at) or 0) > 300 then break end
         if roll.id == id and roll.kind == kind and tonumber(roll.value) == value
             and lower(roll.name) == lower(name) then
-            if roll.lootHistoryKey == historyKey then return false end
+            if roll.lootHistoryKey == historyKey then
+                bindHistoryNeed(run, id, name, kind, value, historyKey)
+                return false
+            end
             if not roll.lootHistoryKey then
                 roll.lootHistoryKey = historyKey
                 roll.chatSeen = true
+                bindHistoryNeed(run, id, name, kind, value, historyKey)
                 return false
             end
         end
     end
     if not T:NoteRoll(link, name, kind, value, "history") then return false end
     run.rolls[#run.rolls].lootHistoryKey = historyKey
+    bindHistoryNeed(run, id, name, kind, value, historyKey)
     return true
 end
 

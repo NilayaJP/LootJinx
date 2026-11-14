@@ -307,7 +307,8 @@ function J:Refresh()
     local active = LJ.Tracker:GetActive()
     local live = LJ.Tracker:IsLive()
     local latest = runs[#runs]
-    self.fields.status:SetText(active and (live and LJ.L("STATUS_LIVE") or LJ.L("STATUS_IDLE"))
+    self.fields.status:SetText(active and (active.provisionalPreviousID and LJ.L("STATUS_COPY_CHECKING")
+        or live and LJ.L("STATUS_LIVE") or LJ.L("STATUS_IDLE"))
         or latest and latest.paused and LJ.L("STATUS_IDLE") or LJ.L("STATUS_READY"))
     local hero, need = self.hero.metric, self.needCard.metric
     hero.value:SetText(string.format("%d / %d", stats.noAgiDungeons or 0, stats.totalDungeons or 0))

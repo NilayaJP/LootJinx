@@ -770,7 +770,9 @@ local function refreshContent()
         live = LJ.Tracker:IsLive()
     end)
     if statusPill then
-        if live and active then
+        if active and active.provisionalPreviousID then
+            statusPill:SetState(LJ.L("STATUS_COPY_CHECKING_SHORT"), C.orange, C.orange)
+        elseif live and active then
             statusPill:SetState(LJ.L("STATUS_LIVE") .. " · " .. W:Truncate(active.name, 18), C.green, C.green)
         elseif active then
             statusPill:SetState(LJ.L("STATUS_IDLE") .. " · " .. W:Truncate(active.name, 16), C.orange, C.orange)

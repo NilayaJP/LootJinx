@@ -374,6 +374,13 @@ function H:Refresh()
                 marker = marker .. "  ·  " .. LJ.L("HISTORY_LEGACY")
             end
             if not run.stat then marker = marker .. "  ·  " .. LJ.L("HISTORY_STAT_UNKNOWN") end
+            if run.provisionalPreviousID or run.closedReason == "pending-copy" then
+                marker = marker .. "  ·  " .. LJ.L("STATUS_COPY_CHECKING_SHORT")
+            elseif run.copyOutcome == "merged" then
+                marker = marker .. "  ·  " .. LJ.L("STATUS_COPY_MERGED_SHORT")
+            elseif run.copyOutcome == "different" or run.closedReason == "different-copy" then
+                marker = marker .. "  ·  " .. LJ.L("STATUS_COPY_DIFFERENT_SHORT")
+            end
             local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), marker ~= "" and 30 or 48)
             row.label:SetText(name .. marker)
             row.date:SetText(date and date("%d.%m.%Y", run.started or 0) or "")

@@ -64,6 +64,8 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 ## Priority 7 — Match repeated Need rolls more precisely
 
+**Status:** Implemented in the current feature branch; client behavior remains to be checked in WoW Forever.
+
 **Problem:** Several rolls for the same item can overlap, while chat and loot-history events arrive in different orders.
 
 **Proposal:** Match by available roll ID, history key, item, player, and time window in that order. Record ambiguous matches as unresolved instead of assigning one result to several rolls.
@@ -71,6 +73,8 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 **Done when:** Focused tests cover identical items, duplicate events, unknown roll values, and simultaneous Need and Greed without changing Need statistics incorrectly.
 
 ## Priority 8 — Make copy detection visible
+
+**Status:** Implemented in the current feature branch; client display remains to be checked in WoW Forever.
 
 **Problem:** After re-entry, a provisional run may wait for a Creature or Cast GUID. Players cannot tell why two entries briefly appear.
 

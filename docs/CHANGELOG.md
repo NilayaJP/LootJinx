@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Matched overlapping Need rolls by distinct roll IDs and loot-history keys. Left ambiguous chat roll values, outcomes, and bag evidence unresolved instead of assigning them to an arbitrary roll.
+- Showed provisional instance-copy checks and confirmed same-copy or different-copy outcomes in run details and history across both designs.
 - Fixed long-lived pending classifications for known non-equipment loot, including materials and consumables. Distinguished inapplicable stats from missing item data in the diagnostic snapshot.
 - Reclassified pending equipment on successful Forever item-data events and retried unresolved saved items after login. Preserved historical run stat context and Need outcomes.
 - Added a completion explanation to run details in both designs, showing the identified dungeon or wing, observed required-boss count, and bosses without a recorded kill event. Showed candidate wings when a shared map remains unresolved.

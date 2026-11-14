@@ -201,6 +201,9 @@ local function normalizeRun(run, fallbackID)
     run.instanceID = tonumber(run.instanceID)
     run.zoneID = tonumber(run.zoneID)
     run.provisionalPreviousID = tonumber(run.provisionalPreviousID)
+    if run.copyOutcome ~= "merged" and run.copyOutcome ~= "different" then
+        run.copyOutcome = nil
+    end
     run.difficulty = type(run.difficulty) == "string" and run.difficulty or nil
     run.started = tonumber(run.started) or 0
     run.lastSeen = tonumber(run.lastSeen) or run.started

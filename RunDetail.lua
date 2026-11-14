@@ -166,8 +166,12 @@ local function findNeed(run, drop, used)
     local found, nearest
     for i = 1, #(run.needs or {}) do
         local n = run.needs[i]
-        if n.id == drop.id and not used[n] then
+        if n.id == drop.id and not used[n]
+            and (not n.rollID or not drop.rollID or n.rollID == drop.rollID)
+            and (not n.lootHistoryKey or not drop.lootHistoryKey
+                or n.lootHistoryKey == drop.lootHistoryKey) then
             if drop.rollID and n.rollID == drop.rollID then return n end
+            if drop.lootHistoryKey and n.lootHistoryKey == drop.lootHistoryKey then return n end
             local selfWon = drop.winner and LJ:IsMe(drop.winner)
             local compatible = not drop.winner or not n.result
                 or (selfWon and n.result == "won")
@@ -944,6 +948,13 @@ function M:Refresh()
     local active = LJ.Tracker and LJ.Tracker.GetActive and LJ.Tracker:GetActive()
     local status = active == run and (LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("STATUS_IDLE"))
         or LJ.L("DETAIL_CLOSED")
+    if run.provisionalPreviousID or run.closedReason == "pending-copy" then
+        status = LJ.L("STATUS_COPY_CHECKING")
+    elseif run.copyOutcome == "merged" then
+        status = status .. " · " .. LJ.L("STATUS_COPY_MERGED")
+    elseif run.copyOutcome == "different" or run.closedReason == "different-copy" then
+        status = status .. " · " .. LJ.L("STATUS_COPY_DIFFERENT")
+    end
     local statText, statColor = statContext(run)
     subtitle:SetText(formatDate(run) .. " · " .. status .. " · " .. colored(statColor, statText))
 

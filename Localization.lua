@@ -15,6 +15,12 @@ local S = {
     STATUS_LIVE = { de = "LIVE", en = "LIVE" },
     STATUS_READY = { de = "BEREIT", en = "READY" },
     STATUS_IDLE = { de = "PAUSE", en = "PAUSED" },
+    STATUS_COPY_CHECKING = { de = "Instanzkopie wird geprüft", en = "Checking instance copy" },
+    STATUS_COPY_MERGED = { de = "Gleiche Instanzkopie bestätigt", en = "Same instance copy confirmed" },
+    STATUS_COPY_DIFFERENT = { de = "Andere Instanzkopie bestätigt", en = "Different instance copy confirmed" },
+    STATUS_COPY_CHECKING_SHORT = { de = "Kopie wird geprüft", en = "Checking copy" },
+    STATUS_COPY_MERGED_SHORT = { de = "Gleiche Kopie", en = "Same copy" },
+    STATUS_COPY_DIFFERENT_SHORT = { de = "Andere Kopie", en = "Different copy" },
 
     CLOSE = { de = "Schließen", en = "Close" },
     ERROR_START = { de = "LootJinx konnte nicht starten: %s", en = "LootJinx could not start: %s" },
