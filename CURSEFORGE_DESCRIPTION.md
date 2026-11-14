@@ -22,7 +22,7 @@ The dashboard shows your four most recent runs, including the latest observed Ne
 
 Run details show equippable green-quality or better loot by boss. Eligible dungeon trash drops appear in their own section, using a reviewed DungeonJournal loot catalog to identify known boss and trash sources. Unlisted or ambiguous observed items remain visible under Other Loot. Older runs recorded before detailed history was introduced remain in the list but have no detailed report.
 
-If you leave and return to the **same instance copy**, LootJinx continues the run. Entering a different copy starts a new run.
+When you leave after all required bosses in a resolved dungeon or wing were observed killed, LootJinx closes the run. Rare spawns are excluded; missing boss events leave the run paused. If you leave and return to the **same instance copy**, LootJinx continues an unfinished run. Entering a different copy starts a new run.
 
 ## Share Your Bad Luck
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.6.1 — 2026-11-14
+
 - Closed runs on dungeon exit after all required bosses for a resolved dungeon or wing were observed killed; excluded rare spawns and retained incomplete runs as paused.
 - Fixed stale runs remaining paused after a long login gap outside their dungeon. Short reconnects and zone changes still use the instance-copy check.
 
