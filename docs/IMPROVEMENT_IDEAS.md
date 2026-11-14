@@ -16,6 +16,8 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 **Done when:** Players can distinguish an incomplete run, a missing event, and an unresolved wing in both designs.
 
+**Progress:** Both run-detail designs now show the candidate dungeon or wing, observed required-boss count, and the names without recorded kill events. Shared maps with no unique candidate show each wing's count. The UI explicitly says that an unobserved event cannot distinguish a living boss from a missed client event; no inferred kill is claimed.
+
 ## Priority 2 — Validate boss names in the client
 
 **Problem:** The 1.6.1 table came from ForeverDungeonJournal 2.0.5, while `BOSS_KILL` and `ENCOUNTER_END` can use localized or differing names.

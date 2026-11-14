@@ -290,8 +290,56 @@ local function bossLootQuality(drop)
     return color and qualities[color:lower()] or nil
 end
 
+local function completionDungeonName(dungeon)
+    if LJ.lang == "de" then
+        return (LJ.DungeonCompletionNames or {})[dungeon] or dungeon
+    end
+    return dungeon
+end
+
+local function addCompletionLines(lines, run)
+    lines[#lines + 1] = { kind = "section", name = LJ.L("DETAIL_COMPLETION_SECTION") }
+    if run.legacy == true then
+        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_COMPLETION_LEGACY"), muted = true }
+        return
+    end
+    local progress = LJ.DungeonCompletion and LJ.DungeonCompletion:Progress(run)
+    if not progress or progress.state == "unavailable" then
+        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_COMPLETION_UNAVAILABLE"), muted = true }
+        return
+    end
+    if progress.state == "unresolved" then
+        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_COMPLETION_UNRESOLVED"), accent = true }
+        for _, candidate in ipairs(progress.candidates or {}) do
+            lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_COMPLETION_CANDIDATE",
+                completionDungeonName(candidate.dungeon), candidate.observed, candidate.required), muted = true }
+        end
+        return
+    end
+    lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_COMPLETION_WING",
+        completionDungeonName(progress.dungeon)), muted = true }
+    lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_COMPLETION_COUNT",
+        progress.observed, progress.required), muted = true }
+    if progress.state == "complete" then
+        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_COMPLETION_COMPLETE"), muted = true }
+    else
+        local names = {}
+        if LJ.lang == "de" then
+            for _, boss in ipairs((LJ.DungeonCompletionData or {})[progress.dungeon] or {}) do
+                names[boss.name] = boss.deName or boss.name
+            end
+        end
+        for _, boss in ipairs(progress.missing or {}) do
+            lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_COMPLETION_NO_EVENT",
+                names[boss] or boss), muted = true }
+        end
+        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_COMPLETION_UNCERTAIN"), accent = true }
+    end
+end
+
 local function buildLines(run)
     local lines = {}
+    addCompletionLines(lines, run)
     local bosses = run.bosses or {}
     local byBoss = {}
     local trash = {}

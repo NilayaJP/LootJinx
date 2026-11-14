@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a completion explanation to run details in both designs, showing the identified dungeon or wing, observed required-boss count, and bosses without a recorded kill event. Showed candidate wings when a shared map remains unresolved.
+- Added available German dungeon and boss names to the completion explanation and kept older runs without boss evidence explicit.
 - Added observed boss encounter IDs and names to the copyable diagnostic snapshot, including bosses retained in the saved run after reload.
 - Verified required and rare boss entries for Razorfen Kraul and Scarlet Monastery: Graveyard against Wowhead Forever and observed client events. Kept unknown encounter names unmatched.
 - Regenerated completion data for all 35 dungeons with available German boss names from ForeverDungeonJournal 2.0.5 and reviewed combined encounter labels against Wowhead Forever.

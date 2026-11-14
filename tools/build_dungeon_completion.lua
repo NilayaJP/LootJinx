@@ -12,6 +12,7 @@ for _, file in ipairs({ "Content_deDE.lua", "Content_NewDungeons.lua", "Content_
     assert(loadfile(root .. "/Localization/" .. file))("ForeverDungeonJournal", source)
 end
 local german = source.ContentLocales.deDE.bosses or {}
+local germanDungeons = source.ContentLocales.deDE.dungeons or {}
 
 -- Wowhead Forever journal encounter labels can combine several NPCs. Only
 -- add a shared alias when the journal explicitly presents one encounter.
@@ -57,13 +58,17 @@ local function appendUnique(list, value)
     list[#list + 1] = value
 end
 
-local function writeBoss(out, name, aliases, npcID)
+local function writeBoss(out, name, aliases, npcID, deName)
     out:write("        { name = ", string.format("%q", name), ", aliases = { ")
     for i, alias in ipairs(aliases) do
         if i > 1 then out:write(", ") end
         out:write(string.format("%q", alias))
     end
-    out:write(" }, npcID = ", tostring(tonumber(npcID) or "nil"), " },\n")
+    out:write(" }, npcID = ", tostring(tonumber(npcID) or "nil"))
+    if type(deName) == "string" and deName ~= "" and deName ~= name then
+        out:write(", deName = ", string.format("%q", deName))
+    end
+    out:write(" },\n")
 end
 
 local out = assert(io.open("DungeonCompletionData.lua", "w"))
@@ -113,11 +118,20 @@ for _, dungeonName in ipairs(source.ORDER or {}) do
                             appendUnique(aliases, german[killer])
                         end
                     end
-                    writeBoss(out, name, aliases, boss.npcID)
+                    writeBoss(out, name, aliases, boss.npcID, german[boss.name])
                 end
             end
         end
         out:write("    },\n")
+    end
+end
+out:write("}\n")
+out:write("LJ.DungeonCompletionNames = {\n")
+for _, dungeonName in ipairs(source.ORDER or {}) do
+    local label = germanDungeons[dungeonName] and germanDungeons[dungeonName].name
+    if type(label) == "string" and label ~= "" then
+        out:write("    [", string.format("%q", dungeonName), "] = ",
+            string.format("%q", label), ",\n")
     end
 end
 out:write("}\n")
