@@ -1,6 +1,7 @@
--- One-time build helper: lua tools/build_dungeon_loot.lua <ForeverDungeonJournal/Data/Dungeons.lua>
+-- lua tools/build_dungeon_loot.lua <ForeverDungeonJournal/Data/Dungeons.lua> --reviewed
 -- Produces factual item-ID/source references. LootJinx never loads the source addon.
 local input = assert(arg[1], "pass the DungeonJournal Dungeons.lua path")
+assert(arg[2] == "--reviewed", "run tools/review_dungeon_sources.lua first; pass --reviewed after reviewing its report")
 local root = assert(input:match("^(.*)[/\\]Data[/\\]Dungeons%.lua$"), "expected Data/Dungeons.lua")
 local toc = assert(io.open(root .. "/ForeverDungeonJournal.toc", "r"))
 local version

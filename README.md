@@ -132,7 +132,9 @@ The detail window opens centered over the dashboard. Close it with **×**, **ESC
 
 Runs recorded before version 1.3.0 remain in Recent Runs but cannot be opened because detailed boss and recipient data was not captured for them. Their tooltip explains this.
 
-The bundled `DungeonLootData.lua` is an independent source index drawn from the item IDs in ForeverDungeonJournal 2.0.5. It covers 35 listed dungeons and supports 24 explicit trash groups. The catalog helps label observed drops; it is not a whitelist and does not change the five tracker totals. Unknown or ambiguous items stay in **Other Loot**. The catalog can be regenerated from a reviewed DungeonJournal `Data/Dungeons.lua` with `lua tools/build_dungeon_loot.lua <path-to-Dungeons.lua>`; the generator reads the source version from its `.toc` file.
+The bundled `DungeonLootData.lua` is an independent source index drawn from the item IDs in ForeverDungeonJournal 2.0.5. It covers 35 listed dungeons and supports 24 explicit trash groups. The catalog helps label observed drops; it is not a whitelist and does not change the five tracker totals. Unknown or ambiguous items stay in **Other loot**. Hover an item there to see why no boss was assigned.
+
+Before updating either catalog, run `lua tools/review_dungeon_sources.lua <path-to-Dungeons.lua>` from the repository root. Review its boss, rare/optional flag, shared-map, and item-source differences against the committed catalogs and the reviewed source baseline. Then run `lua tools/build_dungeon_loot.lua <path-to-Dungeons.lua> --reviewed` or `lua tools/build_dungeon_completion.lua <path-to-Dungeons.lua> --reviewed`, inspect the generated diff, and update the baseline with `lua tools/review_dungeon_sources.lua <path-to-Dungeons.lua> --snapshot` only after accepting the source changes. The generator reads the source version from its `.toc` file.
 
 ## Detection Limits
 

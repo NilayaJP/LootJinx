@@ -50,22 +50,6 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 **Progress:** Known non-equipment classes now receive an explicit not-applicable stat state. Equipment without a stat table remains pending until item data is cached; successful `GET_ITEM_INFO_RECEIVED` and `ITEM_DATA_LOAD_RESULT` events trigger reclassification. On login, saved pending items are checked and unresolved item data is requested again. Old runs without a stored stat context only clear items proven stat-free. Stub regressions cover materials, uncached equipment, empty stat tables, failed and successful events, and historical stat preservation. Client behavior remains to be checked in game.
 
-## Priority 5 — Backup and migration guidance
-
-**Problem:** Players fear losing history when switching from a manual install to CurseForge.
-
-**Proposal:** Document WoW Forever `WTF/Account/.../SavedVariables/LootJinx.lua` backups with the game closed. Explain that deleting addon code differs from `/lj reset`. Consider in-addon export only if file backups prove insufficient.
-
-**Done when:** The upgrade retains `LootJinxDB` settings and `LootJinxCharDB` runs.
-
-## Priority 6 — Release consistency
-
-**Problem:** GitHub, CurseForge, installed metadata, and descriptions can diverge.
-
-**Proposal:** Use a checklist for `.toc` and `Core.lua` versions, English changelog, description, tests, zip contents, GitHub release, and CurseForge upload. Keep CurseForge publication manual unless explicitly requested.
-
-**Done when:** Published description and version match the uploaded archive.
-
 ## Priority 7 — Match repeated Need rolls more precisely
 
 **Status:** Implemented on `feature/boss-name-validation` in commit `5bb9c36`. The WoW Forever client behavior remains to be checked.
@@ -176,6 +160,10 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 ## Priority 16 — Explain unknown loot attribution
 
+**Status:** Implemented on the feature branch. Tooltip placement remains to be checked in WoW Forever.
+
+**Implemented:** The Other loot section keeps observed gear visible. Item tooltips explain whether the dungeon lacks a catalog, the item is unlisted, several sources are possible, a catalog boss was not observed, or an encounter clue could not be matched to a saved boss event. Attribution and tracker totals are unchanged.
+
 **Problem:** "Other Loot" combines uncataloged items, ambiguous boss sources, and unassigned observed gear.
 
 **Proposal:** Add tooltip explanations for the attribution reason while keeping all observed items visible. Do not treat the loot catalog as a drop whitelist.
@@ -184,35 +172,15 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 ## Priority 17 — Review source-data updates safely
 
+**Status:** Implemented on the feature branch.
+
+**Implemented:** `tools/review_dungeon_sources.lua` reports boss and flag changes against a reviewed 2.0.5 baseline, required-boss membership, candidates on shared maps, and item-source differences against the committed catalogs. Both generators require an explicit `--reviewed` flag. The current installed ForeverDungeonJournal 2.0.5 yields zero differences; a local changed-source fixture exercises all report categories. The report does not automatically approve changes.
+
 **Problem:** DungeonJournal updates can change boss names, rare flags, and loot sources independently.
 
 **Proposal:** Produce a review report before regenerating either catalog: added/removed bosses, changed rare flags, shared-map candidates, and item-source differences. Require explicit review before committing generated Lua.
 
 **Done when:** Data changes are inspectable and do not silently alter old run history or completion rules.
-
-## Priority 18 — Validate saved-data migration
-
-**Problem:** Older runs lack detail markers, stat context, or newer roll evidence.
-
-**Proposal:** Keep fixtures from several historical versions and test normalization, totals, and cleanup after each schema change. Preserve unknown fields conservatively.
-
-**Done when:** Loading older `LootJinxCharDB` data never fabricates a boss kill, recipient, roll value, or primary stat.
-
-## Priority 19 — Add a small in-client test checklist
-
-**Problem:** Lua stubs prove logic but cannot prove that Forever emits every expected event.
-
-**Proposal:** Maintain a reproducible checklist for fresh run, full clear, rare spawn, shared wing, short reconnect, logout outside, duplicate item roll, and both designs. Record client build and diagnostic snapshot for failures.
-
-**Done when:** Each release has documented client observations separate from stub-test results.
-
-## Priority 20 — Keep installation paths explicit
-
-**Problem:** Editing the source tree does not update the installed `_forever_` addon, and `/reload` reads only the installed files.
-
-**Proposal:** Add a local deployment check that copies only `.toc`, Lua modules, and media to the selected Forever AddOns path and verifies file hashes. Keep it opt-in and never touch `WTF` saved data.
-
-**Done when:** The installed version and source version match before a client test, without accidentally deleting character history.
 
 ## Guardrails
 

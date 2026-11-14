@@ -1,5 +1,6 @@
--- lua tools/build_dungeon_completion.lua <ForeverDungeonJournal/Data/Dungeons.lua>
+-- lua tools/build_dungeon_completion.lua <ForeverDungeonJournal/Data/Dungeons.lua> --reviewed
 local input = assert(arg[1], "pass Data/Dungeons.lua")
+assert(arg[2] == "--reviewed", "run tools/review_dungeon_sources.lua first; pass --reviewed after reviewing its report")
 local root = assert(input:match("^(.*)[/\\]Data[/\\]Dungeons%.lua$"))
 local toc = assert(io.open(root .. "/ForeverDungeonJournal.toc", "r"))
 local version

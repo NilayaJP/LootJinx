@@ -273,6 +273,24 @@ local function bossIndexFor(drop, bosses, catalogKind, catalogBoss)
     return nil
 end
 
+local function otherLootReason(run, drop, catalogKind)
+    if (tonumber(drop.bossID) or 0) > 0 or drop.bossName or drop.source == "encounter" then
+        return "DETAIL_OTHER_ENCOUNTER"
+    end
+    if catalogKind == "ambiguous" then return "DETAIL_OTHER_AMBIGUOUS" end
+    if catalogKind == "boss" then return "DETAIL_OTHER_BOSS_NOT_SEEN" end
+    local candidates = LJ.DungeonLoot and LJ.DungeonLoot:Candidates(run)
+    if not candidates or #candidates == 0 then return "DETAIL_OTHER_NO_DUNGEON" end
+    local hasCatalog = false
+    for _, dungeon in ipairs(candidates) do
+        if LJ.DungeonLootData and LJ.DungeonLootData[dungeon] then
+            hasCatalog = true
+            break
+        end
+    end
+    return hasCatalog and "DETAIL_OTHER_UNLISTED" or "DETAIL_OTHER_NO_DUNGEON"
+end
+
 local function bossLootQuality(drop)
     LJ:LoadItem(drop.link, drop.id)
     local info = LJ:ItemInfo(drop.link or drop.id)
@@ -401,6 +419,7 @@ local function buildLines(run)
     local byBoss = {}
     local trash = {}
     local other = {}
+    local otherReasons = {}
     local needByDrop = {}
     local usedNeeds = {}
     local dropCount = 0
@@ -425,6 +444,7 @@ local function buildLines(run)
                 trash[#trash + 1] = drop
             else
                 other[#other + 1] = drop
+                otherReasons[drop] = otherLootReason(run, drop, catalogKind)
             end
             dropCount = dropCount + 1
         end
@@ -461,7 +481,8 @@ local function buildLines(run)
             kind = "boss", name = LJ.L("DETAIL_OTHER"), count = #other, other = true,
         }
         for i = 1, #other do
-            lines[#lines + 1] = { kind = "item", drop = other[i], need = needByDrop[other[i]] }
+            lines[#lines + 1] = { kind = "item", drop = other[i], need = needByDrop[other[i]],
+                attributionReason = otherReasons[other[i]] }
         end
     end
 
@@ -560,6 +581,10 @@ local function rowTooltip(row)
         GameTooltip:AddLine(LJ.L("EVIDENCE_DROP_TOOLTIP", LJ.L("EVIDENCE_" .. string.upper(level))),
             0.92, 0.82, 0.61)
         GameTooltip:AddLine(LJ.L(reason), 0.76, 0.78, 0.83, true)
+    end
+    if line.attributionReason then
+        GameTooltip:AddLine(LJ.L("DETAIL_OTHER_REASON"), 0.92, 0.82, 0.61)
+        GameTooltip:AddLine(LJ.L(line.attributionReason), 0.76, 0.78, 0.83, true)
     end
     if need and LJ.Evidence then
         local drop = line.drop

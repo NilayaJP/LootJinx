@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Explained why observed gear appears under Other loot in item tooltips: missing catalog, unlisted item, ambiguous sources, unobserved catalog boss, or unmatched encounter clue. Kept all drops and tracker totals unchanged.
+- Added a source-data review report for boss flags, required bosses, shared-map candidates, and loot sources before regeneration. Recorded the reviewed 2.0.5 boss baseline and required `--reviewed` for both catalog generators.
 - Added an optional run timeline in both detail designs using saved start, finish, boss, primary-stat, and Need-resolution times. Recorded bounded dungeon exits and confirmed same-copy returns for new runs; explained missing transition history on older runs.
 - Removed timeline transitions during confirmed old-detail cleanup while preserving runs, Need outcomes, and lifetime statistics.
 - Added a clickable latest-run summary to the existing footer in compact mode for Classic and Dungeon Journal. Opened legacy runs through History and kept the window height and five trackers unchanged.
