@@ -4,6 +4,8 @@ LootJinx is a World of Warcraft: Forever addon (Interface 16001) that tracks you
 
 The interface is available in German and English. Open it with `/lj`, the minimap button, the AddOn button, or the AddOn Compartment next to the minimap.
 
+Project documents: [Changelog](docs/CHANGELOG.md), [improvement ideas](docs/IMPROVEMENT_IDEAS.md), and [CurseForge description](docs/CURSEFORGE_DESCRIPTION.md).
+
 ## Installation
 
 1. Copy the `LootJinx` folder to `World of Warcraft\_forever_\Interface\AddOns\LootJinx`.
@@ -24,9 +26,9 @@ The interface is available in German and English. Open it with `/lj`, the minima
 
 ## Diagnostics
 
-`/lj debug` opens a snapshot of the current session and run. It shows the instance-copy state, the stored primary-stat context, recent loot event types, open Need rolls, pending item classifications, and the latest classification decisions. The report is designed to be copied into a bug report. The window follows the active Classic or Journal design and scrolls long snapshots.
+`/lj debug` opens a snapshot of the current session and run. It shows the instance-copy state, the stored primary-stat context, recent loot event types, observed boss encounter IDs and names, open Need rolls, pending item classifications, and the latest classification decisions. The report is designed to be copied into a bug report. The window follows the active Classic or Journal design and scrolls long snapshots.
 
-The snapshot contains item IDs, roll IDs, event counts, and classification flags only. Player names, chat text, and whisper targets are not included. The **Print to chat** button outputs the same snapshot locally if you prefer plain text.
+The snapshot contains item IDs, roll IDs, boss encounter IDs and names, event counts, and classification flags. Player names, chat text, and whisper targets are not included. The **Print to chat** button outputs the same snapshot locally if you prefer plain text.
 
 ## Minimap Button
 

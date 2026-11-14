@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added observed boss encounter IDs and names to the copyable diagnostic snapshot, including bosses retained in the saved run after reload.
+- Verified required and rare boss entries for Razorfen Kraul and Scarlet Monastery: Graveyard against Wowhead Forever and observed client events. Kept unknown encounter names unmatched.
+
 ## 1.6.1 — 2026-11-14
 
 - Added a separate required-boss table for all 35 cataloged dungeons, generated from ForeverDungeonJournal 2.0.5. Excluded rare spawns and trash; kept the existing loot-source catalog independent.

@@ -30,7 +30,7 @@
 
 ## Changelog
 
-- Write all entries in `CHANGELOG.md` in English.
+- Write all entries in `docs/CHANGELOG.md` in English.
 - Describe completed changes using past-tense verbs, such as `Added`, `Changed`, `Fixed`, or `Removed`. Do not use imperative verbs such as `Add` or `Fix` for changelog entries.
 - Put unreleased work under `## Unreleased` until a release is explicitly requested.
 

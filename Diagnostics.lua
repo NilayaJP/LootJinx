@@ -12,6 +12,7 @@ local MAX_ITEMS = 40
 local REPORT_EVENTS = 10
 local REPORT_ITEMS = 8
 local REPORT_PENDING = 8
+local REPORT_BOSSES = 24
 
 local W = LJ.Widgets
 local CLASSIC = LJ.COLORS or {}
@@ -329,6 +330,24 @@ local function addEvents(lines, self)
     end
 end
 
+local function addBosses(lines, run)
+    section(lines, "DIAG_SECTION_BOSSES")
+    local bosses = run and run.bossEvents or {}
+    if type(bosses) ~= "table" or #bosses == 0 then
+        append(lines, "none")
+        return
+    end
+    local first = math.max(1, #bosses - REPORT_BOSSES + 1)
+    if first > 1 then append(lines, tostring(first - 1) .. " earlier omitted") end
+    for i = first, #bosses do
+        local boss = bosses[i]
+        if type(boss) == "table" then
+            local name = tostring(boss.name or "?"):gsub("[%c]", " "):sub(1, 80)
+            append(lines, ago(boss.at) .. " id=" .. idText(boss.id) .. " name=" .. name)
+        end
+    end
+end
+
 local function addPending(lines, run)
     section(lines, "DIAG_SECTION_PENDING")
     local needs = run and run.openNeeds or {}
@@ -449,6 +468,7 @@ function D:Build()
     local state = trackerState()
     addCopyState(lines, state)
     addEvents(lines, self)
+    addBosses(lines, state.run)
     addPending(lines, state.run)
     addItems(lines, self)
     addSignals(lines, self, state)

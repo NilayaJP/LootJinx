@@ -1847,6 +1847,7 @@ function T:GetDiagnosticState()
             itemsSeen = run.itemsSeen or 0,
             agiItemsSeen = run.agiItemsSeen or 0,
             bosses = #(run.bosses or {}),
+            bossEvents = run.bosses,
             drops = #(run.drops or {}),
             rolls = #(run.rolls or {}),
             needs = total,
