@@ -4,6 +4,9 @@
 
 - Added observed boss encounter IDs and names to the copyable diagnostic snapshot, including bosses retained in the saved run after reload.
 - Verified required and rare boss entries for Razorfen Kraul and Scarlet Monastery: Graveyard against Wowhead Forever and observed client events. Kept unknown encounter names unmatched.
+- Regenerated completion data for all 35 dungeons with available German boss names from ForeverDungeonJournal 2.0.5 and reviewed combined encounter labels against Wowhead Forever.
+- Excluded four documented optional bosses from completion, grouped the mutually exclusive Blackrock Depths arena opponents, and credited Sneed's Shredder when the observed Sneed kill implies it.
+- Fixed missing canonical aliases for grouped encounters such as The Lost Dwarves and Morphaz & Hazzas.
 
 ## 1.6.1 — 2026-11-14
 

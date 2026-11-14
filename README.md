@@ -83,7 +83,7 @@ All graphics are 32-bit TGA files at 256 × 256 pixels. If you replace them, use
 
 Record announcements are optional and local to your client. When enabled, LootJinx posts one chat line for each personal record that increases. Run-based records are checked when a run closes, so a dungeon in progress cannot announce a premature record; a lost Need roll is checked as soon as its result is known. Ties and decreases do not announce, and nothing is sent to party, raid, or whisper chat.
 
-A *run* starts when you enter a group or scenario instance. When you leave, LootJinx closes it if all required bosses for a resolved dungeon or wing were observed killed. Rare bosses are excluded. Missing boss events leave the run paused. On re-entry, a Creature or Cast GUID determines whether you returned to the same instance copy. A different copy or dungeon starts a new run. At the first world entry outside, a run already paused for six hours closes; short reconnects do not expire it.
+A *run* starts when you enter a group or scenario instance. When you leave, LootJinx closes it if all required bosses for a resolved dungeon or wing were observed killed. Rare, summoned, and documented optional bosses are excluded. Available German encounter names and known combined encounter labels are recognized across the 35 cataloged dungeons; unknown names leave the run paused. On re-entry, a Creature or Cast GUID determines whether you returned to the same instance copy. A different copy or dungeon starts a new run. At the first world entry outside, a run already paused for six hours closes; short reconnects do not expire it.
 
 ## Share a Report
 

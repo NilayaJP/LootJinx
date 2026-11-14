@@ -24,7 +24,7 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 **Done when:** Representative ordinary and shared-map dungeons resolve without false closes; unknown names remain unmatched.
 
-**Progress:** Observed English encounter names and IDs from saved Razorfen Kraul and Scarlet Monastery runs matched the required-boss table. Wowhead Forever confirmed the six required Razorfen Kraul bosses and its two rare bosses, plus the two required Graveyard bosses and its rare bosses. The diagnostic snapshot now exposes saved encounter IDs and names for future client reports. German encounter names and other dungeons still need client evidence; no speculative aliases were added.
+**Progress:** All 35 completion entries were regenerated from ForeverDungeonJournal 2.0.5 with available German boss names and compared with Wowhead Forever dungeon-journal entries where published. The generator now excludes documented optional bosses as well as rares and summons, groups the six mutually exclusive Blackrock Depths arena opponents, and handles confirmed combined encounter labels. Automated checks cover every dungeon with a complete and an incomplete boss set. Saved English encounter IDs and names from Razorfen Kraul and Scarlet Monastery matched. `/lj debug` exposes saved IDs and names for future reports. This is a source-data audit; live German event names and dungeons without a published Wowhead journal still need client evidence. Unknown names remain unmatched.
 
 ## Priority 3 — Manual run finish
 
