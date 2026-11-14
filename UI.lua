@@ -221,6 +221,7 @@ local function createHero()
     W:Tooltip(hero, LJ.L("TT_CURSE_TITLE"), {
         LJ.L("TT_CURSE_1", select(2, LJ:PlayerStat())),
         LJ.L("TT_CURSE_2"),
+        LJ.L("TT_CURSE_3"),
     })
 end
 
@@ -297,6 +298,7 @@ local function createNeedCard()
     W:Tooltip(needCard, LJ.L("TT_NEED_TITLE"), {
         LJ.L("TT_NEED_1"),
         LJ.L("TT_NEED_2"),
+        LJ.L("TT_NEED_3"),
     })
 end
 
@@ -341,14 +343,46 @@ end
 
 local function createMinis()
     miniNoWin = createMini(frame, 16, LJ.L("MINI_NO_WIN"), LJ.L("MINI_NO_WIN_SUB"),
-        LJ.L("TT_NO_WIN_TITLE"), { LJ.L("TT_NO_WIN_1"), LJ.L("TT_NO_WIN_2") },
+        LJ.L("TT_NO_WIN_TITLE"), { LJ.L("TT_NO_WIN_1"), LJ.L("TT_NO_WIN_2"), LJ.L("TT_NO_WIN_3") },
         MEDIA .. "NoNeedWin")
     miniNoLoot = createMini(frame, 224, LJ.L("MINI_NO_LOOT"), LJ.L("MINI_NO_LOOT_SUB"),
-        LJ.L("TT_NO_LOOT_TITLE"), { LJ.L("TT_NO_LOOT_1") },
+        LJ.L("TT_NO_LOOT_TITLE"), { LJ.L("TT_NO_LOOT_1"), LJ.L("TT_NO_LOOT_2") },
         MEDIA .. "NoLoot")
     miniSince = createMini(frame, 432, LJ.L("MINI_SINCE"), LJ.L("MINI_SINCE_SUB"),
-        LJ.L("TT_SINCE_TITLE"), { LJ.L("TT_SINCE_1"), LJ.L("TT_SINCE_2") },
+        LJ.L("TT_SINCE_TITLE"), { LJ.L("TT_SINCE_1"), LJ.L("TT_SINCE_2"), LJ.L("TT_SINCE_3") },
         MEDIA .. "SinceNeedWin")
+end
+
+function LJ:RunStatusMarker(run)
+    local active = self.Tracker and self.Tracker:GetActive() == run
+    local key = self.Stats.RunStatusKey(run, active)
+    return key and self.L(key) or nil
+end
+
+function LJ:AppendRunBasisTooltip(run)
+    if not GameTooltip or not self.Stats then return end
+    local basis = self.Stats.RunBasis(self.Tracker and self.Tracker:GetRuns(), run)
+    if not basis then return end
+    local line = function(key, ...)
+        GameTooltip:AddLine(self.L(key, ...), 0.86, 0.87, 0.90, true)
+    end
+    local status = self:RunStatusMarker(run) or self.L("TT_BASIS_COMPLETE")
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(self.L("TT_BASIS_TITLE"), C.accent[1], C.accent[2], C.accent[3])
+    line("TT_BASIS_STATUS", status)
+    line(basis.noStat and "TT_BASIS_NO_STAT_YES" or "TT_BASIS_NO_STAT_NO")
+    line("TT_BASIS_NEED", basis.needLost, basis.needWon, basis.needPending)
+    line(basis.noNeedWin and "TT_BASIS_NO_WIN_YES"
+        or basis.needTotal > 0 and "TT_BASIS_NO_WIN_WON" or "TT_BASIS_NO_WIN_NONE")
+    line(basis.noLoot and "TT_BASIS_NO_LOOT_YES" or "TT_BASIS_NO_LOOT_NO")
+    line("TT_BASIS_SINCE_" .. string.upper((basis.sinceNeedWin or "not-started"):gsub("-", "_")))
+end
+
+function LJ:ShowRunBasisTooltip(owner, run)
+    if not GameTooltip or not run then return end
+    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+    self:AppendRunBasisTooltip(run)
+    GameTooltip:Show()
 end
 
 local function runTooltip(row, run)
@@ -385,11 +419,7 @@ local function runTooltip(row, run)
         GameTooltip:AddLine(" ")
         GameTooltip:AddLine(run.agilityLink, 0.86, 0.87, 0.90)
     end
-    if run.id and LJ.Tracker and LJ.Tracker:GetActive() == run then
-        GameTooltip:AddLine(" ")
-        local status = LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("STATUS_IDLE")
-        GameTooltip:AddLine(status, C.green[1], C.green[2], C.green[3])
-    end
+    LJ:AppendRunBasisTooltip(run)
     if LJ.RunDetail then
         GameTooltip:AddLine(" ")
         if run.legacy == true then
@@ -867,11 +897,14 @@ local function refreshContent()
                 row:Show()
                 local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 36)
                 if active == run then
-                    local status = live and LJ.L("LIVE") or LJ.L("STATUS_IDLE")
+                    local status = LJ:RunStatusMarker(run)
+                        or (live and LJ.L("LIVE") or LJ.L("STATUS_IDLE"))
                     row.name:SetText(colored(C.green, status .. " ") .. colored(C.text, name))
                     row.bar:SetColorTexture(C.green[1], C.green[2], C.green[3], 1)
                 else
-                    row.name:SetText(colored(run.agilityDropped and C.text or C.muted, name))
+                    local marker = LJ:RunStatusMarker(run)
+                    row.name:SetText(colored(run.agilityDropped and C.text or C.muted,
+                        marker and (W:Truncate(name, 25) .. " · " .. marker) or name))
                     local c = run.agilityDropped and C.green or C.red
                     row.bar:SetColorTexture(c[1], c[2], c[3], 0.85)
                 end

@@ -731,6 +731,13 @@ function M:Create()
     summary:SetPoint("LEFT", 12, 0)
     summary:SetWidth(500)
     summary:SetWordWrap(false)
+    summaryPanel:EnableMouse(true)
+    summaryPanel:SetScript("OnEnter", function(self)
+        if currentRun and LJ.ShowRunBasisTooltip then LJ:ShowRunBasisTooltip(self, currentRun) end
+    end)
+    summaryPanel:SetScript("OnLeave", function()
+        if GameTooltip then GameTooltip:Hide() end
+    end)
 
     content = CreateFrame("Frame", nil, f)
     content:SetPoint("TOPLEFT", 16, -112)

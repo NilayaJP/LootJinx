@@ -92,6 +92,10 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 ## Priority 9 — Handle late boss and loot events
 
+**Status:** Implemented on the feature branch with a bounded exit window. Real client event ordering remains to be checked in WoW Forever.
+
+**Implemented:** Leaving an instance starts a three-second settling window before the completion check closes the run. Boss kills, encounter loot, and matching chat or loot-history rolls observed in that window stay with the exiting run. Events arriving during an immediate transition to another run are held out of the new run when their source cannot be established safely. Diagnostics record the transition and skipped late events without chat text or player names. Forever's encounter-loot payload is parsed by item ID and link; its item name no longer becomes a guessed recipient, and loot-only evidence cannot count as a boss kill. Focused local checks cover late final-boss evidence, closure after the window, and an immediate dungeon switch.
+
 **Problem:** Instance transitions and loading screens can reorder the last boss, loot, and zone events.
 
 **Proposal:** Capture real event sequences in diagnostics, then adjust only the observed race. Avoid a blanket delay that keeps completed runs open indefinitely.
@@ -99,6 +103,10 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 **Done when:** Final-boss loot and rolls survive exit, and a later event cannot attach to the wrong run.
 
 ## Priority 10 — Explain incomplete runs in statistics
+
+**Status:** Implemented on the feature branch. Client tooltip placement remains to be checked in WoW Forever.
+
+**Implemented:** Classic and Dungeon Journal mark active, paused, partial, and manually finished recent runs. Hovering a recent run or the run-detail summary shows its contribution to each of the five trackers, including confirmed Need losses, pending outcomes, and whether the since-win counter increments or resets. All five tracker cards explain how unfinished runs are included. Historical totals and formulas remain unchanged.
 
 **Problem:** A paused, partial, or manually closed run can affect streak interpretation differently from a fully observed clear.
 

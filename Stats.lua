@@ -147,4 +147,52 @@ function Stats.Compute(runs)
     return out
 end
 
+function Stats.RunBasis(runs, run)
+    if type(run) ~= "table" then return nil end
+    local basis = {
+        noStat = run.agilityDropped ~= true,
+        noLoot = run.lootSeen ~= true,
+        needLost = 0,
+        needPending = 0,
+        needWon = 0,
+        needTotal = 0,
+    }
+    for _, need in ipairs(run.needs or {}) do
+        basis.needTotal = basis.needTotal + 1
+        if need.result == "won" then
+            basis.needWon = basis.needWon + 1
+        elseif need.result == "lost" then
+            basis.needLost = basis.needLost + 1
+        else
+            basis.needPending = basis.needPending + 1
+        end
+    end
+    basis.noNeedWin = basis.needTotal > 0 and basis.needWon == 0
+    local seenNeed = false
+    for _, entry in ipairs(type(runs) == "table" and runs or {}) do
+        if entry == run then
+            if basis.needWon > 0 then
+                basis.sinceNeedWin = "reset"
+            elseif seenNeed or basis.needTotal > 0 then
+                basis.sinceNeedWin = "increment"
+            else
+                basis.sinceNeedWin = "not-started"
+            end
+            break
+        end
+        if type(entry) == "table" and #(entry.needs or {}) > 0 then seenNeed = true end
+    end
+    return basis
+end
+
+function Stats.RunStatusKey(run, active)
+    if type(run) ~= "table" then return nil end
+    if run.closedReason == "manual" then return "RUN_STATUS_MANUAL" end
+    if run.partial then return "RUN_STATUS_PARTIAL" end
+    if run.paused then return "RUN_STATUS_PAUSED" end
+    if active then return "RUN_STATUS_LIVE" end
+    if not run.closed then return "RUN_STATUS_OPEN" end
+    return nil
+end
+
 return Stats

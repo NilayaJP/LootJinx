@@ -253,6 +253,21 @@ function J:Create()
     self.miniCards[1] = mini(f, 16, LJ.L("MINI_NO_WIN"), "NoNeedWin")
     self.miniCards[2] = mini(f, 224, LJ.L("MINI_NO_LOOT"), "NoLoot")
     self.miniCards[3] = mini(f, 432, LJ.L("MINI_SINCE"), "SinceNeedWin")
+    W:Tooltip(self.hero, LJ.L("TT_CURSE_TITLE"), {
+        LJ.L("TT_CURSE_1", select(2, LJ:PlayerStat())), LJ.L("TT_CURSE_2"), LJ.L("TT_CURSE_3"),
+    })
+    W:Tooltip(self.needCard, LJ.L("TT_NEED_TITLE"), {
+        LJ.L("TT_NEED_1"), LJ.L("TT_NEED_2"), LJ.L("TT_NEED_3"),
+    })
+    W:Tooltip(self.miniCards[1], LJ.L("TT_NO_WIN_TITLE"), {
+        LJ.L("TT_NO_WIN_1"), LJ.L("TT_NO_WIN_2"), LJ.L("TT_NO_WIN_3"),
+    })
+    W:Tooltip(self.miniCards[2], LJ.L("TT_NO_LOOT_TITLE"), {
+        LJ.L("TT_NO_LOOT_1"), LJ.L("TT_NO_LOOT_2"),
+    })
+    W:Tooltip(self.miniCards[3], LJ.L("TT_SINCE_TITLE"), {
+        LJ.L("TT_SINCE_1"), LJ.L("TT_SINCE_2"), LJ.L("TT_SINCE_3"),
+    })
     makeRecent(f)
     self.fields.curseCurrent, self.fields.curseRecord = hero.streak, hero.record
     self.fields.needLostCurrent = need.streak
@@ -356,7 +371,9 @@ function J:Refresh()
             local badges = LJ.L("TT_RUN_AGI", stat)
             if totalNeeds > 0 then badges = badges .. " · " .. LJ.L("BADGE_NEED", wins, totalNeeds) end
             if run.legacy then badges = badges .. " · " .. LJ.L("JOURNAL_LEGACY") end
-            row.name:SetText(W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 36))
+            local marker = LJ:RunStatusMarker(run)
+            local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), marker and 24 or 36)
+            row.name:SetText(marker and (name .. " · " .. marker) or name)
             row.badges:SetText(LJ.RecentRolls:Summary(run) or badges)
             row.date:SetText(date and date("%d.%m.", run.started or 0) or "")
         end

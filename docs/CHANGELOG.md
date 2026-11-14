@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Kept exiting runs open for a bounded three-second event window so late final-boss kills, encounter loot, and matching rolls could reach the correct run. Rejected ambiguous carryover events during a confirmed switch to another run.
+- Corrected Forever `ENCOUNTER_LOOT_RECEIVED` parsing: used its item ID and link and stopped treating the item name as a recipient or the file name as a class. Kept loot-only encounter evidence from fabricating a boss kill.
+- Explained how each saved run contributes to the five trackers in recent-run and run-detail tooltips. Marked partial, paused, and manually finished runs in both dashboard designs without changing historical totals.
 - Clarified the main dashboard in both designs: showed the number of runs without a primary-stat drop alongside the tracked-run total, and labeled the large Need value as lost rolls.
 - Added a confirmed manual finish action to active run details in Classic and Dungeon Journal. Preserved recorded details and unresolved Need outcomes, and prevented the same instance from reopening a run until exit.
 - Matched overlapping Need rolls by distinct roll IDs and loot-history keys. Left ambiguous chat roll values, outcomes, and bag evidence unresolved instead of assigning them to an arbitrary roll.

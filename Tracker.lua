@@ -13,6 +13,7 @@ local MAX_BOSSES = 20
 local MAX_DROPS = 120
 local MAX_ROLLS = 200
 local LOGIN_STALE_OUTSIDE_SECONDS = 6 * 60 * 60
+local EXIT_SETTLE_SECONDS = 3
 
 local inside = false
 local blocked = false
@@ -30,6 +31,9 @@ local seenLootSlots = {}
 local lootHistoryDrops = 0
 local lootHistoryRolls = 0
 local worldEntries = 0
+local exitGraceRun, exitGraceUntil
+local lastExitedRun, lastExitUntil
+local transitionGuardRun
 
 local function now()
     return LJ.Now()
@@ -168,6 +172,15 @@ function T:IsLive()
     return inside and activeRun() ~= nil
 end
 
+local function inExitGrace(run)
+    return run and run == exitGraceRun and exitGraceUntil and now() < exitGraceUntil
+end
+
+local function transitioningFromOtherRun(run)
+    return run and run == transitionGuardRun and lastExitedRun and run ~= lastExitedRun
+        and lastExitUntil and now() < lastExitUntil
+end
+
 -- ---------------------------------------------------------------- Zone
 local function getDungeon()
     if type(IsInInstance) ~= "function" then return nil end
@@ -219,6 +232,8 @@ function T:CloseActive(reason)
     run.closedReason = reason or "closed"
     local data = db()
     if data then data.activeID = nil end
+    if exitGraceRun == run then exitGraceRun, exitGraceUntil = nil, nil end
+    if transitionGuardRun == run then transitionGuardRun = nil end
     LJ:Changed()
     return true
 end
@@ -248,6 +263,8 @@ local function markAgility(run, link, info)
 end
 
 function T:StartRun(d, partial)
+    exitGraceRun, exitGraceUntil = nil, nil
+    transitionGuardRun = nil
     local data = db()
     if not data then return nil end
     local stat = LJ:PlayerStat()
@@ -406,6 +423,9 @@ function T:CheckZone()
                     local candidate = T:StartRun(d, false)
                     if candidate then
                         candidate.provisionalPreviousID = run.id
+                        if lastExitedRun == run and lastExitUntil and now() < lastExitUntil then
+                            transitionGuardRun = candidate
+                        end
                         diag("copy-pending", candidate.id, "previous=" .. tostring(run.id))
                         LJ:Changed()
                     end
@@ -432,7 +452,10 @@ function T:CheckZone()
             return
         end
         if run then T:CloseActive("switched-instance") end
-        T:StartRun(d, wasFirst)
+        local candidate = T:StartRun(d, wasFirst)
+        if candidate and lastExitedRun and lastExitUntil and now() < lastExitUntil then
+            transitionGuardRun = candidate
+        end
         observeUnit("target")
         observeUnit("mouseover")
     else
@@ -442,7 +465,19 @@ function T:CheckZone()
         blocked = false
         local run = activeRun()
         if run then
-            if wasInside and LJ.DungeonCompletion then
+            if wasInside then
+                exitGraceRun, exitGraceUntil = run, now() + EXIT_SETTLE_SECONDS
+                lastExitedRun, lastExitUntil = run, exitGraceUntil
+                diag("exit-settle", run.id, "start")
+                if C_Timer and type(C_Timer.After) == "function" then
+                    after(EXIT_SETTLE_SECONDS + 1, function()
+                        if activeRun() == run and not inside then T:CheckZone() end
+                    end)
+                else
+                    exitGraceUntil = now()
+                end
+            end
+            if not inExitGrace(run) and LJ.DungeonCompletion then
                 local dungeon, observed, required = LJ.DungeonCompletion:Match(run)
                 if dungeon then
                     diag("completion-close", run.id, "bosses=" .. observed .. "/" .. required)
@@ -450,6 +485,7 @@ function T:CheckZone()
                     return
                 end
                 diag("completion-pending", run.id, "bosses=" .. observed .. "/" .. required)
+                exitGraceRun, exitGraceUntil = nil, nil
             end
             run.outsideAt = run.outsideAt or now()
             run.lastSeen = now()
@@ -503,8 +539,8 @@ local function pruneRollLinks()
 end
 
 local function pendingRun()
-    if not inside then return nil end
-    return activeRun()
+    local run = activeRun()
+    return (inside or inExitGrace(run)) and run or nil
 end
 
 local function queuePending(run, link, id, info, source)
@@ -844,6 +880,10 @@ function T:OnNeedRoll(rollID, link)
     if not inside then return end
     local run = activeRun()
     if not run then return end
+    if transitioningFromOtherRun(run) then
+        diag("exit-late-roll-skip", tonumber(rollID), "need")
+        return
+    end
     rollID = tonumber(rollID)
     link = link or (rollID and rollLink(rollID)) or nil
     link = LJ:NormalizeLink(link)
@@ -919,6 +959,10 @@ function T:MarkGreed(rollID, link)
     if not inside then return end
     local run = activeRun()
     if not run then return end
+    if transitioningFromOtherRun(run) then
+        diag("exit-late-roll-skip", tonumber(rollID), "greed")
+        return
+    end
     rollID = tonumber(rollID)
     link = link or (rollID and rollLink(rollID)) or nil
     link = LJ:NormalizeLink(link)
@@ -1208,15 +1252,18 @@ function T:NoteRollFromHistory(link, name, kind, value, historyKey)
 end
 
 function T:OnLootHistoryDrop(encounterID, lootListID)
-    if not inside then return end
     local run = activeRun()
-    if not run then return end
+    if not run or (not inside and not inExitGrace(run)) then return end
     local api = _G.C_LootHistory
     if type(api) ~= "table" or type(api.GetSortedInfoForDrop) ~= "function" then return end
     encounterID = tonumber(LJ.Plain(encounterID))
     lootListID = tonumber(LJ.Plain(lootListID))
     if not encounterID or not lootListID then return end
     local historyKey = tostring(encounterID) .. ":" .. tostring(lootListID)
+    if transitioningFromOtherRun(run) then
+        diag("exit-late-history-skip", nil, historyKey)
+        return
+    end
     local ok, info = pcall(api.GetSortedInfoForDrop, encounterID, lootListID)
     if not ok or type(info) ~= "table" then return end
 
@@ -1313,9 +1360,8 @@ function T:NoteSeenDrop(link, source, rollID)
 end
 
 function T:OnBossEvent(event, ...)
-    if not inside then return end
     local run = activeRun()
-    if not run then return end
+    if not run or (not inside and not inExitGrace(run)) then return end
     local id, name, success
     if event == "ENCOUNTER_END" then
         id, name = select(1, ...), select(2, ...)
@@ -1330,8 +1376,13 @@ function T:OnBossEvent(event, ...)
     if type(name) == "string" then name = name:match("^%s*(.-)%s*$") end
     success = LJ.Plain(success)
     if not (success == 1 or success == true or success == "1") then return end
+    if transitioningFromOtherRun(run) and not bossByID(run, id) then
+        diag("exit-late-boss-skip", id)
+        return
+    end
     if type(name) ~= "string" or name == "" then name = LJ.L("DETAIL_UNKNOWN_BOSS") end
     diag("boss", id, event)
+    if not inside then diag("exit-late-boss", id, event) end
 
     run.bosses = run.bosses or {}
     local at = now()
@@ -1351,9 +1402,8 @@ function T:OnBossEvent(event, ...)
 end
 
 function T:OnEncounterLoot(...)
-    if not inside then return end
     local run = activeRun()
-    if not run then return end
+    if not run or (not inside and not inExitGrace(run)) then return end
     local args = { ... }
     local link
     for i = 1, #args do
@@ -1365,28 +1415,30 @@ function T:OnEncounterLoot(...)
     end
     if not link then return end
     local encounterID = tonumber(LJ.Plain(args[1]))
+    local eventItemID = tonumber(LJ.Plain(args[2]))
+    if eventItemID and eventItemID ~= LJ:ItemID(link) then return end
+    if transitioningFromOtherRun(run) and not bossByID(run, encounterID) then
+        diag("exit-late-loot-skip", LJ:ItemID(link), "boss=" .. tostring(encounterID))
+        return
+    end
     diag("encounter-loot", LJ:ItemID(link), "boss=" .. tostring(encounterID))
+    if not inside then diag("exit-late-loot", LJ:ItemID(link), "boss=" .. tostring(encounterID)) end
     local boss = bossByID(run, encounterID)
     if not boss and encounterID and encounterID > 0 then
         boss = { id = encounterID, name = LJ.L("DETAIL_UNKNOWN_BOSS"), at = now() }
-        run.bosses[#run.bosses + 1] = boss
     end
-    local winner = LJ.Plain(args[5])
-    if type(winner) == "string" then
-        winner = winner:match("^%s*(.-)%s*$")
-        if winner == "" then winner = nil end
-    else
-        winner = nil
-    end
-    local classFile = classFileFromLocalized(args[6])
     T:RecordItem(link, "encounter")
-    noteDrop(run, link, winner, boss, "encounter", nil, nil, nil, classFile)
+    noteDrop(run, link, nil, boss, "encounter")
 end
 
 function T:OnStartRoll(rollID)
     if not inside then return end
     rollID = tonumber(rollID)
     if not rollID then return end
+    if transitioningFromOtherRun(activeRun()) then
+        diag("exit-late-roll-skip", rollID, "start")
+        return
+    end
     pruneRollLinks()
     local link = rollLink(rollID)
     if link then
@@ -1543,9 +1595,36 @@ local function noteChatDrop(link, winner, guid)
 end
 
 function T:OnLootChat(text, _who, guid)
-    if not inside then return end
     text = LJ.Plain(text)
     if type(text) ~= "string" then return end
+    local eventID = LJ:ItemID(firstItemLink(text))
+    if inside and transitioningFromOtherRun(activeRun()) then
+        local foundCurrent = false
+        for _, drop in ipairs((activeRun() and activeRun().drops) or {}) do
+            if drop.id == eventID then foundCurrent = true; break end
+        end
+        if not foundCurrent then
+            diag("exit-late-chat-skip", eventID, "previous-run")
+            return
+        end
+    end
+    if not inside then
+        local run = activeRun()
+        if not inExitGrace(run) then return end
+        local id = LJ:ItemID(firstItemLink(text))
+        local matched = false
+        for _, drop in ipairs(run.drops or {}) do
+            if drop.id == id and now() - (drop.at or 0) <= EXIT_SETTLE_SECONDS + 5 then
+                matched = true
+                break
+            end
+        end
+        if not matched then
+            diag("exit-late-chat-skip", id)
+            return
+        end
+        diag("exit-late-chat", id)
+    end
     local p = Patterns()
     local args
 
@@ -1808,6 +1887,9 @@ function T:ResetAll()
     end
     inside = false
     blocked = false
+    exitGraceRun, exitGraceUntil = nil, nil
+    lastExitedRun, lastExitUntil = nil, nil
+    transitionGuardRun = nil
     firstCheck = false
     lastPrimaryStat = nil
     recentGreed = {}
