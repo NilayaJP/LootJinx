@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a clickable latest-run summary to the existing footer in compact mode for Classic and Dungeon Journal. Opened legacy runs through History and kept the window height and five trackers unchanged.
+- Kept primary-stat outcome labels visible beside recent roll summaries in both designs and clarified the compact-mode option text. Retained written Need and evidence labels and the detail-first Escape flow.
 - Added a per-dungeon comparison for two saved runs, showing visit dates, observed primary-stat loot, Need outcomes, and completion state without adding persistent counters.
 - Added History status filters for paused runs, observed boss clears, manual finishes, and pending Need results. Combined them with existing search, dungeon, date, and paging controls and added a visible filter reset.
 - Kept exiting runs open for a bounded three-second event window so late final-boss kills, encounter loot, and matching rolls could reach the correct run. Rejected ambiguous carryover events during a confirmed switch to another run.

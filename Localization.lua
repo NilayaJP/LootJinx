@@ -107,7 +107,7 @@ local S = {
     OPT_WATERMARK = { de = "Wasserzeichen anzeigen", en = "Show watermark" },
     OPT_WATERMARK_HINT = { de = "Blendet das große LootJinx-Symbol unten rechts ein oder aus.", en = "Toggles the large LootJinx symbol in the bottom right." },
     OPT_COMPACT = { de = "Kompakter Modus", en = "Compact mode" },
-    OPT_COMPACT_HINT = { de = "Blendet „Letzte Runs“ aus und verkleinert das Fenster.", en = "Hides Recent Runs and shrinks the window." },
+    OPT_COMPACT_HINT = { de = "Zeigt nur den neuesten Run in der Fußleiste und verkleinert das Fenster.", en = "Shows only the latest run in the footer and shrinks the window." },
     OPT_LAYOUT = { de = "DESIGN", en = "DESIGN" },
     OPT_LAYOUT_CLASSIC = { de = "Klassisch", en = "Classic" },
     OPT_LAYOUT_JOURNAL = { de = "Dungeon-Journal", en = "Dungeon Journal" },
@@ -260,8 +260,9 @@ local S = {
 
     FOOTER_HINT = { de = "Gier zählt nicht", en = "Greed doesn't count" },
     FOOTER_CLASS = { de = "%s · %s", en = "%s · %s" },
+    COMPACT_LATEST = { de = "Letzter Run: %s · %s ›", en = "Latest run: %s · %s ›" },
 
-    BADGE_STAT = { de = "%s", en = "%s" },
+    BADGE_STAT = { de = "MIT %s", en = "WITH %s" },
     BADGE_NO_STAT = { de = "OHNE %s", en = "NO %s" },
     BADGE_NEED = { de = "NEED %d/%d", en = "NEED %d/%d" },
     BADGE_LOST = { de = "%d verloren", en = "%d lost" },

@@ -101,6 +101,8 @@ The report has six short, consistently prefixed chat lines: a header followed by
 
 ## Dungeon History
 
+Compact mode shows the latest dungeon and its status in the dashboard footer. Click the line to open that run's details, or History for an older run without details. The five trackers remain visible.
+
 Click **History** in the dashboard footer to browse all saved runs, including in compact mode. Search dungeon names, filter by dungeon, choose **Today**, **Last 7 days**, **Last 30 days**, or **All time**, and filter paused runs, observed boss clears, manual finishes, or runs with pending Need results. These filters combine; **Reset filters** clears them. Date ranges use local calendar days. Use **Back** and **Next** to page through older runs. The list is newest first. The summary above it shows runs with primary-stat loot, runs without loot, and Need wins, losses, and pending results for the current filters. Active runs are included. Use **Compare** on two visits to the same dungeon to view their dates, observed primary-stat loot, Need outcomes, and completion state side by side. Click a run to open its existing detail report; runs recorded before detailed history was introduced remain listed with a "Details unavailable" label.
 
 The history window follows the selected Classic or Dungeon Journal design. ESC closes the detail report first, then the history window, then the dashboard.

@@ -16,6 +16,7 @@ local refreshQueued = false
 local pulse = 0
 local statusPill, closeButton
 local hero, needCard, recentCard
+local compactLatest
 local miniNoWin, miniNoLoot, miniSince
 local recentRows = {}
 local reportPopup, reportEdit, reportError
@@ -359,6 +360,22 @@ function LJ:RunStatusMarker(run)
     return key and self.L(key) or nil
 end
 
+function LJ:CompactLatestText(run)
+    local name = W:Truncate(run.name or self.L("UNKNOWN_DUNGEON"), 22)
+    local status = self:RunStatusMarker(run) or self.L("DETAIL_CLOSED")
+    return self.L("COMPACT_LATEST", name, status)
+end
+
+function LJ:OpenCompactRun(run, theme)
+    if not run then return end
+    if GameTooltip then GameTooltip:Hide() end
+    if run.legacy ~= true and self.RunDetail then
+        self.RunDetail:Show(run, theme)
+    elseif self.History then
+        self.History:Show()
+    end
+end
+
 function LJ:AppendRunBasisTooltip(run)
     if not GameTooltip or not self.Stats then return end
     local basis = self.Stats.RunBasis(self.Tracker and self.Tracker:GetRuns(), run)
@@ -514,6 +531,26 @@ local function createFooter()
     footer:SetWidth(310)
     footer:SetWordWrap(false)
     frame.footer = footer
+
+    compactLatest = CreateFrame("Button", nil, frame)
+    compactLatest:SetSize(310, 20)
+    compactLatest:SetPoint("BOTTOMLEFT", 16, 14)
+    compactLatest:RegisterForClicks("LeftButtonUp")
+    compactLatest.label = W:Font(compactLatest, 10, C.text, "")
+    compactLatest.label:SetPoint("LEFT", 0, 0)
+    compactLatest.label:SetWidth(310)
+    compactLatest.label:SetWordWrap(false)
+    compactLatest:SetScript("OnEnter", function(self)
+        self.label:SetTextColor(C.accent[1], C.accent[2], C.accent[3])
+        if self.run then LJ:ShowRecentTooltip(self, self.run) end
+    end)
+    compactLatest:SetScript("OnLeave", function(self)
+        self.label:SetTextColor(C.text[1], C.text[2], C.text[3])
+        if GameTooltip then GameTooltip:Hide() end
+    end)
+    compactLatest:SetScript("OnClick", function(self) LJ:OpenCompactRun(self.run) end)
+    compactLatest:Hide()
+    UI.compactLatest = compactLatest
 
     local history = W:Button(frame, LJ.L("HISTORY"), 72, 20)
     history:SetPoint("BOTTOMRIGHT", -228, 14)
@@ -877,6 +914,13 @@ local function refreshContent()
 
     local runs = {}
     section("Runs", function() runs = LJ.Tracker:GetRuns() end)
+    local latest = runs[#runs]
+    if compactLatest then
+        compactLatest.run = latest
+        if latest then setText(compactLatest.label, LJ:CompactLatestText(latest)) end
+        compactLatest:SetShown(LJ.DB.compact == true and latest ~= nil)
+    end
+    if frame.footer then frame.footer:SetShown(LJ.DB.compact ~= true or latest == nil) end
     local shown = 0
     for i = 1, 4 do
         local row = recentRows[i]
@@ -923,7 +967,13 @@ local function refreshContent()
                 if not run.lootSeen then
                     badges = badges .. " · " .. colored(C.muted, LJ.L("BADGE_EMPTY"))
                 end
-                setText(row.badges, LJ.RecentRolls:Summary(run) or badges)
+                local rolls = LJ.RecentRolls:Summary(run)
+                if rolls then
+                    badges = colored(run.agilityDropped and C.green or C.red,
+                        run.agilityDropped and LJ.L("BADGE_STAT", statShort) or LJ.L("BADGE_NO_STAT", statShort))
+                        .. " · " .. rolls
+                end
+                setText(row.badges, badges)
             end
         end
     end
@@ -1034,6 +1084,8 @@ function UI:ApplyDisplayOptions()
     local compact = LJ.DB.compact == true
     frame:SetHeight(compact and 476 or 628)
     if recentCard then recentCard:SetShown(not compact) end
+    if compactLatest then compactLatest:SetShown(compact and compactLatest.run ~= nil) end
+    if frame.footer then frame.footer:SetShown(not compact or not compactLatest or compactLatest.run == nil) end
     if frame.watermark then frame.watermark:SetShown(LJ.DB.showWatermark ~= false) end
     if LJ.Options and LJ.Options.Refresh then pcall(LJ.Options.Refresh, LJ.Options) end
 end

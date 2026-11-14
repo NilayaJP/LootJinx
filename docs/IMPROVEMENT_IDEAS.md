@@ -148,6 +148,10 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 ## Priority 14 — Improve accessibility and readability
 
+**Status:** Implemented on the feature branch. Contrast, focus, and text clipping need a final client check at 80% scale.
+
+**Implemented:** Recent-run roll values retain an explicit with/without primary-stat label in both designs. Run details continue to show written Need outcomes and evidence levels, while recent-run status markers and tooltips explain completion and tracker contribution. Stub checks cover the 80% layout and the existing detail-first ESC order in Classic and Dungeon Journal.
+
 **Problem:** Color alone can make Need outcomes and evidence confidence difficult to distinguish.
 
 **Proposal:** Pair colors with short text labels, review contrast at supported scales, and keep focus and ESC behavior consistent in both designs.
@@ -155,6 +159,10 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 **Done when:** Status and outcome remain understandable without color and at 80% UI scale.
 
 ## Priority 15 — Make compact mode more useful
+
+**Status:** Implemented on the feature branch. Client spacing and click behavior remain to be checked in WoW Forever.
+
+**Implemented:** The existing footer space now shows one clickable latest-run line with its dungeon and completion status in both designs. It opens run details, or History for an older run without details. The compact window remains 476 units high; the five tracker cards and full-size layout keep their positions.
 
 **Problem:** Compact mode hides Recent Runs, requiring a separate history window for the latest result.
 

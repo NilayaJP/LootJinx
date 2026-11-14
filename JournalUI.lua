@@ -283,6 +283,26 @@ function J:Create()
     self.footer = font(f, 9, P.muted, LJ.L("FOOTER_HINT"))
     self.footer:SetPoint("BOTTOMLEFT", 16, 16)
     self.footer:SetWidth(310)
+    self.compactLatest = CreateFrame("Button", nil, f)
+    self.compactLatest:SetSize(310, 20)
+    self.compactLatest:SetPoint("BOTTOMLEFT", 16, 14)
+    self.compactLatest:RegisterForClicks("LeftButtonUp")
+    self.compactLatest.label = font(self.compactLatest, 10, P.parchment, "")
+    self.compactLatest.label:SetPoint("LEFT", 0, 0)
+    self.compactLatest.label:SetWidth(310)
+    self.compactLatest.label:SetWordWrap(false)
+    self.compactLatest:SetScript("OnEnter", function(button)
+        button.label:SetTextColor(P.gold[1], P.gold[2], P.gold[3])
+        if button.run then LJ:ShowRecentTooltip(button, button.run) end
+    end)
+    self.compactLatest:SetScript("OnLeave", function(button)
+        button.label:SetTextColor(P.parchment[1], P.parchment[2], P.parchment[3])
+        if GameTooltip then GameTooltip:Hide() end
+    end)
+    self.compactLatest:SetScript("OnClick", function(button)
+        LJ:OpenCompactRun(button.run, "journal")
+    end)
+    self.compactLatest:Hide()
     self.historyButton = button(f, LJ.L("HISTORY"), 72, 20)
     self.historyButton:SetPoint("BOTTOMRIGHT", -228, 14)
     self.historyButton:SetScript("OnClick", function() if LJ.History then LJ.History:Show() end end)
@@ -322,6 +342,10 @@ function J:Refresh()
     local active = LJ.Tracker:GetActive()
     local live = LJ.Tracker:IsLive()
     local latest = runs[#runs]
+    self.compactLatest.run = latest
+    if latest then self.compactLatest.label:SetText(LJ:CompactLatestText(latest)) end
+    self.compactLatest:SetShown(LJ.DB.compact == true and latest ~= nil)
+    self.footer:SetShown(LJ.DB.compact ~= true or latest == nil)
     self.fields.status:SetText(active and (active.provisionalPreviousID and LJ.L("STATUS_COPY_CHECKING")
         or live and LJ.L("STATUS_LIVE") or LJ.L("STATUS_IDLE"))
         or latest and latest.paused and LJ.L("STATUS_IDLE") or LJ.L("STATUS_READY"))
@@ -367,14 +391,18 @@ function J:Refresh()
                 totalNeeds = totalNeeds + 1
                 if n.result == "won" then wins = wins + 1 end
             end
-            local stat = run.agilityDropped and LJ.L("YES") or LJ.L("NO")
-            local badges = LJ.L("TT_RUN_AGI", stat)
+            local statShort = LJ:StatShort() or ""
+            local badges = run.agilityDropped and LJ.L("BADGE_STAT", statShort)
+                or LJ.L("BADGE_NO_STAT", statShort)
             if totalNeeds > 0 then badges = badges .. " · " .. LJ.L("BADGE_NEED", wins, totalNeeds) end
             if run.legacy then badges = badges .. " · " .. LJ.L("JOURNAL_LEGACY") end
             local marker = LJ:RunStatusMarker(run)
             local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), marker and 24 or 36)
             row.name:SetText(marker and (name .. " · " .. marker) or name)
-            row.badges:SetText(LJ.RecentRolls:Summary(run) or badges)
+            local rolls = LJ.RecentRolls:Summary(run)
+            if rolls then badges = (run.agilityDropped and LJ.L("BADGE_STAT", statShort)
+                or LJ.L("BADGE_NO_STAT", statShort)) .. " · " .. rolls end
+            row.badges:SetText(badges)
             row.date:SetText(date and date("%d.%m.", run.started or 0) or "")
         end
     end
@@ -412,6 +440,8 @@ function J:ApplyDisplayOptions()
     local compact = LJ.DB.compact == true
     self.frame:SetHeight(compact and 476 or 628)
     self.recentPanel:SetShown(not compact)
+    self.compactLatest:SetShown(compact and self.compactLatest.run ~= nil)
+    self.footer:SetShown(not compact or self.compactLatest.run == nil)
     self.watermark:SetShown(LJ.DB.showWatermark ~= false)
 end
 function J:ResetPosition()
