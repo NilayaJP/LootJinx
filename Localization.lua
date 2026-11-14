@@ -134,12 +134,12 @@ local S = {
     TT_REPORT_1 = { de = "Postet die Statistik in den Partychat oder per Whisper an einen Freund.", en = "Posts your stats to party chat or whispers them to a friend." },
 
     CARD_CURSE = { de = "DUNGEON-FLUCH", en = "DUNGEON CURSE" },
-    CARD_CURSE_SUB = { de = "Dungeons ohne Drop mit %s", en = "Dungeons without a %s drop" },
+    CARD_CURSE_SUB = { de = "kein Drop mit %s", en = "no drop with %s" },
     CARD_CURSE_EMPTY = { de = "Noch keine Dungeons aufgezeichnet", en = "No dungeons recorded yet" },
-    CARD_CURSE_RATIO = { de = "%d von %d Dungeons", en = "%d of %d dungeons" },
-    CARD_CURSE_PCT = { de = "%d %% ohne %s", en = "%d %% without %s" },
+    CARD_CURSE_OF_RUNS = { de = "von %d Runs", en = "of %d runs" },
+    CARD_CURSE_PCT = { de = "%d %% der Runs", en = "%d %% of runs" },
 
-    CARD_NEED = { de = "NEED-ROLLS", en = "NEED ROLLS" },
+    CARD_NEED = { de = "VERLORENE NEED-WÜRFE", en = "LOST NEED ROLLS" },
     CARD_NEED_SUB = { de = "Gier zählt nicht", en = "Greed doesn't count" },
     CARD_NEED_LOST = { de = "%d verloren", en = "%d lost" },
     CARD_NEED_TOTAL = { de = "von %d Need-Rolls", en = "of %d need rolls" },

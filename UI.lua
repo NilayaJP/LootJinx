@@ -173,7 +173,11 @@ local function createHero()
 
     hero.value = W:Font(hero, 27, C.text, "OUTLINE")
     hero.value:SetPoint("TOPLEFT", 62, -23)
-    hero.value:SetText("0 / 0")
+    hero.value:SetText("0")
+
+    hero.context = W:Font(hero, 11, C.muted, "")
+    hero.context:SetPoint("LEFT", hero.value, "RIGHT", 12, -2)
+    hero.context:SetText(LJ.L("CARD_CURSE_OF_RUNS", 0))
 
     hero.sub = W:Font(hero, 10, C.muted, "")
     hero.sub:SetPoint("TOPLEFT", 63, -58)
@@ -785,9 +789,10 @@ local function refreshContent()
     local noAgi = stats.noAgiDungeons or 0
     local pct = total > 0 and math.floor((noAgi / total) * 100 + 0.5) or 0
     if hero then
-        setText(hero.value, total > 0 and string.format("%d / %d", noAgi, total) or "0 / 0")
+        setText(hero.value, noAgi)
+        setText(hero.context, LJ.L("CARD_CURSE_OF_RUNS", total))
         setText(hero.sub, total > 0 and LJ.L("CARD_CURSE_SUB", statLabel) or LJ.L("CARD_CURSE_EMPTY"))
-        setText(hero.pct, LJ.L("CARD_CURSE_PCT", pct, statLabel))
+        setText(hero.pct, LJ.L("CARD_CURSE_PCT", pct))
         hero.bar:SetValue(total > 0 and (noAgi / total) or 0)
         setText(hero.streakValue, stats.noAgiCurrent or 0)
         setText(hero.recordValue, stats.noAgiMax or 0)
