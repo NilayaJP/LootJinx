@@ -71,7 +71,9 @@ function Stats.Compute(runs)
             if run.closed == true then out.completedDungeons = out.completedDungeons + 1 end
 
             -- Dungeons ohne Primärstat-Drop (Feldname "agi" ist historisch)
-            if run.agilityDropped == true then
+            if not run.stat then
+                out.noAgiCurrent = 0
+            elseif run.agilityDropped == true then
                 out.agilityDungeons = out.agilityDungeons + 1
                 out.noAgiCurrent = 0
                 out.lastAgilityRun = run
@@ -149,8 +151,10 @@ end
 
 function Stats.RunBasis(runs, run)
     if type(run) ~= "table" then return nil end
+    local noStat
+    if run.stat then noStat = run.agilityDropped ~= true end
     local basis = {
-        noStat = run.agilityDropped ~= true,
+        noStat = noStat,
         noLoot = run.lootSeen ~= true,
         needLost = 0,
         needPending = 0,

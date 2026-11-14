@@ -9,7 +9,7 @@ LJ.Tracker = T
 local NEED_TIMEOUT = 5 * 60
 local DEDUPE_SECONDS = 5
 local REPAIR_SECONDS = 15 * 60
-local MAX_BOSSES = 20
+local MAX_BOSSES = 64
 local MAX_DROPS = 120
 local MAX_ROLLS = 200
 local MAX_TIMELINE_EVENTS = 24
@@ -1216,18 +1216,25 @@ local function historyKind(state)
     end
 end
 
-local function recentDrop(run, id, at, historyKey)
+local function recentDrop(run, id, at, historyKey, winnerName)
     for i = #(run.drops or {}), 1, -1 do
         local drop = run.drops[i]
         if drop.id == id and drop.lootHistoryKey == historyKey then return drop end
     end
+    local candidates, winnerMatches = {}, {}
     for i = #(run.drops or {}), 1, -1 do
         local drop = run.drops[i]
         if drop.id == id and not drop.lootHistoryKey
             and math.abs((tonumber(drop.at) or 0) - at) <= 900 then
-            return drop
+            candidates[#candidates + 1] = drop
+            if winnerName and drop.winner and lower(drop.winner) == lower(winnerName) then
+                winnerMatches[#winnerMatches + 1] = drop
+            end
         end
     end
+    if #winnerMatches == 1 then return winnerMatches[1] end
+    if #candidates == 1 and (#winnerMatches == 1 or not winnerName
+        or not candidates[1].winner) then return candidates[1] end
 end
 
 -- C_LootHistory liefert für Encounter-Beute die echten Rollzahlen aller
@@ -1303,7 +1310,15 @@ function T:OnLootHistoryDrop(encounterID, lootListID)
     local link = LJ:NormalizeLink(LJ.Plain(info.itemHyperlink))
     local id = LJ:ItemID(link)
     if not id then return end
-    local drop = recentDrop(run, id, now(), historyKey)
+    local winner = type(info.winner) == "table" and info.winner or nil
+    local winnerName = winner and LJ.Plain(winner.playerName) or nil
+    if type(winnerName) == "string" then
+        winnerName = winnerName:match("^%s*(.-)%s*$")
+        if winnerName == "" then winnerName = nil end
+    else
+        winnerName = nil
+    end
+    local drop = recentDrop(run, id, now(), historyKey, winnerName)
     if not drop and not (run.seenLinks and run.seenLinks[link]) then
         diag("loot-history-skip", id, "unseen")
         return
@@ -1315,14 +1330,6 @@ function T:OnLootHistoryDrop(encounterID, lootListID)
         dropBound = true
     end
 
-    local winner = type(info.winner) == "table" and info.winner or nil
-    local winnerName = winner and LJ.Plain(winner.playerName) or nil
-    if type(winnerName) == "string" then
-        winnerName = winnerName:match("^%s*(.-)%s*$")
-        if winnerName == "" then winnerName = nil end
-    else
-        winnerName = nil
-    end
     local winnerClass = winner and LJ.Plain(winner.playerClass) or nil
     if type(winnerClass) ~= "string" then winnerClass = nil end
     local winnerKind = winner and historyKind(winner.state) or nil

@@ -391,17 +391,18 @@ function J:Refresh()
                 totalNeeds = totalNeeds + 1
                 if n.result == "won" then wins = wins + 1 end
             end
-            local statShort = LJ:StatShort() or ""
-            local badges = run.agilityDropped and LJ.L("BADGE_STAT", statShort)
-                or LJ.L("BADGE_NO_STAT", statShort)
+            local statShort = run.stat and LJ:StatShort(run.stat) or nil
+            local statBadge = not statShort and LJ.L("BADGE_STAT_UNKNOWN")
+                or (run.agilityDropped and LJ.L("BADGE_STAT", statShort)
+                    or LJ.L("BADGE_NO_STAT", statShort))
+            local badges = statBadge
             if totalNeeds > 0 then badges = badges .. " · " .. LJ.L("BADGE_NEED", wins, totalNeeds) end
             if run.legacy then badges = badges .. " · " .. LJ.L("JOURNAL_LEGACY") end
             local marker = LJ:RunStatusMarker(run)
             local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), marker and 24 or 36)
             row.name:SetText(marker and (name .. " · " .. marker) or name)
             local rolls = LJ.RecentRolls:Summary(run)
-            if rolls then badges = (run.agilityDropped and LJ.L("BADGE_STAT", statShort)
-                or LJ.L("BADGE_NO_STAT", statShort)) .. " · " .. rolls end
+            if rolls then badges = statBadge .. " · " .. rolls end
             row.badges:SetText(badges)
             row.date:SetText(date and date("%d.%m.", run.started or 0) or "")
         end

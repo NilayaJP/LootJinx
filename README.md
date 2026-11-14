@@ -73,6 +73,8 @@ All graphics are 32-bit TGA files at 256 × 256 pixels. If you replace them, use
 
 **Dungeon Curse:** Recorded runs without an observed item matching your primary stat. The main card shows the count alongside all recorded runs: for example, **4 of 16 runs** means four runs had no observed drop with your primary stat. LootJinx determines the stat from your current specialization. For example, Balance Druid uses Intellect, Feral Druid uses Agility, Elemental Shaman uses Intellect, Enhancement Shaman uses Agility, Holy Paladin uses Intellect, and Protection or Retribution Paladin uses Strength. If specialization data is unavailable, LootJinx compares base stats through `UnitStat` before falling back to a class mapping. The stat used for classification is stored with each run, so changing specialization later does not reclassify older runs. Runs recorded before stat context was stored are marked as unknown. The tracker shows your current streak and longest recorded streak.
 
+Runs with unknown primary-stat context remain in the total run count but do not add to Dungeon Curse or extend its streak.
+
 **Need Rolls:** Counts Need rolls, consecutive losses, and your longest losing streak. Greed rolls and items won through Greed do not affect Need statistics.
 Hover a recent run or the summary in run details to see how that run contributes to each of the five trackers. Active, paused, partial, and manually finished runs remain in the saved totals; a missing observation is not proof that an item did not drop. Pending Need outcomes remain pending rather than becoming losses.
 When identical items are rolled at the same time, LootJinx uses roll IDs and loot-history keys where available. Ambiguous results remain pending until there is enough evidence to assign them to one Need roll.
@@ -103,6 +105,7 @@ The report has six short, consistently prefixed chat lines: a header followed by
 ## Dungeon History
 
 Runs with the same instance ID remain grouped and searchable after a client language change. Comparisons keep resolved wings on shared maps distinct.
+When different instance IDs share a displayed dungeon name, the history filter adds their IDs to distinguish them. Legacy runs without an ID stay separate when their name matches several known instances.
 
 Run details offer a **Timeline** button in both designs. It shows saved start and finish times, observed boss events, the first detected primary-stat drop, and Need results with recorded resolution times. New runs also record dungeon exits and returns after the same instance copy is confirmed. Older runs say when exit and return history is unavailable; no missing timestamp is guessed. Only the latest 24 transition events are saved per run, and old-detail cleanup removes them.
 
@@ -154,6 +157,7 @@ WoW Forever does not provide a combat log to addons. LootJinx therefore detects 
 Items whose data is not yet available remain queued after a run closes and are classified when the client later supplies their data. An item matches your primary stat when `C_Item.GetItemStats` reports a positive value for that stat.
 
 When the client exposes `C_LootHistory`, LootJinx reads the per-player roll values for encounter loot and merges them with values parsed from loot chat. Item tooltips in run details list observed Need, Greed, and Transmog values per player; chat parsing remains the fallback for trash loot and older records. Separate loot-history events for identical items remain separate even when players roll the same numbers.
+When several identical drops could match one history event, LootJinx assigns its history key only if the observed winner identifies a unique compatible drop.
 
 If a Need result cannot be resolved directly, LootJinx checks your bags after a short delay. A simultaneous Greed roll for the same item prevents a false Need win. If the bag count or its starting value is unavailable, the result stays pending. Ordinary item-loot chat does not decide a Need result; explicit roll-win chat can.
 

@@ -387,7 +387,8 @@ function LJ:AppendRunBasisTooltip(run)
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(self.L("TT_BASIS_TITLE"), C.accent[1], C.accent[2], C.accent[3])
     line("TT_BASIS_STATUS", status)
-    line(basis.noStat and "TT_BASIS_NO_STAT_YES" or "TT_BASIS_NO_STAT_NO")
+    line(basis.noStat == nil and "TT_BASIS_NO_STAT_UNKNOWN"
+        or basis.noStat and "TT_BASIS_NO_STAT_YES" or "TT_BASIS_NO_STAT_NO")
     line("TT_BASIS_NEED", basis.needLost, basis.needWon, basis.needPending)
     line(basis.noNeedWin and "TT_BASIS_NO_WIN_YES"
         or basis.needTotal > 0 and "TT_BASIS_NO_WIN_WON" or "TT_BASIS_NO_WIN_NONE")
@@ -411,10 +412,11 @@ local function runTooltip(row, run)
     GameTooltip:AddLine(" ")
     local yes = LJ.L("YES")
     local no = LJ.L("NO")
-    GameTooltip:AddLine(LJ.L("TT_RUN_AGI", run.agilityDropped and yes or no),
-        run.agilityDropped and C.green[1] or C.red[1],
-        run.agilityDropped and C.green[2] or C.red[2],
-        run.agilityDropped and C.green[3] or C.red[3], true)
+    local statColor = not run.stat and C.muted or (run.agilityDropped and C.green or C.red)
+    local statText = not run.stat and LJ.L("HISTORY_STAT_UNKNOWN")
+        or (run.agilityDropped and yes or no)
+    GameTooltip:AddLine(LJ.L("TT_RUN_AGI", statText),
+        statColor[1], statColor[2], statColor[3], true)
     GameTooltip:AddLine(LJ.L("TT_RUN_LOOT", run.lootSeen and yes or no),
         run.lootSeen and C.green[1] or C.red[1],
         run.lootSeen and C.green[2] or C.red[2],
@@ -828,11 +830,10 @@ local function refreshContent()
     local stats = {}
     section("Stats", function() stats = LJ.Stats.Compute(LJ.Tracker:GetRuns()) end)
     UI.stats = stats
-    local statLabel, statShort = "", ""
+    local statLabel = ""
     section("Stat", function()
         local _, label = LJ:PlayerStat()
         statLabel = label or ""
-        statShort = LJ:StatShort() or ""
     end)
 
     local active, live
@@ -949,7 +950,7 @@ local function refreshContent()
                     local marker = LJ:RunStatusMarker(run)
                     row.name:SetText(colored(run.agilityDropped and C.text or C.muted,
                         marker and (W:Truncate(name, 25) .. " · " .. marker) or name))
-                    local c = run.agilityDropped and C.green or C.red
+                    local c = not run.stat and C.muted or (run.agilityDropped and C.green or C.red)
                     row.bar:SetColorTexture(c[1], c[2], c[3], 0.85)
                 end
                 setText(row.date, dateLabel(run))
@@ -958,8 +959,12 @@ local function refreshContent()
                     totalNeeds = totalNeeds + 1
                     if n.result == "won" then wins = wins + 1 end
                 end
-                local badges = colored(run.agilityDropped and C.green or C.red,
-                    run.agilityDropped and LJ.L("BADGE_STAT", statShort) or LJ.L("BADGE_NO_STAT", statShort))
+                local badgeColor = not run.stat and C.muted
+                    or (run.agilityDropped and C.green or C.red)
+                local badgeText = not run.stat and LJ.L("BADGE_STAT_UNKNOWN")
+                    or (run.agilityDropped and LJ.L("BADGE_STAT", LJ:StatShort(run.stat))
+                        or LJ.L("BADGE_NO_STAT", LJ:StatShort(run.stat)))
+                local badges = colored(badgeColor, badgeText)
                 if totalNeeds > 0 then
                     badges = badges .. " · " .. colored(wins > 0 and C.green or C.red,
                         LJ.L("BADGE_NEED", wins, totalNeeds))
@@ -969,8 +974,7 @@ local function refreshContent()
                 end
                 local rolls = LJ.RecentRolls:Summary(run)
                 if rolls then
-                    badges = colored(run.agilityDropped and C.green or C.red,
-                        run.agilityDropped and LJ.L("BADGE_STAT", statShort) or LJ.L("BADGE_NO_STAT", statShort))
+                    badges = colored(badgeColor, badgeText)
                         .. " · " .. rolls
                 end
                 setText(row.badges, badges)

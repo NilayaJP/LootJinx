@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserved required boss kills in long dungeons when additional optional bosses were observed, including after reload.
+- Matched loot-history keys to a unique compatible drop instead of assigning them to the latest identical item.
+- Separated history filter choices with identical dungeon names by instance ID and kept ambiguous legacy runs distinct.
+- Excluded runs with unknown primary-stat context from Dungeon Curse totals and streaks, and labeled them as unknown in both layouts.
 - Kept unresolved item classifications after a run closed so late item data could update that run.
 - Stopped ordinary item-loot chat from deciding Need outcomes; retained explicit roll-win chat as direct evidence.
 - Kept Need outcomes pending when bag counts or the initial item count could not be read.

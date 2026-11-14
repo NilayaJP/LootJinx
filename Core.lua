@@ -290,7 +290,7 @@ local function normalizeRun(run, fallbackID)
         local boss = normalizeBoss(bosses[i], run.started)
         if boss then cleanBosses[#cleanBosses + 1] = boss end
     end
-    while #cleanBosses > 20 do table.remove(cleanBosses, 1) end
+    while #cleanBosses > 64 do table.remove(cleanBosses, 1) end
     run.bosses = cleanBosses
 
     local drops = type(run.drops) == "table" and run.drops or {}
@@ -568,8 +568,8 @@ local STAT_SHORT = {
     intellect = "STAT_SHORT_INTELLECT",
 }
 
-function LJ:StatShort()
-    local stat = self:PlayerStat()
+function LJ:StatShort(stat)
+    stat = stat or self:PlayerStat()
     return self.L(STAT_SHORT[stat] or "STAT_SHORT_AGILITY")
 end
 

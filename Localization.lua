@@ -284,6 +284,7 @@ local S = {
 
     BADGE_STAT = { de = "MIT %s", en = "WITH %s" },
     BADGE_NO_STAT = { de = "OHNE %s", en = "NO %s" },
+    BADGE_STAT_UNKNOWN = { de = "STAT UNBEKANNT", en = "STAT UNKNOWN" },
     BADGE_NEED = { de = "NEED %d/%d", en = "NEED %d/%d" },
     BADGE_LOST = { de = "%d verloren", en = "%d lost" },
     BADGE_LOOT = { de = "LOOT", en = "LOOT" },
@@ -327,6 +328,7 @@ local S = {
     TT_BASIS_COMPLETE = { de = "Abgeschlossen", en = "Completed" },
     TT_BASIS_NO_STAT_YES = { de = "Dungeon-Fluch: +1 (kein Primärstat-Drop beobachtet)", en = "Dungeon Curse: +1 (no primary-stat drop observed)" },
     TT_BASIS_NO_STAT_NO = { de = "Dungeon-Fluch: +0 (Primärstat-Drop beobachtet)", en = "Dungeon Curse: +0 (primary-stat drop observed)" },
+    TT_BASIS_NO_STAT_UNKNOWN = { de = "Dungeon-Fluch: unbekannt (Primärstat des Runs fehlt)", en = "Dungeon Curse: unknown (run's primary stat unavailable)" },
     TT_BASIS_NEED = { de = "Need-Verluste: +%d · %d Siege · %d offen", en = "Need losses: +%d · %d wins · %d pending" },
     TT_BASIS_NO_WIN_YES = { de = "Ohne Need-Sieg: +1 (Need, kein bestätigter Sieg)", en = "No Need win: +1 (Need, no confirmed win)" },
     TT_BASIS_NO_WIN_WON = { de = "Ohne Need-Sieg: +0 (Sieg bestätigt)", en = "No Need win: +0 (win confirmed)" },

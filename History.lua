@@ -77,6 +77,37 @@ local function sameDungeon(first, second, includeWing)
         and first.name == second.name
 end
 
+local function knownDungeonIDs(runs)
+    local byName = {}
+    for _, run in ipairs(runs or {}) do
+        if type(run) == "table" and type(run.name) == "string" then
+            local id = dungeonIdentity(run)
+            if id then
+                local group = byName[run.name]
+                if not group then
+                    group = { count = 0, seen = {} }
+                    byName[run.name] = group
+                end
+                if not group.seen[id] then
+                    group.seen[id] = true
+                    group.count = group.count + 1
+                    group.sole = id
+                end
+            end
+        end
+    end
+    return byName
+end
+
+local function filterKey(run, knownIDs)
+    local id = dungeonIdentity(run)
+    if id then return "id:" .. id end
+    local name = type(run.name) == "string" and run.name or ""
+    local group = knownIDs[name]
+    if group and group.count == 1 then return "id:" .. group.sole end
+    return "name:" .. name
+end
+
 local function localDayStart(now, daysBack)
     local gameClock = type(date) == "function" and type(time) == "function"
     local dateFn = gameClock and date or (os and os.date)
@@ -117,21 +148,22 @@ function H:Filter(runs, query, dungeon, range, now, status)
             end
         end
     end
-    local selected
+    local selectedKey
     if dungeon then
-        for i = #(runs or {}), 1, -1 do
-            local candidate = runs[i]
-            if type(candidate) == "table" and candidate.name == dungeon then
-                selected = candidate
+        for _, option in ipairs(self:DungeonOptions(runs)) do
+            if option.label == dungeon then
+                selectedKey = option.key
                 break
             end
         end
     end
+    local knownIDs = knownDungeonIDs(runs)
     for i = #(runs or {}), 1, -1 do
         local run = runs[i]
         local name = type(run) == "table" and tostring(run.name or "") or ""
         local started = type(run) == "table" and tonumber(run.started) or nil
-        if type(run) == "table" and (not dungeon or (selected and sameDungeon(run, selected)))
+        if type(run) == "table" and (not dungeon or (selectedKey
+            and filterKey(run, knownIDs) == selectedKey))
             and (needle == "" or normalized(name):find(needle, 1, true)
                 or searchIDs[dungeonIdentity(run)])
             and (not daysBack or (cutoff and started and started >= cutoff and started <= now))
@@ -174,20 +206,34 @@ function H:ComparisonData(first, second)
     return { name = first.name, first = comparisonRun(first), second = comparisonRun(second) }
 end
 
-function H:Dungeons(runs)
-    local seen, seenNames, names = {}, {}, {}
+function H:DungeonOptions(runs)
+    local seen, options, nameCounts = {}, {}, {}
+    local knownIDs = knownDungeonIDs(runs)
     for i = #(runs or {}), 1, -1 do
         local run = runs[i]
         local name = run and run.name
-        local key = type(run) == "table" and dungeonIdentity(run) or nil
-        key = key or name
-        if type(name) == "string" and name ~= "" and not seen[key] and not seenNames[name] then
+        local key = type(run) == "table" and filterKey(run, knownIDs) or nil
+        if type(name) == "string" and name ~= "" and not seen[key] then
             seen[key] = true
-            seenNames[name] = true
-            names[#names + 1] = name
+            nameCounts[name] = (nameCounts[name] or 0) + 1
+            options[#options + 1] = { run = run, name = name, key = key }
         end
     end
-    table.sort(names, function(a, b) return normalized(a) < normalized(b) end)
+    for _, option in ipairs(options) do
+        local id = tonumber(option.run.instanceID)
+        option.label = nameCounts[option.name] > 1
+            and (option.name .. " (" .. (id and tostring(id) or LJ.L("HISTORY_LEGACY")) .. ")")
+            or option.name
+    end
+    table.sort(options, function(a, b) return normalized(a.label) < normalized(b.label) end)
+    return options
+end
+
+function H:Dungeons(runs)
+    local names = {}
+    for _, option in ipairs(self:DungeonOptions(runs)) do
+        names[#names + 1] = option.label
+    end
     return names
 end
 
