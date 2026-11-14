@@ -374,6 +374,9 @@ function H:Refresh()
                 marker = marker .. "  ·  " .. LJ.L("HISTORY_LEGACY")
             end
             if not run.stat then marker = marker .. "  ·  " .. LJ.L("HISTORY_STAT_UNKNOWN") end
+            if run.closedReason == "manual" then
+                marker = marker .. "  ·  " .. LJ.L("RUN_FINISH_MANUAL")
+            end
             if run.provisionalPreviousID or run.closedReason == "pending-copy" then
                 marker = marker .. "  ·  " .. LJ.L("STATUS_COPY_CHECKING_SHORT")
             elseif run.copyOutcome == "merged" then

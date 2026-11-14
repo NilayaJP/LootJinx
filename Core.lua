@@ -327,6 +327,7 @@ function LJ:InitDB()
         _G.LootJinxCharDB = char
     end
     char.version = 2
+    char.manualBlockedKey = type(char.manualBlockedKey) == "string" and char.manualBlockedKey or nil
     char.nextRunID = tonumber(char.nextRunID) or 1
     if char.nextRunID < 1 then char.nextRunID = 1 end
 

@@ -21,6 +21,12 @@ local S = {
     STATUS_COPY_CHECKING_SHORT = { de = "Kopie wird geprüft", en = "Checking copy" },
     STATUS_COPY_MERGED_SHORT = { de = "Gleiche Kopie", en = "Same copy" },
     STATUS_COPY_DIFFERENT_SHORT = { de = "Andere Kopie", en = "Different copy" },
+    RUN_FINISH = { de = "Run beenden", en = "Finish run" },
+    RUN_FINISH_CONFIRM = { de = "Diesen Run manuell beenden? Die erfassten Details und Need-Ergebnisse bleiben erhalten. Offene Need-Ergebnisse bleiben unbekannt.", en = "Finish this run manually? Recorded details and Need outcomes will be kept. Pending Need outcomes will remain unknown." },
+    RUN_FINISH_ACCEPT = { de = "Run beenden", en = "Finish run" },
+    RUN_FINISH_UNAVAILABLE = { de = "Bestätigungsdialog nicht verfügbar; Run bleibt offen.", en = "Confirmation dialog unavailable; the run remains open." },
+    RUN_FINISH_DONE = { de = "Run manuell beendet.", en = "Run finished manually." },
+    RUN_FINISH_MANUAL = { de = "Manuell beendet", en = "Finished manually" },
 
     CLOSE = { de = "Schließen", en = "Close" },
     ERROR_START = { de = "LootJinx konnte nicht starten: %s", en = "LootJinx could not start: %s" },

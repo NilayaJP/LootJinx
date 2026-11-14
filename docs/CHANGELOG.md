@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a confirmed manual finish action to active run details in Classic and Dungeon Journal. Preserved recorded details and unresolved Need outcomes, and prevented the same instance from reopening a run until exit.
 - Matched overlapping Need rolls by distinct roll IDs and loot-history keys. Left ambiguous chat roll values, outcomes, and bag evidence unresolved instead of assigning them to an arbitrary roll.
 - Showed provisional instance-copy checks and confirmed same-copy or different-copy outcomes in run details and history across both designs.
 - Fixed long-lived pending classifications for known non-equipment loot, including materials and consumables. Distinguished inapplicable stats from missing item data in the diagnostic snapshot.

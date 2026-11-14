@@ -30,6 +30,10 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 ## Priority 3 — Manual run finish
 
+**Status:** Implemented on the feature branch. Client UI behavior remains to be checked in WoW Forever.
+
+**Implemented:** Active run details in Classic and Dungeon Journal show a confirmed Finish run action. A manual close records its own reason, retains saved bosses, drops, and Need outcomes, and leaves pending Needs unknown. Closing inside an instance suppresses a new run for that instance until exit, including across a reload. The history and run details identify manually finished runs.
+
 **Problem:** The six-hour outside fallback cannot prove when a player abandoned a dungeon.
 
 **Proposal:** Add an optional, confirmed **Finish run** action with a distinct manual close reason. Preserve run details and Need outcomes.

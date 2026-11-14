@@ -33,7 +33,7 @@ local ROWS_PER_PAGE = 12
 local CONTENT_HEIGHT = ROW_HEIGHT * ROWS_PER_PAGE
 
 local frame, content, summary, subtitle, title, eyebrow, pageText, prevButton, nextButton
-local summaryPanel, hint, closeButton, topAccent
+local summaryPanel, hint, closeButton, finishButton, topAccent
 local rows = {}
 local pages = {}
 local currentRun
@@ -806,8 +806,14 @@ function M:Create()
     hint:SetText(LJ.L("DETAIL_HINT"))
 
     pageText = W:Font(f, 9, C.muted, "")
-    pageText:SetPoint("BOTTOMLEFT", 16, 10)
+    pageText:SetPoint("BOTTOMLEFT", 132, 10)
     pageText:SetText("")
+
+    finishButton = W:Button(f, LJ.L("RUN_FINISH"), 108, 20)
+    M.finishButton = finishButton
+    finishButton:SetPoint("BOTTOMLEFT", 16, 10)
+    finishButton:SetScript("OnClick", function() M:ConfirmFinish() end)
+    finishButton:Hide()
 
     prevButton = W:Button(f, LJ.L("DETAIL_PREV"), 58, 20)
     prevButton:SetPoint("BOTTOMRIGHT", -82, 10)
@@ -836,6 +842,27 @@ function M:Create()
             if UISpecialFrames[i] == "LootJinxRunDetailFrame" then found = true break end
         end
         if not found then table.insert(UISpecialFrames, "LootJinxRunDetailFrame") end
+    end
+
+    if type(StaticPopupDialogs) == "table" then
+        StaticPopupDialogs.LOOTJINX_FINISH_RUN = {
+            text = LJ.L("RUN_FINISH_CONFIRM"),
+            button1 = LJ.L("RUN_FINISH_ACCEPT"),
+            button2 = LJ.L("REPORT_CANCEL"),
+            OnAccept = function()
+                local id = M.pendingFinishID
+                M.pendingFinishID = nil
+                if id and LJ.Tracker and LJ.Tracker:FinishActiveManually(id) then
+                    LJ:Print(LJ.L("RUN_FINISH_DONE"))
+                    M:Refresh()
+                end
+            end,
+            OnCancel = function() M.pendingFinishID = nil end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            preferredIndex = 3,
+        }
     end
 
     return f
@@ -907,6 +934,7 @@ function M:ApplyTheme(theme)
         row.roll:SetTextColor(C.gold[1], C.gold[2], C.gold[3], 1)
     end
     tintButton(closeButton, theme == "journal")
+    tintButton(finishButton, theme == "journal")
     tintButton(prevButton, theme == "journal")
     tintButton(nextButton, theme == "journal")
     topAccent:SetShown(theme == "journal")
@@ -933,6 +961,20 @@ function M:Hide()
     if frame then frame:Hide() end
 end
 
+function M:ConfirmFinish()
+    local active = LJ.Tracker and LJ.Tracker:GetActive()
+    if not currentRun or active ~= currentRun or active.provisionalPreviousID then return false end
+    if type(StaticPopup_Show) ~= "function"
+        or type(StaticPopupDialogs) ~= "table"
+        or not StaticPopupDialogs.LOOTJINX_FINISH_RUN then
+        LJ:Print(LJ.L("RUN_FINISH_UNAVAILABLE"))
+        return false
+    end
+    M.pendingFinishID = active.id
+    StaticPopup_Show("LOOTJINX_FINISH_RUN")
+    return true
+end
+
 function M:ReplaceRun(previous, replacement)
     if currentRun == previous then self:Show(replacement) end
 end
@@ -950,6 +992,8 @@ function M:Refresh()
         or LJ.L("DETAIL_CLOSED")
     if run.provisionalPreviousID or run.closedReason == "pending-copy" then
         status = LJ.L("STATUS_COPY_CHECKING")
+    elseif run.closedReason == "manual" then
+        status = LJ.L("RUN_FINISH_MANUAL")
     elseif run.copyOutcome == "merged" then
         status = status .. " · " .. LJ.L("STATUS_COPY_MERGED")
     elseif run.copyOutcome == "different" or run.closedReason == "different-copy" then
@@ -957,6 +1001,7 @@ function M:Refresh()
     end
     local statText, statColor = statContext(run)
     subtitle:SetText(formatDate(run) .. " · " .. status .. " · " .. colored(statColor, statText))
+    if finishButton then finishButton:SetShown(active == run and not run.provisionalPreviousID) end
 
     local bossCount = #(run.bosses or {})
     local lines, dropCount = buildLines(run)

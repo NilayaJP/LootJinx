@@ -211,7 +211,7 @@ function T:CloseActive(reason)
         T:FinalizeRunItems(previous)
     end
     run.provisionalPreviousID = nil
-    T:ResolveStaleNeeds(run, true)
+    if reason ~= "manual" then T:ResolveStaleNeeds(run, true) end
     T:FinalizeRunItems(run)
     run.closed = true
     run.paused = false
@@ -220,6 +220,20 @@ function T:CloseActive(reason)
     local data = db()
     if data then data.activeID = nil end
     LJ:Changed()
+    return true
+end
+
+function T:FinishActiveManually(runID)
+    local run = activeRun()
+    if not run or run.id ~= tonumber(runID) or run.provisionalPreviousID then return false end
+    local wasInside = inside
+    if not T:CloseActive("manual") then return false end
+    if wasInside then
+        blocked = true
+        local data = db()
+        if data then data.manualBlockedKey = tostring(run.key or run.instanceID or run.name) end
+        LJ:Changed()
+    end
     return true
 end
 
@@ -368,11 +382,17 @@ local function observeUnit(unit)
 end
 
 function T:CheckZone()
-    if not db() then return end
+    local data = db()
+    if not data then return end
     local wasFirst = firstCheck
     firstCheck = false
     local d = getDungeon()
     if d then
+        if data.manualBlockedKey then
+            if tostring(d.key) == data.manualBlockedKey then return end
+            data.manualBlockedKey = nil
+            blocked = false
+        end
         if blocked then return end
         local run = activeRun()
         if run and sameInstance(run, d) then
@@ -416,6 +436,7 @@ function T:CheckZone()
         observeUnit("target")
         observeUnit("mouseover")
     else
+        data.manualBlockedKey = nil
         local wasInside = inside
         inside = false
         blocked = false
