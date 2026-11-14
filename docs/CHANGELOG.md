@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added an optional run timeline in both detail designs using saved start, finish, boss, primary-stat, and Need-resolution times. Recorded bounded dungeon exits and confirmed same-copy returns for new runs; explained missing transition history on older runs.
+- Removed timeline transitions during confirmed old-detail cleanup while preserving runs, Need outcomes, and lifetime statistics.
 - Added a clickable latest-run summary to the existing footer in compact mode for Classic and Dungeon Journal. Opened legacy runs through History and kept the window height and five trackers unchanged.
 - Kept primary-stat outcome labels visible beside recent roll summaries in both designs and clarified the compact-mode option text. Retained written Need and evidence labels and the detail-first Escape flow.
 - Added a per-dungeon comparison for two saved runs, showing visit dates, observed primary-stat loot, Need outcomes, and completion state without adding persistent counters.

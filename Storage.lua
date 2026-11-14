@@ -45,6 +45,7 @@ function S:Clean(runs, active, now)
             end
             run.needs = needs
             run.bosses, run.drops, run.rolls = {}, {}, {}
+            run.timeline, run.timelineOmitted = nil, nil
             run.seenLinks, run.pending, run.greeds = {}, {}, {}
             run.detailVersion = nil
             run.legacy = true

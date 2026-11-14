@@ -140,6 +140,10 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 ## Priority 13 — Add a session timeline
 
+**Status:** Implemented on the feature branch. Client layout and transition events remain to be checked in WoW Forever.
+
+**Implemented:** A Details/Timeline toggle in the shared run-detail window works in Classic and Dungeon Journal. The timeline orders saved start, end, boss, primary-stat, and resolved Need timestamps. New runs save only exits and confirmed same-copy returns in a capped 24-entry transition list; older runs explicitly state that earlier transitions were not recorded. The view limits visible events and marks omissions. Confirmed cleanup of old run details also removes the transition list.
+
 **Problem:** A run detail shows bosses and drops but not the sequence of exits, re-entries, and evidence updates.
 
 **Proposal:** Show a compact, optional timeline from timestamps already saved. Add new persisted events only after assessing saved-data growth.

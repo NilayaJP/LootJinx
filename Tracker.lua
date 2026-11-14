@@ -12,6 +12,7 @@ local REPAIR_SECONDS = 15 * 60
 local MAX_BOSSES = 20
 local MAX_DROPS = 120
 local MAX_ROLLS = 200
+local MAX_TIMELINE_EVENTS = 24
 local LOGIN_STALE_OUTSIDE_SECONDS = 6 * 60 * 60
 local EXIT_SETTLE_SECONDS = 3
 
@@ -37,6 +38,20 @@ local transitionGuardRun
 
 local function now()
     return LJ.Now()
+end
+
+local function timelineEvent(run, kind, at)
+    if type(run) ~= "table" or type(run.timeline) ~= "table" then return end
+    if kind ~= "exit" and kind ~= "return" then return end
+    local events = run.timeline
+    local timestamp = tonumber(at) or now()
+    local last = events[#events]
+    if last and last.kind == kind and last.at == timestamp then return end
+    events[#events + 1] = { kind = kind, at = timestamp }
+    if #events > MAX_TIMELINE_EVENTS then
+        table.remove(events, 1)
+        run.timelineOmitted = (tonumber(run.timelineOmitted) or 0) + 1
+    end
 end
 
 local function after(seconds, fn)
@@ -288,6 +303,7 @@ function T:StartRun(d, partial)
         bosses = {},
         drops = {},
         rolls = {},
+        timeline = {},
         detailVersion = 1,
         legacy = false,
         partial = partial == true,
@@ -365,6 +381,7 @@ function T:ObserveInstanceGUID(guid)
             previous.ended = nil
             previous.closedReason = nil
             previous.copyOutcome = "merged"
+            timelineEvent(previous, "return", now())
             for i = #data.runs, 1, -1 do
                 if data.runs[i] == candidate then table.remove(data.runs, i); break end
             end
@@ -466,6 +483,7 @@ function T:CheckZone()
         local run = activeRun()
         if run then
             if wasInside then
+                timelineEvent(run, "exit", now())
                 exitGraceRun, exitGraceUntil = run, now() + EXIT_SETTLE_SECONDS
                 lastExitedRun, lastExitUntil = run, exitGraceUntil
                 diag("exit-settle", run.id, "start")

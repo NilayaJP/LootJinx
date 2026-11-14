@@ -341,6 +341,59 @@ local function addCompletionLines(lines, run)
     end
 end
 
+local function buildTimelineLines(run)
+    local lines = { { kind = "section", name = LJ.L("DETAIL_TIMELINE_TITLE") } }
+    local events = {}
+    local function add(at, text)
+        at = tonumber(at)
+        if at and at > 0 then events[#events + 1] = { at = at, text = text, order = #events + 1 } end
+    end
+    add(run.started, LJ.L("DETAIL_TIMELINE_START"))
+    if type(run.timeline) == "table" then
+        for _, event in ipairs(run.timeline) do
+            if event.kind == "exit" or event.kind == "return" then
+                add(event.at, LJ.L(event.kind == "exit" and "DETAIL_TIMELINE_EXIT"
+                    or "DETAIL_TIMELINE_RETURN"))
+            end
+        end
+        for _, boss in ipairs(run.bosses or {}) do
+            if tonumber(boss.at) and tonumber(boss.at) > (tonumber(run.started) or 0) then
+                add(boss.at, LJ.L("DETAIL_TIMELINE_BOSS",
+                    W:Truncate(boss.name or LJ.L("DETAIL_UNKNOWN_BOSS"), 36)))
+            end
+        end
+        if tonumber(run.agilityAt) and tonumber(run.agilityAt) > (tonumber(run.started) or 0) then
+            add(run.agilityAt, LJ.L("DETAIL_TIMELINE_STAT"))
+        end
+        for _, need in ipairs(run.needs or {}) do
+            if (need.result == "won" or need.result == "lost") and tonumber(need.resolvedAt)
+                and tonumber(need.resolvedAt) > (tonumber(run.started) or 0) then
+                add(need.resolvedAt, LJ.L(need.result == "won"
+                    and "DETAIL_TIMELINE_NEED_WON" or "DETAIL_TIMELINE_NEED_LOST"))
+            end
+        end
+    end
+    if run.closed then add(run.ended, LJ.L("DETAIL_TIMELINE_END")) end
+    table.sort(events, function(a, b)
+        return a.at == b.at and a.order < b.order or a.at < b.at
+    end)
+    local first = 1
+    if #events > 18 then first = #events - 17 end
+    if first > 1 or (tonumber(run.timelineOmitted) or 0) > 0 then
+        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_TIMELINE_OMITTED",
+            first - 1 + (tonumber(run.timelineOmitted) or 0)), muted = true }
+    end
+    for i = first, #events do
+        local event = events[i]
+        local stamp = date and date("%d.%m.%y %H:%M", event.at) or LJ.L("NO_DATA")
+        lines[#lines + 1] = { kind = "note", text = stamp .. " · " .. event.text, muted = true }
+    end
+    if type(run.timeline) ~= "table" then
+        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_TIMELINE_OLD"), accent = true }
+    end
+    return lines
+end
+
 local function buildLines(run)
     local lines = {}
     addCompletionLines(lines, run)
@@ -729,8 +782,11 @@ function M:Create()
     summary = W:Font(summaryPanel, 10, C.text, "")
     M.summary = summary
     summary:SetPoint("LEFT", 12, 0)
-    summary:SetWidth(500)
+    summary:SetWidth(400)
     summary:SetWordWrap(false)
+    M.timelineButton = W:Button(summaryPanel, LJ.L("DETAIL_TIMELINE_BUTTON"), 96, 20)
+    M.timelineButton:SetPoint("RIGHT", -8, 0)
+    M.timelineButton:SetScript("OnClick", function() M:ToggleTimeline() end)
     summaryPanel:EnableMouse(true)
     summaryPanel:SetScript("OnEnter", function(self)
         if currentRun and LJ.ShowRunBasisTooltip then LJ:ShowRunBasisTooltip(self, currentRun) end
@@ -942,6 +998,7 @@ function M:ApplyTheme(theme)
     end
     tintButton(closeButton, theme == "journal")
     tintButton(finishButton, theme == "journal")
+    tintButton(self.timelineButton, theme == "journal")
     tintButton(prevButton, theme == "journal")
     tintButton(nextButton, theme == "journal")
     topAccent:SetShown(theme == "journal")
@@ -953,6 +1010,7 @@ function M:Show(run, theme)
     if not frame then return false end
     self:ApplyTheme(theme or (LJ.UI and LJ.UI.GetLayout and LJ.UI:GetLayout()))
     currentRun = run
+    self.showTimeline = false
     page = 1
     local ok, err = pcall(M.Refresh, M)
     if not ok then
@@ -1020,12 +1078,21 @@ function M:Refresh()
     end
     summary:SetText(LJ.L("DETAIL_SUMMARY", bossCount, dropCount, needTotal, needWon))
 
-    M.lines = lines
+    M.lines = self.showTimeline and buildTimelineLines(run) or lines
+    self.timelineButton.label:SetText(LJ.L(self.showTimeline
+        and "DETAIL_TIMELINE_BACK" or "DETAIL_TIMELINE_BUTTON"))
     pages = paginate(M.lines)
     M.pages = pages
     if page > #pages then page = #pages end
     if page < 1 then page = 1 end
     renderPage()
+end
+
+function M:ToggleTimeline()
+    if not currentRun then return end
+    self.showTimeline = not self.showTimeline
+    page = 1
+    self:Refresh()
 end
 
 function M:Page(delta)

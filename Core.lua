@@ -219,6 +219,22 @@ local function normalizeRun(run, fallbackID)
     run.closed = run.closed == true
     run.closedReason = type(run.closedReason) == "string" and run.closedReason or nil
     run.partial = run.partial == true
+    if type(run.timeline) == "table" then
+        local cleanTimeline = {}
+        for i = 1, #run.timeline do
+            local event = run.timeline[i]
+            if type(event) == "table" and (event.kind == "exit" or event.kind == "return")
+                and tonumber(event.at) and tonumber(event.at) > 0 then
+                cleanTimeline[#cleanTimeline + 1] = { kind = event.kind, at = tonumber(event.at) }
+            end
+        end
+        while #cleanTimeline > 24 do table.remove(cleanTimeline, 1) end
+        run.timeline = cleanTimeline
+        run.timelineOmitted = math.max(0, math.floor(tonumber(run.timelineOmitted) or 0))
+    else
+        run.timeline = nil
+        run.timelineOmitted = nil
+    end
     normalizeStatContext(run)
 
     -- Runs, die vor Version 1.3.0 aufgezeichnet wurden, tragen keinen
