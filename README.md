@@ -151,13 +151,13 @@ WoW Forever does not provide a combat log to addons. LootJinx therefore detects 
 - A `RollOnLoot` hook for your own Need or Greed choice.
 - Bag counts as a fallback for unresolved Need results.
 
-Items whose data is not yet available are queued and classified after `GET_ITEM_INFO_RECEIVED`. An item matches your primary stat when `C_Item.GetItemStats` reports a positive value for that stat.
+Items whose data is not yet available remain queued after a run closes and are classified when the client later supplies their data. An item matches your primary stat when `C_Item.GetItemStats` reports a positive value for that stat.
 
 When the client exposes `C_LootHistory`, LootJinx reads the per-player roll values for encounter loot and merges them with values parsed from loot chat. Item tooltips in run details list observed Need, Greed, and Transmog values per player; chat parsing remains the fallback for trash loot and older records. Separate loot-history events for identical items remain separate even when players roll the same numbers.
 
-If a Need result cannot be resolved directly, LootJinx checks your bags after a short delay. A simultaneous Greed roll for the same item prevents a false Need win.
+If a Need result cannot be resolved directly, LootJinx checks your bags after a short delay. A simultaneous Greed roll for the same item prevents a false Need win. If the bag count or its starting value is unavailable, the result stays pending. Ordinary item-loot chat does not decide a Need result; explicit roll-win chat can.
 
-The confidence labels describe the evidence behind a recorded result; they do not change the five tracker totals. A direct roll chat message is marked **confirmed**. Bag checks and matching loot-chat messages are marked **inferred**. Pending results remain **unresolved**.
+The confidence labels describe the evidence behind a recorded result; they do not change the five tracker totals. A direct roll chat message is marked **confirmed**. Bag checks are marked **inferred**. Pending results remain **unresolved**. Older saved Need results can retain their original evidence labels.
 
 ## Saved Data
 

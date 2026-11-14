@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Kept unresolved item classifications after a run closed so late item data could update that run.
+- Stopped ordinary item-loot chat from deciding Need outcomes; retained explicit roll-win chat as direct evidence.
+- Kept Need outcomes pending when bag counts or the initial item count could not be read.
+- Preserved separate rapid Need choices for identical items without roll IDs while matching one chat observation to a keyed choice only once.
 - Fixed ambiguous bag gains from concurrent Need and Greed rolls being recorded as Need losses.
 - Preserved identical rolls on overlapping drops when chat and loot-history observations could not be matched safely; removed duplicate own Need entries from recent-roll displays.
 - Fixed chat report success messages after a sending API error and added a localized failure message.

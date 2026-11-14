@@ -152,7 +152,8 @@ local function normalizeNeed(n, fallbackAt)
     n.at = tonumber(n.at) or fallbackAt or 0
     n.id = tonumber(n.id)
     n.rollID = tonumber(n.rollID)
-    n.before = tonumber(n.before) or 0
+    n.chatSeen = n.chatSeen == true
+    n.before = tonumber(n.before)
     n.link = type(n.link) == "string" and n.link or nil
     n.result = (n.result == "won" or n.result == "lost") and n.result or nil
     n.resolvedAt = tonumber(n.resolvedAt)
@@ -750,16 +751,16 @@ end
 
 function LJ:ItemCount(id)
     id = tonumber(id)
-    if not id then return 0 end
+    if not id then return nil end
     local fn = (C_Item and C_Item.GetItemCount) or GetItemCount
-    if type(fn) ~= "function" then return 0 end
+    if type(fn) ~= "function" then return nil end
     local ok, n = pcall(fn, id, true, false, false, false)
     n = ok and tonumber(Plain(n))
     if type(n) ~= "number" then
         ok, n = pcall(fn, id, true)
         n = ok and tonumber(Plain(n))
     end
-    return type(n) == "number" and n or 0
+    return type(n) == "number" and n or nil
 end
 
 function LJ:LoadItem(link, id)

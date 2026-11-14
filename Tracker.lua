@@ -721,7 +721,6 @@ function T:FinalizeRunItems(run)
             if info and info.agi == true then markAgility(run, p.link, info) end
         end
     end
-    run.pending = {}
 end
 
 -- Ein Spezialisierungswechsel aktualisiert nur den laufenden Run. Abgeschlossene
@@ -822,10 +821,14 @@ function T:ResolveNeedByBags(need, run, force)
         end
     end
     if not id then
-        return T:ResolveNeed(need, "lost", "no-item")
+        return false
     end
     local count = LJ:ItemCount(id)
-    local before = tonumber(need.before) or 0
+    local before = tonumber(need.before)
+    if count == nil or before == nil then
+        diag("bags-unavailable", id)
+        return false
+    end
     diag("bags-check", id, "count=" .. tostring(count) .. " before=" .. tostring(before))
     if count > before then
         if T:HasGreedConflict(need, run) then
@@ -870,8 +873,9 @@ function T:RepairLostNeeds()
                 and (n.reason == "bags" or n.reason == "no-item") then
                 local at = n.resolvedAt or n.at or 0
                 if t - at <= REPAIR_SECONDS then
-                    local before = tonumber(n.before) or 0
-                    if LJ:ItemCount(n.id) > before and not T:HasGreedConflict(n, run) then
+                    local before = tonumber(n.before)
+                    local count = LJ:ItemCount(n.id)
+                    if before and count and count > before and not T:HasGreedConflict(n, run) then
                         n.result = "won"
                         n.resolvedAt = t
                         n.reason = "repair"
@@ -913,9 +917,10 @@ function T:OnNeedRoll(rollID, link)
         local n = run.needs[i]
         if n.result == nil then
             local sameRoll = rollID and n.rollID == rollID
-            local sameItem = id and n.id == id and (not rollID or not n.rollID)
+            local sameItem = rollID and id and n.id == id and not n.rollID
                 and now() - (n.at or 0) <= DEDUPE_SECONDS
-            local sameCached = id and n.rollID and LJ:ItemID(rollLinks[n.rollID]) == id
+            local sameCached = id and n.rollID and not n.chatSeen
+                and (n.id == id or LJ:ItemID(rollLinks[n.rollID]) == id)
                 and not rollID and now() - (n.at or 0) <= DEDUPE_SECONDS
             if sameRoll then match, matches = n, 1; break end
             if sameItem or sameCached then match, matches = n, matches + 1 end
@@ -930,6 +935,7 @@ function T:OnNeedRoll(rollID, link)
         if not match.link and link then match.link = link; filled = true end
         if not match.id and id then match.id = id; filled = true end
         if not match.rollID and rollID then match.rollID = rollID; filled = true end
+        if not rollID then match.chatSeen = true end
         if match.id and not match.before then match.before = LJ:ItemCount(match.id) end
         if filled then diag("need-link", match.id or id, "roll=" .. tostring(rollID)) end
         LJ:Changed()
@@ -941,7 +947,8 @@ function T:OnNeedRoll(rollID, link)
         id = id,
         link = link,
         rollID = rollID,
-        before = id and LJ:ItemCount(id) or 0,
+        chatSeen = not rollID,
+        before = id and LJ:ItemCount(id) or nil,
     }
     run.needs[#run.needs + 1] = need
     diag("need-open", id, "roll=" .. tostring(rollID))
@@ -963,10 +970,6 @@ function T:FillNeedLink(need, rollID)
     if not need.id then
         local id = LJ:ItemID(link)
         if id then need.id = id; filled = true end
-    end
-    if need.id and (not need.before or need.before == 0) then
-        need.before = LJ:ItemCount(need.id)
-        filled = true
     end
     if filled then diag("need-link", need.id, "roll=" .. tostring(rollID)) end
     LJ:Changed()
@@ -1740,7 +1743,6 @@ function T:OnLootChat(text, _who, guid)
         diag("chat", nil, "loot-self")
         recordChatItems(args[1])
         noteChatDrop(firstItemLink(args[1]), LJ:PlayerName(), nil)
-        T:ResolveNeedByLink(firstItemLink(args[1]), "won", "chat-loot-self")
         return
     end
 
@@ -1749,11 +1751,6 @@ function T:OnLootChat(text, _who, guid)
         diag("chat", nil, "loot-other")
         recordChatItems(args[2])
         noteChatDrop(firstItemLink(args[2]), args[1], guid)
-        if not LJ:IsMe(args[1]) then
-            T:ResolveNeedByLink(firstItemLink(args[2]), "lost", "chat-loot-other")
-        else
-            T:ResolveNeedByLink(firstItemLink(args[2]), "won", "chat-loot-self")
-        end
         return
     end
     diag("chat-unmatched", nil, "len=" .. tostring(#text)
