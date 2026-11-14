@@ -64,7 +64,9 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 ## Priority 7 — Match repeated Need rolls more precisely
 
-**Status:** Implemented in the current feature branch; client behavior remains to be checked in WoW Forever.
+**Status:** Implemented on `feature/boss-name-validation` in commit `5bb9c36`. The WoW Forever client behavior remains to be checked.
+
+**Implemented:** Distinct roll IDs now create distinct Need entries, while repeated events for the same roll ID reuse the entry. Loot-history rolls use their history key and the associated drop's roll ID to find the matching Need entry. Chat roll values, chat outcomes, and bag evidence remain unassigned when multiple overlapping Need rolls could match. Greed rolls do not receive a Need roll value. Focused local checks cover repeated items, duplicate events, reversed history-event order, missing values, and overlapping Need and Greed.
 
 **Problem:** Several rolls for the same item can overlap, while chat and loot-history events arrive in different orders.
 
@@ -74,7 +76,9 @@ Version 1.6.0 added searchable history, date filters, per-dungeon summaries, man
 
 ## Priority 8 — Make copy detection visible
 
-**Status:** Implemented in the current feature branch; client display remains to be checked in WoW Forever.
+**Status:** Implemented on `feature/boss-name-validation` in commit `5bb9c36`. The WoW Forever client display remains to be checked.
+
+**Implemented:** A provisional re-entry shows "Checking copy" in the Classic status and history, and the checking state appears in Journal and run details. The same-copy path merges the provisional run only after matching GUID evidence and records "Same copy"; the different-copy path keeps both runs and records "Different copy". The outcome survives saved-data reload. Local checks cover both paths and the run-detail designs.
 
 **Problem:** After re-entry, a provisional run may wait for a Creature or Cast GUID. Players cannot tell why two entries briefly appear.
 
