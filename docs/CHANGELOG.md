@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.6.2 — 2026-11-14
+
 - Preserved required boss kills in long dungeons when additional optional bosses were observed, including after reload.
 - Matched loot-history keys to a unique compatible drop instead of assigning them to the latest identical item.
 - Separated history filter choices with identical dungeon names by instance ID and kept ambiguous legacy runs distinct.

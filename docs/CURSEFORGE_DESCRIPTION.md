@@ -8,7 +8,7 @@ Tracking starts automatically when you enter a group or scenario instance. No ex
 
 ## What LootJinx Tracks
 
-- **Dungeon Curse:** Consecutive dungeons without an observed drop matching your specialization’s primary stat.
+- **Dungeon Curse:** Runs without an observed drop matching the primary stat recorded for that run, plus the current and longest streaks.
 - **Lost Need Rolls:** Your Need wins, losses, current losing streak, and personal record. Greed rolls do not affect these statistics.
 - **No Need Win:** Dungeons where you rolled Need but won nothing. A dungeon without a Need roll does not break this streak.
 - **No Loot:** Dungeons where no eligible loot was observed. Quest items are excluded.
@@ -18,7 +18,7 @@ Each tracker shows your current streak and longest recorded streak.
 
 ## Review Your Runs
 
-The dashboard shows your four most recent runs, including the latest observed Need roll values. Open the searchable run history to filter all saved runs by dungeon and date. Click a supported run to see its bosses, observed drops, recipients, and per-player roll values. Run details show the primary stat used at the time, or mark older runs when that context is unknown.
+The dashboard shows your four most recent runs, including the latest observed Need roll values. Open the searchable run history to filter saved runs by dungeon, date, and status, or compare two runs from the same dungeon. Click a supported run to see its bosses, observed drops, recipients, and per-player roll values. Run details show the primary stat used at the time, or mark older runs when that context is unknown.
 
 Run details show equippable green-quality or better loot by boss. Eligible dungeon trash drops appear in their own section, using a reviewed DungeonJournal loot catalog to identify known boss and trash sources. Unlisted or ambiguous observed items remain visible under Other Loot. Older runs recorded before detailed history was introduced remain in the list but have no detailed report.
 
