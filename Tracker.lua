@@ -829,9 +829,8 @@ function T:ResolveNeedByBags(need, run, force)
     diag("bags-check", id, "count=" .. tostring(count) .. " before=" .. tostring(before))
     if count > before then
         if T:HasGreedConflict(need, run) then
-            need.noRepair = true
             diag("greed-guard", id)
-            return T:ResolveNeed(need, "lost", "greed-guard")
+            return false
         end
         return T:ResolveNeed(need, "won", "bags")
     end
@@ -1125,6 +1124,17 @@ function T:NoteDrop(...)
     return noteDrop(activeRun(), ...)
 end
 
+local function competingHistoryDrop(run, id, at)
+    local count = 0
+    for _, drop in ipairs(run.drops or {}) do
+        if drop.id == id and math.abs((tonumber(drop.at) or 0) - at) <= 300 then
+            count = count + 1
+            if count > 1 then return true end
+        end
+    end
+    return false
+end
+
 function T:NoteRoll(link, name, kind, value, source)
     local run = activeRun()
     if not run then return false end
@@ -1146,7 +1156,8 @@ function T:NoteRoll(link, name, kind, value, source)
             if at - (tonumber(prior.at) or 0) > 300 then break end
             if prior.lootHistoryKey and not prior.chatSeen and prior.id == id
                 and prior.kind == kind and tonumber(prior.value) == value
-                and lower(prior.name) == lower(name) then
+                and lower(prior.name) == lower(name)
+                and not competingHistoryDrop(run, id, at) then
                 prior.chatSeen = true
                 return false
             end
@@ -1255,7 +1266,8 @@ function T:NoteRollFromHistory(link, name, kind, value, historyKey)
                 bindHistoryNeed(run, id, name, kind, value, historyKey)
                 return false
             end
-            if not roll.lootHistoryKey then
+            if not roll.lootHistoryKey
+                and not competingHistoryDrop(run, id, at) then
                 roll.lootHistoryKey = historyKey
                 roll.chatSeen = true
                 bindHistoryNeed(run, id, name, kind, value, historyKey)

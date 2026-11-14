@@ -144,6 +144,7 @@ local S = {
     REPORT_CANCEL = { de = "Abbrechen", en = "Cancel" },
     REPORT_NO_PARTY = { de = "Du bist in keiner Gruppe.", en = "You are not in a group." },
     REPORT_NO_TARGET = { de = "Bitte einen Namen eingeben oder ein Spieler-Ziel auswählen.", en = "Enter a name or select a player target." },
+    REPORT_SEND_FAILED = { de = "Bericht konnte nicht gesendet werden.", en = "Report could not be sent." },
     REPORT_TARGET_HINT = { de = "Leer lassen, um das aktuelle Spieler-Ziel anzuflüstern.", en = "Leave empty to whisper your current player target." },
     REPORT_SENT_GROUP = { de = "Bericht in den Gruppenchat gepostet.", en = "Report posted to group chat." },
     REPORT_SENT_RAID = { de = "Bericht in den Raidchat gepostet.", en = "Report posted to raid chat." },

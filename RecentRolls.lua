@@ -28,6 +28,7 @@ function R:Entries(run)
             entries[#entries + 1] = {
                 id = roll.id, name = roll.name, kind = roll.kind,
                 value = value, at = tonumber(roll.at) or 0,
+                lootHistoryKey = roll.lootHistoryKey,
                 own = type(roll.name) == "string" and LJ:IsMe(roll.name) or false,
             }
         end
@@ -39,7 +40,10 @@ function R:Entries(run)
             for i, entry in ipairs(entries) do
                 if entry.own and entry.kind == "need" and entry.id == need.id
                     and entry.value == value and not matched[i]
-                    and math.abs(entry.at - (tonumber(need.at) or 0)) <= 10 then
+                    and (not need.lootHistoryKey or not entry.lootHistoryKey
+                        or need.lootHistoryKey == entry.lootHistoryKey)
+                    and entry.at >= (tonumber(need.at) or 0)
+                    and entry.at - (tonumber(need.at) or 0) <= 300 then
                     match = i
                     break
                 end

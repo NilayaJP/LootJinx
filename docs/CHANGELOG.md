@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Fixed ambiguous bag gains from concurrent Need and Greed rolls being recorded as Need losses.
+- Preserved identical rolls on overlapping drops when chat and loot-history observations could not be matched safely; removed duplicate own Need entries from recent-roll displays.
+- Fixed chat report success messages after a sending API error and added a localized failure message.
+- Matched history runs by stable instance identity across client language changes while keeping distinct resolved wings separate.
 - Explained why observed gear appears under Other loot in item tooltips: missing catalog, unlisted item, ambiguous sources, unobserved catalog boss, or unmatched encounter clue. Kept all drops and tracker totals unchanged.
 - Added a source-data review report for boss flags, required bosses, shared-map candidates, and loot sources before regeneration. Recorded the reviewed 2.0.5 boss baseline and required `--reviewed` for both catalog generators.
 - Added an optional run timeline in both detail designs using saved start, finish, boss, primary-stat, and Need-resolution times. Recorded bounded dungeon exits and confirmed same-copy returns for new runs; explained missing transition history on older runs.

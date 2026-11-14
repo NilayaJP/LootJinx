@@ -95,24 +95,38 @@ local function finishReport()
 end
 
 local function sendNextLine(currentSession)
-    if currentSession ~= session then return end
+    if currentSession ~= session then return false end
     local line = table.remove(queue, 1)
     if not line then
         timer = nil
         finishReport()
-        return
+        return true
     end
-    pcall(SendChatMessage, line, reportChannel, nil, reportTarget)
+    local sent = pcall(SendChatMessage, line, reportChannel, nil, reportTarget)
+    if not sent then
+        queue = {}
+        timer = nil
+        return false
+    end
     if C_Timer and C_Timer.NewTimer then
         timer = C_Timer.NewTimer(REPORT_DELAY, function()
-            pcall(sendNextLine, currentSession)
+            local ok, delivered = pcall(sendNextLine, currentSession)
+            if currentSession == session and (not ok or not delivered) then
+                LJ:Print(LJ.L("REPORT_SEND_FAILED"))
+            end
         end)
     elseif C_Timer and C_Timer.After then
         timer = nil
-        C_Timer.After(REPORT_DELAY, function() pcall(sendNextLine, currentSession) end)
+        C_Timer.After(REPORT_DELAY, function()
+            local ok, delivered = pcall(sendNextLine, currentSession)
+            if currentSession == session and (not ok or not delivered) then
+                LJ:Print(LJ.L("REPORT_SEND_FAILED"))
+            end
+        end)
     else
-        sendNextLine(currentSession)
+        return sendNextLine(currentSession)
     end
+    return true
 end
 
 function R:Send(channel, target)
@@ -132,7 +146,7 @@ function R:Send(channel, target)
         return false
     end
     queue = self:Build()
-    sendNextLine(session)
+    if not sendNextLine(session) then return false, "REPORT_SEND_FAILED" end
     return true
 end
 

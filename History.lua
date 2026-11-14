@@ -54,6 +54,29 @@ local function normalized(text)
     return string.lower(tostring(text or ""))
 end
 
+local function dungeonIdentity(run, includeWing)
+    local instanceID = tonumber(run and run.instanceID)
+    if instanceID and instanceID > 0 then
+        local key = tostring(instanceID)
+        if includeWing and LJ.DungeonCompletion and LJ.DungeonCompletion.Progress then
+            local progress = LJ.DungeonCompletion:Progress(run)
+            if progress and progress.dungeon then
+                key = key .. ":" .. progress.dungeon
+            end
+        end
+        return key
+    end
+end
+
+local function sameDungeon(first, second, includeWing)
+    if not first or not second then return false end
+    local firstID = dungeonIdentity(first, includeWing)
+    local secondID = dungeonIdentity(second, includeWing)
+    if firstID and secondID then return firstID == secondID end
+    return type(first.name) == "string" and first.name ~= ""
+        and first.name == second.name
+end
+
 local function localDayStart(now, daysBack)
     local gameClock = type(date) == "function" and type(time) == "function"
     local dateFn = gameClock and date or (os and os.date)
@@ -85,12 +108,32 @@ function H:Filter(runs, query, dungeon, range, now, status)
     now = tonumber(now) or (LJ.Now and LJ.Now()) or 0
     local daysBack = ({ today = 0, week = 6, month = 29 })[range]
     local cutoff = daysBack and localDayStart(now, daysBack) or nil
+    local searchIDs = {}
+    if needle ~= "" then
+        for _, candidate in ipairs(runs or {}) do
+            if type(candidate) == "table" and normalized(candidate.name):find(needle, 1, true) then
+                local key = dungeonIdentity(candidate)
+                if key then searchIDs[key] = true end
+            end
+        end
+    end
+    local selected
+    if dungeon then
+        for i = #(runs or {}), 1, -1 do
+            local candidate = runs[i]
+            if type(candidate) == "table" and candidate.name == dungeon then
+                selected = candidate
+                break
+            end
+        end
+    end
     for i = #(runs or {}), 1, -1 do
         local run = runs[i]
         local name = type(run) == "table" and tostring(run.name or "") or ""
         local started = type(run) == "table" and tonumber(run.started) or nil
-        if type(run) == "table" and (not dungeon or name == dungeon)
-            and (needle == "" or normalized(name):find(needle, 1, true))
+        if type(run) == "table" and (not dungeon or (selected and sameDungeon(run, selected)))
+            and (needle == "" or normalized(name):find(needle, 1, true)
+                or searchIDs[dungeonIdentity(run)])
             and (not daysBack or (cutoff and started and started >= cutoff and started <= now))
             and self:StatusMatches(run, status) then
             result[#result + 1] = run
@@ -127,16 +170,20 @@ end
 function H:ComparisonData(first, second)
     if type(first) ~= "table" or type(second) ~= "table" or first == second
         or type(first.name) ~= "string" or first.name == ""
-        or first.name ~= second.name then return nil end
+        or not sameDungeon(first, second, true) then return nil end
     return { name = first.name, first = comparisonRun(first), second = comparisonRun(second) }
 end
 
 function H:Dungeons(runs)
-    local seen, names = {}, {}
-    for i = 1, #(runs or {}) do
-        local name = runs[i] and runs[i].name
-        if type(name) == "string" and name ~= "" and not seen[name] then
-            seen[name] = true
+    local seen, seenNames, names = {}, {}, {}
+    for i = #(runs or {}), 1, -1 do
+        local run = runs[i]
+        local name = run and run.name
+        local key = type(run) == "table" and dungeonIdentity(run) or nil
+        key = key or name
+        if type(name) == "string" and name ~= "" and not seen[key] and not seenNames[name] then
+            seen[key] = true
+            seenNames[name] = true
             names[#names + 1] = name
         end
     end
@@ -512,7 +559,7 @@ function H:SelectForComparison(run)
         self.comparePanel:Hide()
     elseif not self.compareA then
         self.compareA = run
-    elseif self.compareA.name ~= run.name then
+    elseif not sameDungeon(self.compareA, run, true) then
         LJ:Print(LJ.L("HISTORY_COMPARE_SAME_DUNGEON"))
         return false
     else

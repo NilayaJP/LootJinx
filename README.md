@@ -76,6 +76,7 @@ All graphics are 32-bit TGA files at 256 × 256 pixels. If you replace them, use
 **Need Rolls:** Counts Need rolls, consecutive losses, and your longest losing streak. Greed rolls and items won through Greed do not affect Need statistics.
 Hover a recent run or the summary in run details to see how that run contributes to each of the five trackers. Active, paused, partial, and manually finished runs remain in the saved totals; a missing observation is not proof that an item did not drop. Pending Need outcomes remain pending rather than becoming losses.
 When identical items are rolled at the same time, LootJinx uses roll IDs and loot-history keys where available. Ambiguous results remain pending until there is enough evidence to assign them to one Need roll.
+If a bag increase could have come from either Need or Greed, the Need outcome stays pending. Identical rolls on overlapping drops remain separate when the chat and loot-history records cannot be paired safely.
 
 **No Need Win:** Dungeons where you rolled Need at least once but won no Need roll. Dungeons without a Need roll do not interrupt the streak.
 
@@ -100,6 +101,8 @@ The **Report** button in the dashboard footer opens the sharing dialog:
 The report has six short, consistently prefixed chat lines: a header followed by five numbered tracker lines. They are sent 0.6 seconds apart. If no party or whisper target is available, the dialog shows a message and sends nothing.
 
 ## Dungeon History
+
+Runs with the same instance ID remain grouped and searchable after a client language change. Comparisons keep resolved wings on shared maps distinct.
 
 Run details offer a **Timeline** button in both designs. It shows saved start and finish times, observed boss events, the first detected primary-stat drop, and Need results with recorded resolution times. New runs also record dungeon exits and returns after the same instance copy is confirmed. Older runs say when exit and return history is unavailable; no missing timestamp is guessed. Only the latest 24 transition events are saved per run, and old-detail cleanup removes them.
 
