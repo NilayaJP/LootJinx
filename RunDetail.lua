@@ -317,6 +317,11 @@ local function bossLootQuality(drop)
         local ok, quality = pcall(getQuality, drop.id)
         if ok and tonumber(LJ.Plain(quality)) then return tonumber(LJ.Plain(quality)) end
     end
+    local modernQuality = type(drop.link) == "string"
+        and tonumber(drop.link:match("^|cnIQ(%d+):")) or nil
+    if modernQuality and modernQuality >= 0 and modernQuality <= 7 then
+        return modernQuality
+    end
     local color = type(drop.link) == "string" and drop.link:match("^|cff(%x%x%x%x%x%x)")
     local qualities = { ["9d9d9d"] = 0, ["ffffff"] = 1, ["1eff00"] = 2,
         ["0070dd"] = 3, ["a335ee"] = 4, ["ff8000"] = 5 }

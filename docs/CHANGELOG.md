@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Read the quality of newer `|cnIQ` item links when item quality data was temporarily unavailable, keeping observed boss gear such as Zul'Alai's Oathbound Bracers visible in run details.
 - Included the confirmed Drowned City boss drops from DungeonJournal's later QuestUpdates data so observed items could be attributed to their bosses, including older saved runs. Matched the Deathless Guardians event to Deathless Marrow for loot grouping.
 - Added a Wowhead Forever guide importer and source review for all 35 dungeons. Checked 113 boss-item references from six guides with usable loot tables among 28 fetched guides, retained DungeonJournal attribution in four conflicts, and kept dungeons without Wowhead loot data on DungeonJournal data.
 - Hid fully empty dungeon visits from history, reports, and all five trackers after leaving the instance. Kept boss visits without loot in the No Loot statistic and preserved older runs without detail data.
