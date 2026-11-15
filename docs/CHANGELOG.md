@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Restricted report whispers to a selected player of the same faction or a confirmed Battle.net friend. Rejected NPCs, opposite-faction strangers, and unverified character names before sending.
+- Added Battle.net report whispers for an opposite-faction friend target or an entered BattleTag, with German and English target and error messages.
+
 ## 1.6.2 — 2026-11-14
 
 - Preserved required boss kills in long dungeons when additional optional bosses were observed, including after reload.

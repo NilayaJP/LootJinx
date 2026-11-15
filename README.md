@@ -97,6 +97,8 @@ Known materials and consumables are classified without waiting for equipment sta
 
 The **Report** button in the dashboard footer opens the sharing dialog:
 
+For a whisper, select a player of your faction or enter the exact BattleTag of a Battle.net friend. A selected friend of the opposite faction is sent the report through Battle.net. NPCs, opposite-faction strangers, and character names that do not match the selected player are rejected before sending.
+
 - **Party chat:** Post your statistics to party chat, or raid chat when you are in a raid.
 - **Whisper:** Send the report to a named player or your current player target. The target is filled in when the dialog opens. A target on your realm appears without a realm suffix; a cross-realm target appears as `Name-Realm`.
 

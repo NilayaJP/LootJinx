@@ -10,28 +10,79 @@ local REPORT_DELAY = 0.6
 local queue = {}
 local timer
 local session = 0
-local reportChannel, reportTarget
+local reportChannel, reportTarget, reportDisplay
 
 local function stripName(value)
     return tostring(value or ""):match("^%s*(.-)%s*$") or ""
 end
 
-function R:GetTargetName()
-    if type(UnitName) ~= "function" then return nil end
-    if type(UnitIsPlayer) == "function" then
-        local okP, isPlayer = pcall(UnitIsPlayer, "target")
-        isPlayer = okP and LJ.Plain(isPlayer) or nil
-        if isPlayer == false then return nil end
-    end
+local function targetPlayer()
+    if type(UnitName) ~= "function" or type(UnitIsPlayer) ~= "function" then return nil end
+    local okP, isPlayer = pcall(UnitIsPlayer, "target")
+    if not okP or LJ.Plain(isPlayer) ~= true then return nil end
     local ok, name, realm = pcall(UnitName, "target")
     name, realm = ok and LJ.Plain(name) or nil, ok and LJ.Plain(realm) or nil
     if type(name) ~= "string" or name == "" then return nil end
     local okP, _, ownRealm = pcall(UnitName, "player")
     ownRealm = okP and LJ.Plain(ownRealm) or nil
+    local fullName = name
     if type(realm) == "string" and realm ~= "" and realm ~= ownRealm then
-        return name .. "-" .. realm
+        fullName = name .. "-" .. realm
     end
-    return name
+    return fullName, name, realm
+end
+
+local function faction(unit)
+    if type(UnitFactionGroup) ~= "function" then return nil end
+    local ok, value = pcall(UnitFactionGroup, unit)
+    value = ok and LJ.Plain(value) or nil
+    if value == "Alliance" or value == "Horde" then return value end
+    return nil
+end
+
+local function bnetFriend(battleTag, name, realm, targetGUID)
+    if type(BNGetNumFriends) ~= "function" or not C_BattleNet
+        or type(C_BattleNet.GetFriendAccountInfo) ~= "function" then return nil end
+    local ok, count = pcall(BNGetNumFriends)
+    count = ok and tonumber(LJ.Plain(count)) or 0
+    local matchID, matchTag
+    for i = 1, math.min(count, 500) do
+        local found, info = pcall(C_BattleNet.GetFriendAccountInfo, i)
+        if found and type(info) == "table" then
+            local tag = LJ.Plain(info.battleTag)
+            local game = info.gameAccountInfo
+            local same = type(tag) == "string" and battleTag and tag:lower() == battleTag:lower()
+            if not same and name and type(game) == "table" and LJ.Plain(game.isOnline) == true then
+                local char = LJ.Plain(game.characterName)
+                local gameRealm = LJ.Plain(game.realmName)
+                local friendGUID = LJ.Plain(game.playerGuid)
+                same = type(char) == "string" and char:lower() == name:lower()
+                    and (not realm or realm == "" or not gameRealm or gameRealm:lower() == realm:lower())
+                    and (not targetGUID or not friendGUID or targetGUID == friendGUID)
+            end
+            local id = tonumber(LJ.Plain(info.bnetAccountID))
+            if same and id and type(tag) == "string" then
+                if matchID and matchID ~= id then return nil end
+                matchID, matchTag = id, tag
+            end
+        end
+    end
+    return matchID, matchTag
+end
+
+local function targetGUID()
+    if type(UnitGUID) ~= "function" then return nil end
+    local ok, guid = pcall(UnitGUID, "target")
+    guid = ok and LJ.Plain(guid) or nil
+    return type(guid) == "string" and guid or nil
+end
+
+function R:GetTargetName()
+    local fullName, name, realm = targetPlayer()
+    if not fullName then return nil end
+    if faction("target") == faction("player") and faction("player") then return fullName end
+    local _, tag = bnetFriend(nil, name, realm, targetGUID())
+    return tag
 end
 
 local function groupChat()
@@ -86,7 +137,9 @@ end
 
 local function finishReport()
     if reportChannel == "WHISPER" then
-        LJ:Print(LJ.L("REPORT_SENT_WHISPER", reportTarget or "?"))
+        LJ:Print(LJ.L("REPORT_SENT_WHISPER", reportDisplay or reportTarget or "?"))
+    elseif reportChannel == "BN_WHISPER" then
+        LJ:Print(LJ.L("REPORT_SENT_BNET", reportDisplay or "?"))
     elseif reportChannel == "RAID" then
         LJ:Print(LJ.L("REPORT_SENT_RAID"))
     else
@@ -102,7 +155,14 @@ local function sendNextLine(currentSession)
         finishReport()
         return true
     end
-    local sent = pcall(SendChatMessage, line, reportChannel, nil, reportTarget)
+    local sent, accepted
+    if reportChannel == "BN_WHISPER" then
+        if not C_BattleNet or type(C_BattleNet.SendWhisper) ~= "function" then return false end
+        sent, accepted = pcall(C_BattleNet.SendWhisper, reportTarget, line)
+        sent = sent and accepted == true
+    else
+        sent = pcall(SendChatMessage, line, reportChannel, nil, reportTarget)
+    end
     if not sent then
         queue = {}
         timer = nil
@@ -134,14 +194,35 @@ function R:Send(channel, target)
     if channel == "WHISPER" then
         target = stripName(target)
         if target == "" then target = self:GetTargetName() or "" end
-        if target == "" then return false, "REPORT_NO_TARGET" end
+        if target == "" then
+            if targetPlayer() then return false, "REPORT_OPPOSITE_FACTION" end
+            return false, "REPORT_NO_TARGET"
+        end
+        local resolvedChannel, resolvedTarget, display
+        if target:find("#", 1, true) then
+            resolvedTarget, display = bnetFriend(target)
+            if not resolvedTarget then return false, "REPORT_BNET_NOT_FRIEND" end
+            resolvedChannel = "BN_WHISPER"
+        else
+            local current, name, realm = targetPlayer()
+            if not current or target:lower() ~= current:lower() then
+                return false, "REPORT_UNVERIFIED_TARGET"
+            end
+            if faction("target") == faction("player") and faction("player") then
+                resolvedChannel, resolvedTarget, display = "WHISPER", current, current
+            else
+                resolvedTarget, display = bnetFriend(nil, name, realm, targetGUID())
+                if not resolvedTarget then return false, "REPORT_OPPOSITE_FACTION" end
+                resolvedChannel = "BN_WHISPER"
+            end
+        end
         self:Cancel()
-        reportChannel, reportTarget = "WHISPER", target
+        reportChannel, reportTarget, reportDisplay = resolvedChannel, resolvedTarget, display
     elseif channel == "PARTY" or channel == "GROUP" then
         local chatChannel, inGroup = groupChat()
         if not inGroup then return false, "REPORT_NO_PARTY" end
         self:Cancel()
-        reportChannel, reportTarget = chatChannel, nil
+        reportChannel, reportTarget, reportDisplay = chatChannel, nil, nil
     else
         return false
     end
