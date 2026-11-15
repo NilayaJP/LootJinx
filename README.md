@@ -1,178 +1,45 @@
 # LootJinx
 
-LootJinx is a World of Warcraft: Forever addon (Interface 16001) that tracks your dungeon bad luck: runs without a drop matching your primary stat, lost Need rolls, unlucky streaks, and personal records.
+LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: missing primary-stat drops, lost Need rolls, unlucky streaks, and personal records. Tracking starts automatically in group and scenario instances. Available in English and German, with **Classic** and **Dungeon Journal** designs.
 
-The interface is available in German and English. Open it with `/lj`, the minimap button, the AddOn button, or the AddOn Compartment next to the minimap.
+**Current version:** 1.6.3 · **Interface:** 16001 · **Dependencies:** None
 
-## Version 1.6.3
+## What it tracks
 
-- Long dungeon runs retain early boss drops and rolls. When saved Loot History evidence exists, LootJinx can restore previously trimmed drops in older runs.
-- Run details recognize newer item-link quality markers and attribute confirmed Drowned City boss drops, including drops in older saved runs.
-- Fully empty dungeon visits disappear from history and tracker totals after leaving; observed boss visits without loot still count toward **No Loot**.
-- Reports can be whispered to a selected same-faction player or a confirmed Battle.net friend, including an opposite-faction friend. Unverified targets are rejected.
+- **Dungeon Curse:** Runs without an observed drop matching the primary stat saved for that run.
+- **Need Rolls:** Need wins, losses, and the current and longest losing streaks. Greed does not affect these statistics.
+- **No Need Win:** Dungeons where you rolled Need but won no Need roll.
+- **No Loot:** Recorded dungeon visits without observed eligible loot; quest items do not count.
+- **Since Need Win:** Dungeons since your last successful Need roll.
 
-## Installation
+All five trackers appear in both designs. Empty visits with no observed boss, item, or roll are omitted after leaving the instance.
+
+## Review and share
+
+Browse recent runs and searchable history, filter or compare visits, and open run details to see observed bosses, drops, recipients, and roll values. Known boss and trash loot is grouped by source; unlisted or ambiguous gear stays visible under **Other Loot**. Older runs without detailed data remain in history.
+
+Share a short statistics report in party or raid chat, with a selected same-faction player, or with a confirmed Battle.net friend. Settings include window scale, compact mode, record announcements, and design choice. Character runs are saved in `LootJinxCharDB`; display settings are saved account-wide in `LootJinxDB`.
+
+Version 1.6.3 retains early drops and rolls in long runs, restores previously trimmed drops when saved Loot History evidence exists, improves boss-loot attribution, and rejects unverified whisper targets.
+
+## Install
 
 1. Copy the `LootJinx` folder to `World of Warcraft\_forever_\Interface\AddOns\LootJinx`.
 2. Enter `/reload` in game.
-3. Enter `/lj` to open the dashboard.
+3. Open the dashboard with `/lj`, the minimap button, or the AddOn Compartment.
 
 ## Commands
 
 | Command | Action |
 | --- | --- |
 | `/lj` | Open or close the dashboard |
-| `/lj options` | Open settings (alias: `/lj settings`) |
+| `/lj options` | Open settings |
 | `/lj reset` | Reset this character's statistics after confirmation |
-| `/lj scale 0.80–1.30` | Change the dashboard scale |
+| `/lj scale 0.80–1.30` | Set dashboard scale |
 | `/lj resetpos` | Center the dashboard |
-| `/lj debug` | Open a copyable diagnostic snapshot for bug reports |
-| `/lj help` | Show available commands |
+| `/lj debug` | Open a copyable diagnostic snapshot |
+| `/lj help` | Show all commands |
 
-## Diagnostics
+## Detection limits
 
-`/lj debug` opens a snapshot of the current session and run. It shows the instance-copy state, the stored primary-stat context, recent loot event types, observed boss encounter IDs and names, open Need rolls, pending item classifications, and the latest classification decisions. The report is designed to be copied into a bug report. The window follows the active Classic or Journal design and scrolls long snapshots.
-
-The snapshot contains item IDs, roll IDs, boss encounter IDs and names, event counts, and classification flags, including whether a primary stat is absent, not applicable, or still pending. Player names, chat text, and whisper targets are not included. The **Print to chat** button outputs the same snapshot locally if you prefer plain text.
-
-## Minimap Button
-
-LootJinx adds a circular button to the edge of the minimap.
-
-- **Left click:** Open or close the dashboard.
-- **Right click:** Open settings.
-- **Left click and drag:** Move the button around the minimap.
-
-The button position is saved account-wide (default: bottom left). The button is always visible.
-
-## Settings
-
-Open **ESC > Options > AddOns > LootJinx**. The gear icon in the dashboard and `/lj options` open the same page.
-
-- **Window size:** Scale from 80% to 130% in 5% steps.
-- **Reset position:** Center the dashboard.
-- **Lock window position:** Prevent accidental dragging by the header.
-- **Welcome message on every login:** Show an additional chat hint. The one-time first-start message is independent of this setting.
-- **Announce records in chat:** Show a local-only chat notice when you exceed a personal record. Off by default; ties do not announce.
-- **Show watermark:** Toggle the large LootJinx symbol in the lower-right corner.
-- **Compact mode:** Hide Recent Runs and reduce the dashboard height from 628 to 476 pixels.
-- **Design:** Choose Classic or Dungeon Journal from the dropdown. The choice applies to all characters and takes effect immediately. Both designs show the same trackers and run history; the detail window follows the selected design. Pressing ESC with run details open closes the details first.
-
-Changes are saved immediately.
-
-## Graphics
-
-| File | Use |
-| --- | --- |
-| `Media/LootJinxIcon.tga` | AddOn and Compartment icon, header icon, and watermark |
-| `Media/CurseChest.tga` | Dungeon Curse card illustration |
-| `Media/NeedRolls.tga` | Need Rolls card illustration |
-| `Media/NoNeedWin.tga` | No Need Win card icon |
-| `Media/NoLoot.tga` | No Loot card icon |
-| `Media/SinceNeedWin.tga` | Since Need Win card icon |
-| `Media/Report.tga` | Report button and sharing dialog icon |
-
-All graphics are 32-bit TGA files at 256 × 256 pixels. If you replace them, use power-of-two dimensions; WoW does not load PNG or JPG files for these textures.
-
-## What Gets Tracked
-
-**Dungeon Curse:** Recorded runs without an observed item matching your primary stat. The main card shows the count alongside all recorded runs: for example, **4 of 16 runs** means four runs had no observed drop with your primary stat. LootJinx determines the stat from your current specialization. For example, Balance Druid uses Intellect, Feral Druid uses Agility, Elemental Shaman uses Intellect, Enhancement Shaman uses Agility, Holy Paladin uses Intellect, and Protection or Retribution Paladin uses Strength. If specialization data is unavailable, LootJinx compares base stats through `UnitStat` before falling back to a class mapping. The stat used for classification is stored with each run, so changing specialization later does not reclassify older runs. Runs recorded before stat context was stored are marked as unknown. The tracker shows your current streak and longest recorded streak.
-
-Runs with unknown primary-stat context remain in the total run count but do not add to Dungeon Curse or extend its streak.
-
-**Need Rolls:** Counts Need rolls, consecutive losses, and your longest losing streak. Greed rolls and items won through Greed do not affect Need statistics.
-Hover a recent run or the summary in run details to see how that run contributes to each of the five trackers. Active, paused, partial, and manually finished runs remain in the saved totals; a missing observation is not proof that an item did not drop. Pending Need outcomes remain pending rather than becoming losses.
-When identical items are rolled at the same time, LootJinx uses roll IDs and loot-history keys where available. Ambiguous results remain pending until there is enough evidence to assign them to one Need roll.
-If a bag increase could have come from either Need or Greed, the Need outcome stays pending. Identical rolls on overlapping drops remain separate when the chat and loot-history records cannot be paired safely.
-
-**No Need Win:** Dungeons where you rolled Need at least once but won no Need roll. Dungeons without a Need roll do not interrupt the streak.
-
-**No Loot:** Recorded dungeon visits where no item was observed as loot. Quest items (class ID 12 or type "Quest") do not count as loot. A visit with no observed boss, item, or roll is omitted after leaving the dungeon; a boss visit without loot still counts.
-
-**Since Need Win:** Dungeons since your last successful Need roll, including dungeons without a Need roll. This counter remains at zero until your first Need roll. The tracker shows the current value and personal record.
-
-Record announcements are optional and local to your client. When enabled, LootJinx posts one chat line for each personal record that increases. Run-based records are checked when a run closes, so a dungeon in progress cannot announce a premature record; a lost Need roll is checked as soon as its result is known. Ties and decreases do not announce, and nothing is sent to party, raid, or whisper chat.
-
-A *run* starts when you enter a group or scenario instance. When you leave, LootJinx waits briefly for late boss, loot, and roll events, then closes it if all required bosses for a resolved dungeon or wing were observed killed. Rare, summoned, and documented optional bosses are excluded. Available German encounter names and known combined encounter labels are recognized across the 35 cataloged dungeons; unknown names leave the run paused. Run details show the wing indicated by boss evidence, the required-boss count, and each boss without an observed kill event. For shared maps with insufficient evidence, they show the possible wings and their counts. An absent event does not prove the boss is still alive. On re-entry, a Creature or Cast GUID determines whether you returned to the same instance copy. A different copy or dungeon starts a new run. Run details and history show when the copy check is pending and whether the run was continued or a different copy was confirmed. At the first world entry outside, a run already paused for six hours closes; short reconnects do not expire it.
-You can finish an active run from its details in either design after confirming the action. Recorded bosses, drops, and Need results remain; unresolved Need results stay unknown. If you finish while still inside, LootJinx waits until you leave that instance before starting another run there.
-
-Known materials and consumables are classified without waiting for equipment stats. Equipment with incomplete item data stays pending until the Forever client reports a successful data load; unresolved saved items are requested again after login. Historical runs without a saved primary-stat context are never classified using today's specialization.
-
-## Share a Report
-
-The **Report** button in the dashboard footer opens the sharing dialog:
-
-For a whisper, select a player of your faction or enter the exact BattleTag of a Battle.net friend. A selected friend of the opposite faction is sent the report through Battle.net. NPCs, opposite-faction strangers, and character names that do not match the selected player are rejected before sending.
-
-- **Party chat:** Post your statistics to party chat, or raid chat when you are in a raid.
-- **Whisper:** Send the report to a named player or your current player target. The target is filled in when the dialog opens. A target on your realm appears without a realm suffix; a cross-realm target appears as `Name-Realm`.
-
-The report has six short, consistently prefixed chat lines: a header followed by five numbered tracker lines. They are sent 0.6 seconds apart. If no party or whisper target is available, the dialog shows a message and sends nothing.
-
-## Dungeon History
-
-Runs with the same instance ID remain grouped and searchable after a client language change. Comparisons keep resolved wings on shared maps distinct.
-When different instance IDs share a displayed dungeon name, the history filter adds their IDs to distinguish them. Legacy runs without an ID stay separate when their name matches several known instances.
-
-Run details offer a **Timeline** button in both designs. It shows saved start and finish times, observed boss events, the first detected primary-stat drop, and Need results with recorded resolution times. New runs also record dungeon exits and returns after the same instance copy is confirmed. Older runs say when exit and return history is unavailable; no missing timestamp is guessed. Only the latest 24 transition events are saved per run, and old-detail cleanup removes them.
-
-Compact mode shows the latest dungeon and its status in the dashboard footer. Click the line to open that run's details, or History for an older run without details. The five trackers remain visible.
-
-Click **History** in the dashboard footer to browse all saved runs, including in compact mode. Search dungeon names, filter by dungeon, choose **Today**, **Last 7 days**, **Last 30 days**, or **All time**, and filter paused runs, observed boss clears, manual finishes, or runs with pending Need results. These filters combine; **Reset filters** clears them. Date ranges use local calendar days. Use **Back** and **Next** to page through older runs. The list is newest first. The summary above it shows runs with primary-stat loot, runs without loot, and Need wins, losses, and pending results for the current filters. Active runs are included. Use **Compare** on two visits to the same dungeon to view their dates, observed primary-stat loot, Need outcomes, and completion state side by side. Click a run to open its existing detail report; runs recorded before detailed history was introduced remain listed with a "Details unavailable" label.
-
-The history window follows the selected Classic or Dungeon Journal design. ESC closes the detail report first, then the history window, then the dashboard.
-
-The header shows how many runs are displayed and how many are saved. **Clean up** removes boss, drop, roll, and per-item Need details from completed runs older than 30 days after a confirmation prompt. It keeps the run summaries, Need outcomes, lifetime statistics, and active run. Runs with pending items or unresolved Need results are skipped. Cleaned runs remain in history but cannot open a detailed report. Cleanup is manual and cannot be undone.
-
-## Run Details
-
-Recent Runs shows the latest observed personal and other-player Need values directly in each row. Hover over a run to see all observed Need and Greed values with player names and items. Values appear only when the game exposed a roll number; the two short row values may come from different items in the same run.
-
-Click a supported entry in **Recent Runs** to open its detail window (available for runs recorded since version 1.3.0). It shows:
-
-- Dungeon name, date and time, and status (`LIVE` or completed).
-- The primary stat used for the run, including any stat changes during that run. Older records without stored context show **Primary stat: unknown**.
-- A summary of bosses, items, Need rolls, and Need wins.
-- Equippable green-quality or better loot grouped by boss when an encounter or the dungeon loot catalog identifies its source.
-- Cataloged dungeon trash in a **Trash drops** section. Other observed gear remains visible under **Other Loot**; proximity to a boss kill alone does not assign it to that boss.
-- Each item's icon, quality-colored name, recipient (class-colored, or "You" for your character), winner's roll type and value, and your own Need roll and outcome when available.
-- A per-item tooltip with observed roll values for each player when the client or loot chat supplied them.
-- A confidence label beside your Need result and a tooltip explaining whether the result came from a direct roll message, a bag check, or another observation. Drop tooltips also explain the recipient evidence. Older records without a saved source show "evidence unavailable".
-- Boss attribution by encounter ID. Gray, white, and non-equippable items are excluded.
-- A "No loot observed" message for bosses without observed drops.
-
-The detail window opens centered over the dashboard. Close it with **×**, **ESC**, or by closing the dashboard. Use **Back** and **Next** to navigate longer reports.
-
-Runs recorded before version 1.3.0 remain in Recent Runs but cannot be opened because detailed boss and recipient data was not captured for them. Their tooltip explains this.
-
-The bundled `DungeonLootData.lua` is an independent source index drawn from ForeverDungeonJournal 2.0.7 and reviewed Wowhead Forever boss-loot guides. It covers 35 listed dungeons and supports 31 explicit trash groups. The catalog helps label observed drops; it is not a whitelist and does not change the five tracker totals. Unknown or ambiguous items stay in **Other loot**. Hover an item there to see why no boss was assigned.
-
-Before updating either catalog, run `python tools/fetch_wowhead_forever_loot.py <path-to-Dungeons.lua>` and inspect its guide coverage, unmatched labels, and `tools/wowhead_forever_loot.tsv` diff. Then run `lua tools/review_dungeon_sources.lua <path-to-Dungeons.lua>` from the repository root. Review its boss, rare/optional flag, shared-map, item-source, and Wowhead conflict output. Run `lua tools/build_dungeon_loot.lua <path-to-Dungeons.lua> --reviewed` or `lua tools/build_dungeon_completion.lua <path-to-Dungeons.lua> --reviewed`, inspect the generated diff, and update the baseline with `lua tools/review_dungeon_sources.lua <path-to-Dungeons.lua> --snapshot` only after accepting the source changes. The generators read the source version from its `.toc` file. The Wowhead fetch found 28 dungeon guides, but only six currently supplied usable boss-item tables. All dungeons continue to use DungeonJournal data where Wowhead supplies no item mapping.
-
-## Detection Limits
-
-WoW Forever does not provide a combat log to addons. LootJinx therefore detects loot and roll results on a best-effort basis using:
-
-- `START_LOOT_ROLL` / `CANCEL_LOOT_ROLL` and the roll window.
-- `LOOT_HISTORY_UPDATE_DROP` and `C_LootHistory.GetSortedInfoForDrop` for per-player roll values on encounter loot when the API is available.
-- `LOOT_OPENED` / `LOOT_READY` and the loot window.
-- `CHAT_MSG_LOOT` for win, Need, and Greed messages.
-- `ENCOUNTER_END` / `BOSS_KILL` for boss kills and `ENCOUNTER_LOOT_RECEIVED` for loot recipients.
-- A `RollOnLoot` hook for your own Need or Greed choice.
-- Bag counts as a fallback for unresolved Need results.
-
-Items whose data is not yet available remain queued after a run closes and are classified when the client later supplies their data. An item matches your primary stat when `C_Item.GetItemStats` reports a positive value for that stat.
-
-When the client exposes `C_LootHistory`, LootJinx reads the per-player roll values for encounter loot and merges them with values parsed from loot chat. Item tooltips in run details list observed Need, Greed, and Transmog values per player; chat parsing remains the fallback for trash loot and older records. Separate loot-history events for identical items remain separate even when players roll the same numbers.
-When several identical drops could match one history event, LootJinx assigns its history key only if the observed winner identifies a unique compatible drop.
-
-If a Need result cannot be resolved directly, LootJinx checks your bags after a short delay. A simultaneous Greed roll for the same item prevents a false Need win. If the bag count or its starting value is unavailable, the result stays pending. Ordinary item-loot chat does not decide a Need result; explicit roll-win chat can.
-
-The confidence labels describe the evidence behind a recorded result; they do not change the five tracker totals. A direct roll chat message is marked **confirmed**. Bag checks are marked **inferred**. Pending results remain **unresolved**. Older saved Need results can retain their original evidence labels.
-
-## Saved Data
-
-- `LootJinxDB`: Account-wide window position, scale, display options, and minimap button angle.
-- `LootJinxCharDB`: Per-character runs, Need rolls, and streaks.
-
-`/lj reset` clears only the current character's statistics. Interface preferences remain unchanged.
+WoW Forever does not expose a combat log to addons. LootJinx combines available loot, roll, chat, and encounter events, so some drops or outcomes remain unknown. An unobserved item or boss kill is not proof that it did not happen.
