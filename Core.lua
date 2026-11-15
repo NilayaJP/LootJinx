@@ -299,7 +299,6 @@ local function normalizeRun(run, fallbackID)
         local drop = normalizeDrop(drops[i], run.started)
         if drop then cleanDrops[#cleanDrops + 1] = drop end
     end
-    while #cleanDrops > 120 do table.remove(cleanDrops, 1) end
     run.drops = cleanDrops
 
     local rolls = type(run.rolls) == "table" and run.rolls or {}
@@ -308,8 +307,43 @@ local function normalizeRun(run, fallbackID)
         local roll = normalizeRoll(rolls[i], run.started)
         if roll then cleanRolls[#cleanRolls + 1] = roll end
     end
-    while #cleanRolls > 200 do table.remove(cleanRolls, 1) end
     run.rolls = cleanRolls
+    -- Older versions trimmed the earliest drops in long runs. Loot History's
+    -- keyed rolls and a link observed in that run can restore the missing item
+    -- without inventing a winner or a roll result.
+    local keyedDrops, linksByID = {}, {}
+    for _, drop in ipairs(cleanDrops) do
+        if drop.lootHistoryKey then keyedDrops[drop.lootHistoryKey] = true end
+    end
+    for link in pairs(run.seenLinks or {}) do
+        if type(link) == "string" then
+            local itemID = tonumber(link:match("item:(%d+)"))
+            if itemID and (not linksByID[itemID] or link:match("^|c")) then
+                linksByID[itemID] = link
+            end
+        end
+    end
+    for _, roll in ipairs(cleanRolls) do
+        local key = roll.lootHistoryKey
+        local link = key and linksByID[roll.id]
+        if link and not keyedDrops[key] then
+            local bossID = tonumber(key:match("^(%d+):"))
+            local bossName
+            for _, boss in ipairs(cleanBosses) do
+                if bossID and bossID > 0 and boss.id == bossID then
+                    bossName = boss.name
+                    break
+                end
+            end
+            cleanDrops[#cleanDrops + 1] = {
+                id = roll.id, link = link, bossID = bossName and bossID or 0,
+                bossName = bossName, at = roll.at, lootHistoryKey = key,
+                source = "loot-history-recovered",
+                sources = { ["loot-history-recovered"] = true },
+            }
+            keyedDrops[key] = true
+        end
+    end
     return run
 end
 

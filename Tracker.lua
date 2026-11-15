@@ -10,8 +10,6 @@ local NEED_TIMEOUT = 5 * 60
 local DEDUPE_SECONDS = 5
 local REPAIR_SECONDS = 15 * 60
 local MAX_BOSSES = 64
-local MAX_DROPS = 120
-local MAX_ROLLS = 200
 local MAX_TIMELINE_EVENTS = 24
 local LOGIN_STALE_OUTSIDE_SECONDS = 6 * 60 * 60
 local EXIT_SETTLE_SECONDS = 3
@@ -1139,7 +1137,6 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
         source = source,
         sources = { [source or "unknown"] = true },
     }
-    while #run.drops > MAX_DROPS do table.remove(run.drops, 1) end
     diag("drop-new", id, source)
     LJ:Changed()
     return true
@@ -1192,7 +1189,6 @@ function T:NoteRoll(link, name, kind, value, source)
         id = id, name = name, kind = kind, value = value, at = at,
         chatSeen = source ~= "history",
     }
-    while #run.rolls > MAX_ROLLS do table.remove(run.rolls, 1) end
     diag("roll", id, kind .. "=" .. tostring(value) .. (mine and " self" or " other"))
 
     if source ~= "history" then
@@ -1341,12 +1337,31 @@ function T:OnLootHistoryDrop(encounterID, lootListID)
         winnerName = nil
     end
     local drop = recentDrop(run, id, now(), historyKey, winnerName)
-    if not drop and not (run.seenLinks and run.seenLinks[link]) then
+    local observedBoss = bossByID(run, encounterID)
+    if not drop and not observedBoss and not (run.seenLinks and run.seenLinks[link]) then
         diag("loot-history-skip", id, "unseen")
         return
     end
+    local createdDrop = false
+    if not drop then
+        -- Loot History can arrive without a START_LOOT_ROLL drop. A matching
+        -- encounter or a link already observed in this run confirms the item.
+        if not (run.seenLinks and run.seenLinks[link]) then
+            T:RecordItem(link, "loot-history")
+        end
+        drop = {
+            id = id, link = link, bossID = observedBoss and observedBoss.id or 0,
+            bossName = observedBoss and observedBoss.name or nil, at = now(),
+            lootHistoryKey = historyKey, source = "loot-history",
+            sources = { ["loot-history"] = true },
+        }
+        run.drops = run.drops or {}
+        run.drops[#run.drops + 1] = drop
+        createdDrop = true
+        diag("drop-new", id, "loot-history")
+    end
     lootHistoryDrops = lootHistoryDrops + 1
-    local dropBound = false
+    local dropBound = createdDrop
     if drop and drop.lootHistoryKey ~= historyKey then
         drop.lootHistoryKey = historyKey
         dropBound = true
