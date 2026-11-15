@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Updated the independent loot-source catalog from ForeverDungeonJournal 2.0.7 with 1,092 additional item-source relationships across 28 dungeons, including recipe and trash drops. Preserved all existing relationships and recorded the reviewed 2.0.7 source baseline.
 - Restricted report whispers to a selected player of the same faction or a confirmed Battle.net friend. Rejected NPCs, opposite-faction strangers, and unverified character names before sending.
 - Added Battle.net report whispers for an opposite-faction friend target or an entered BattleTag, with German and English target and error messages.
 - Matched the observed Deathless Guardians encounter to Deathless Marrow in The Drowned City completion check.
