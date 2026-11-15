@@ -37,5 +37,6 @@
 ## Publishing
 
 - Keep `README.md` in English. Update user-facing documentation when behavior changes; keep the CurseForge description aligned with an actual release.
+- Package release ZIPs with a single `LootJinx/` folder containing only `LootJinx.toc`, the Lua files it loads, and runtime assets those files require (such as `Media/`). Exclude `docs/`, `tests/`, `tools/`, `dist/`, `README.md`, `AGENTS.md`, Git files, and other development or release artifacts. Check the ZIP contents before publishing.
 - A Git push is not a version release. Do not create a version tag, release archive, CurseForge upload, or enable automatic packaging unless the user explicitly asks for it.
 - After an approved merge, keep local `main` and `origin/main` synchronized. Never force-push.
