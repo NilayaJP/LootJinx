@@ -18,6 +18,9 @@ local germanDungeons = source.ContentLocales.deDE.dungeons or {}
 -- Wowhead Forever journal encounter labels can combine several NPCs. Only
 -- add a shared alias when the journal explicitly presents one encounter.
 local journalAliases = {
+    ["The Drowned City"] = {
+        ["Deathless Marrow"] = { "Deathless Guardians" },
+    },
     ["Shadowfang Keep"] = {
         ["Fel Steed / Shadow Charger"] = { "Fel Steeds / Shadow Charger" },
     },

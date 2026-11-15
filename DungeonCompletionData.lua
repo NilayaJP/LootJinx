@@ -112,7 +112,7 @@ LJ.DungeonCompletionData = {
         { name = "Zul'Alai", aliases = { "Zul'Alai" }, npcID = 258905 },
         { name = "Var'Taka", aliases = { "Var'Taka", "Zin'aka" }, npcID = 258924 },
         { name = "Captain Dreadrise", aliases = { "Captain Dreadrise" }, npcID = 260042 },
-        { name = "Deathless Marrow", aliases = { "Deathless Marrow", "Unsterbliches Mark" }, npcID = nil, deName = "Unsterbliches Mark" },
+        { name = "Deathless Marrow", aliases = { "Deathless Marrow", "Unsterbliches Mark", "Deathless Guardians" }, npcID = nil, deName = "Unsterbliches Mark" },
         { name = "Min'loth the Serpent", aliases = { "Min'loth the Serpent", "Min'loth", "Min'loth die Schlange" }, npcID = 260274, deName = "Min'loth die Schlange" },
     },
     ["Scarlet Monastery: Armory"] = {

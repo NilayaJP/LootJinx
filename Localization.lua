@@ -195,6 +195,7 @@ local S = {
     DETAIL_CLICK = { de = "Klicken für Details", en = "Click for details" },
     DETAIL_NO_LEGACY_CLICK = { de = "Für Runs vor Version 1.3.0 gibt es keine Details.", en = "Runs from before version 1.3.0 have no details." },
     DETAIL_CLOSED = { de = "Abgeschlossen", en = "Completed" },
+    DETAIL_ENDED = { de = "Beendet", en = "Ended" },
     DETAIL_STAT = { de = "Primärstat: %s", en = "Primary stat: %s" },
     DETAIL_STAT_MIXED = { de = "Primärstat: %s (gewechselt)", en = "Primary stat: %s (changed)" },
     DETAIL_STAT_UNKNOWN = { de = "Primärstat: unbekannt", en = "Primary stat: unknown" },

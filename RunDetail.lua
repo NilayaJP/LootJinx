@@ -1079,7 +1079,7 @@ function M:Refresh()
     title:SetText(W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 42))
     local active = LJ.Tracker and LJ.Tracker.GetActive and LJ.Tracker:GetActive()
     local status = active == run and (LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("STATUS_IDLE"))
-        or LJ.L("DETAIL_CLOSED")
+        or LJ.L(run.closedReason == "all-bosses-cleared" and "DETAIL_CLOSED" or "DETAIL_ENDED")
     if run.provisionalPreviousID or run.closedReason == "pending-copy" then
         status = LJ.L("STATUS_COPY_CHECKING")
     elseif run.closedReason == "manual" then

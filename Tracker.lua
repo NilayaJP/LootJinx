@@ -1622,7 +1622,7 @@ local function firstItemLink(raw)
     return nil
 end
 
-local function noteChatDrop(link, winner, guid)
+local function noteChatDrop(link, winner, guid, source)
     local run = activeRun()
     if not run then return end
     local classFile
@@ -1631,7 +1631,7 @@ local function noteChatDrop(link, winner, guid)
     else
         classFile = classFileFromGUID(guid)
     end
-    noteDrop(run, link, winner, nil, "chat", nil, nil, nil, classFile)
+    noteDrop(run, link, winner, nil, source or "chat", nil, nil, nil, classFile)
 end
 
 function T:OnLootChat(text, _who, guid)
@@ -1672,7 +1672,7 @@ function T:OnLootChat(text, _who, guid)
     if args then
         diag("chat", nil, "you-won")
         recordChatItems(args[1])
-        noteChatDrop(firstItemLink(args[1]), LJ:PlayerName(), nil)
+        noteChatDrop(firstItemLink(args[1]), LJ:PlayerName(), nil, "chat-win")
         T:ResolveNeedByLink(firstItemLink(args[1]), "won", "chat-won")
         return
     end
@@ -1681,7 +1681,7 @@ function T:OnLootChat(text, _who, guid)
     if args then
         diag("chat", nil, "won")
         recordChatItems(args[2])
-        noteChatDrop(firstItemLink(args[2]), args[1], guid)
+        noteChatDrop(firstItemLink(args[2]), args[1], guid, "chat-win")
         if LJ:IsMe(args[1]) then
             T:ResolveNeedByLink(firstItemLink(args[2]), "won", "chat-won")
         else

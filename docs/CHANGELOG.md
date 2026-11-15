@@ -4,6 +4,9 @@
 
 - Restricted report whispers to a selected player of the same faction or a confirmed Battle.net friend. Rejected NPCs, opposite-faction strangers, and unverified character names before sending.
 - Added Battle.net report whispers for an opposite-faction friend target or an entered BattleTag, with German and English target and error messages.
+- Matched the observed Deathless Guardians encounter to Deathless Marrow in The Drowned City completion check.
+- Combined a roll-win chat message with its matching loot receipt into one drop while keeping repeated identical drops separate.
+- Labeled runs ended by an instance-copy change as ended rather than completed in run details.
 
 ## 1.6.2 — 2026-11-14
 
