@@ -6,6 +6,15 @@ The interface is available in German and English. Open it with `/lj`, the minima
 
 Project documents: [Changelog](docs/CHANGELOG.md), [improvement ideas](docs/IMPROVEMENT_IDEAS.md), and [CurseForge description](docs/CURSEFORGE_DESCRIPTION.md).
 
+## Version 1.6.3
+
+- Long dungeon runs retain early boss drops and rolls. When saved Loot History evidence exists, LootJinx can restore previously trimmed drops in older runs.
+- Run details recognize newer item-link quality markers and attribute confirmed Drowned City boss drops, including drops in older saved runs.
+- Fully empty dungeon visits disappear from history and tracker totals after leaving; observed boss visits without loot still count toward **No Loot**.
+- Reports can be whispered to a selected same-faction player or a confirmed Battle.net friend, including an opposite-faction friend. Unverified targets are rejected.
+
+See the [1.6.3 changelog](docs/CHANGELOG.md#163--2026-11-15) for all changes.
+
 ## Installation
 
 1. Copy the `LootJinx` folder to `World of Warcraft\_forever_\Interface\AddOns\LootJinx`.
