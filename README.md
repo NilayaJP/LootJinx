@@ -82,7 +82,7 @@ If a bag increase could have come from either Need or Greed, the Need outcome st
 
 **No Need Win:** Dungeons where you rolled Need at least once but won no Need roll. Dungeons without a Need roll do not interrupt the streak.
 
-**No Loot:** Dungeons where no item was observed as loot. Quest items (class ID 12 or type "Quest") do not count as loot.
+**No Loot:** Recorded dungeon visits where no item was observed as loot. Quest items (class ID 12 or type "Quest") do not count as loot. A visit with no observed boss, item, or roll is omitted after leaving the dungeon; a boss visit without loot still counts.
 
 **Since Need Win:** Dungeons since your last successful Need roll, including dungeons without a Need roll. This counter remains at zero until your first Need roll. The tracker shows the current value and personal record.
 

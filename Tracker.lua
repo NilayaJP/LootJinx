@@ -170,9 +170,32 @@ local function rollFor(run, id, name)
     return nil
 end
 
+local function emptyVisit(run)
+    if type(run) ~= "table" or run.legacy or run.detailVersion == nil then return false end
+    if run.lootSeen == true or run.agilityDropped == true
+        or (tonumber(run.itemsSeen) or 0) > 0 or (tonumber(run.agiItemsSeen) or 0) > 0 then return false end
+    for _, field in ipairs({ "bosses", "drops", "needs", "greeds", "rolls", "pending" }) do
+        if type(run[field]) == "table" and next(run[field]) then return false end
+    end
+    if type(run.seenLinks) == "table" and next(run.seenLinks) then return false end
+    return true
+end
+
 function T:GetRuns()
     local data = db()
-    return data and data.runs or {}
+    local runs = data and data.runs or {}
+    local visible
+    for i, run in ipairs(runs) do
+        if (run.closed or run.paused) and emptyVisit(run) then
+            if not visible then
+                visible = {}
+                for j = 1, i - 1 do visible[#visible + 1] = runs[j] end
+            end
+        elseif visible then
+            visible[#visible + 1] = run
+        end
+    end
+    return visible or runs
 end
 
 function T:GetActive()
@@ -507,11 +530,10 @@ function T:CheckZone()
             end
             run.outsideAt = run.outsideAt or now()
             run.lastSeen = now()
+            local wasPaused = run.paused == true
             run.paused = true
-            if wasInside then
-                diag("zone-leave", run.id)
-                LJ:Changed()
-            end
+            if wasInside then diag("zone-leave", run.id) end
+            if wasInside or not wasPaused then LJ:Changed() end
         end
     end
 end
