@@ -1,5 +1,5 @@
 -- Reviewed ForeverDungeonJournal boss flags; update only after source review.
-return { version = "2.0.7", bosses = {
+return { version = "2.0.8", bosses = {
     ["Alcaz Prison"] = {
         ["Blazeroar"] = "rare=0 optional=0 trash=0 summon=0 npc=255702 aliases=Blazeroar prior=",
         ["Katerina the Cleaner"] = "rare=0 optional=0 trash=0 summon=0 npc=257016 aliases=Katerina,Katerina the Cleaner prior=",
@@ -78,6 +78,7 @@ return { version = "2.0.7", bosses = {
         ["Hydrospawn"] = "rare=0 optional=0 trash=0 summon=0 npc=13280 aliases=Hydrospawn prior=",
         ["Lethtendris"] = "rare=0 optional=0 trash=0 summon=0 npc=14327 aliases=Lethtendris prior=",
         ["Pusillin"] = "rare=0 optional=0 trash=0 summon=0 npc=14354 aliases=Pusillin prior=",
+        ["Trash Drops"] = "rare=0 optional=0 trash=1 summon=0 npc=- aliases= prior=",
         ["Zevrim Thornhoof"] = "rare=0 optional=0 trash=0 summon=0 npc=11490 aliases=Zevrim Thornhoof prior=",
     },
     ["Dire Maul: North"] = {
@@ -221,10 +222,12 @@ return { version = "2.0.7", bosses = {
     },
     ["Scholomance"] = {
         ["Darkmaster Gandling"] = "rare=0 optional=0 trash=0 summon=0 npc=1853 aliases=Darkmaster Gandling prior=",
+        ["Death Knight Darkreaver"] = "rare=1 optional=0 trash=0 summon=0 npc=14516 aliases=Darkreaver,Death Knight Darkreaver prior=",
         ["Doctor Theolen Krastinov"] = "rare=0 optional=0 trash=0 summon=0 npc=11261 aliases=Doctor Theolen Krastinov prior=",
         ["Instructor Malicia"] = "rare=0 optional=0 trash=0 summon=0 npc=10505 aliases=Instructor Malicia prior=",
         ["Jandice Barov"] = "rare=0 optional=0 trash=0 summon=0 npc=10503 aliases=Jandice Barov prior=",
         ["Kirtonos the Herald"] = "rare=0 optional=0 trash=0 summon=0 npc=10506 aliases=Kirtonos the Herald prior=",
+        ["Kormok"] = "rare=1 optional=0 trash=0 summon=0 npc=16118 aliases=Kormok prior=",
         ["Lady Illucia Barov"] = "rare=0 optional=0 trash=0 summon=0 npc=10502 aliases=Lady Illucia Barov prior=",
         ["Lord Alexei Barov"] = "rare=0 optional=0 trash=0 summon=0 npc=10504 aliases=Lord Alexei Barov prior=",
         ["Lorekeeper Polkelt"] = "rare=0 optional=0 trash=0 summon=0 npc=10901 aliases=Lorekeeper Polkelt prior=",
@@ -266,6 +269,7 @@ return { version = "2.0.7", bosses = {
         ["Archivist Galford"] = "rare=0 optional=0 trash=0 summon=0 npc=10811 aliases=Archivist Galford prior=",
         ["Balnazzar"] = "rare=0 optional=0 trash=0 summon=0 npc=10813 aliases=Balnazzar prior=",
         ["Cannon Master Willey"] = "rare=0 optional=0 trash=0 summon=0 npc=10997 aliases=Cannon Master Willey prior=",
+        ["Ezra Grimm"] = "rare=0 optional=1 trash=0 summon=0 npc=11058 aliases=Ezra Grimm,Fras Siabi prior=",
         ["Hearthsinger Forresten"] = "rare=1 optional=0 trash=0 summon=0 npc=10558 aliases=Hearthsinger Forresten prior=",
         ["Malor the Zealous"] = "rare=0 optional=1 trash=0 summon=0 npc=11032 aliases=Malor the Zealous prior=",
         ["Postmaster Malown"] = "rare=0 optional=1 trash=0 summon=0 npc=11143 aliases=Postmaster Malown prior=",

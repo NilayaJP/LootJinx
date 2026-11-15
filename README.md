@@ -20,7 +20,7 @@ Browse recent runs and searchable history, filter or compare visits, and open ru
 
 Share a short statistics report in party or raid chat, with a selected same-faction player, or with a confirmed Battle.net friend. Settings include window scale, compact mode, record announcements, and design choice. Character runs are saved in `LootJinxCharDB`; display settings are saved account-wide in `LootJinxDB`.
 
-Version 1.6.5 excludes green primary-stat drops from Dungeon Curse and corrects older runs when saved item evidence is sufficient.
+Version 1.6.5 excludes green primary-stat drops from Dungeon Curse and corrects older runs when saved item evidence is sufficient. It also refreshes the dungeon loot catalog from ForeverDungeonJournal 2.0.8, adding new bosses, missing drops, and recipes.
 
 ## Install
 
