@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.6.3 — 2026-11-15
+
 - Removed the per-run drop and roll caps that discarded early boss loot in long dungeons. Restored missing keyed drops from saved Loot History rolls and observed item links on load, and recorded Loot History drops even when no earlier roll-window drop existed.
 - Read the quality of newer `|cnIQ` item links when item quality data was temporarily unavailable, keeping observed boss gear such as Zul'Alai's Oathbound Bracers visible in run details.
 - Included the confirmed Drowned City boss drops from DungeonJournal's later QuestUpdates data so observed items could be attributed to their bosses, including older saved runs. Matched the Deathless Guardians event to Deathless Marrow for loot grouping.
