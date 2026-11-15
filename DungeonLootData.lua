@@ -1,5 +1,5 @@
 -- Curated item ID/source index from ForeverDungeonJournal 2.0.7 (WoW Forever 1.60.1).
--- Sources: Data/Dungeons.lua and Data/SharedLoot.lua.
+-- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, and tools/wowhead_forever_loot.tsv.
 -- Reference data only: observations and client events decide whether an item actually dropped.
 -- Regenerate with tools/build_dungeon_loot.lua after reviewing upstream data changes.
 local ADDON, ns = ...
@@ -136,14 +136,15 @@ LJ.DungeonLootData = {
         { "Trash Drops", true, { 10332, 5819, 7730, 5756, 7757, 7761, 7787 } },
     },
     ["The Drowned City"] = {
-        { "Zul'Alai", false, { 271718 } },
-        { "Var'Taka", false, { 271718 } },
-        { "Captain Dreadrise", false, { 271718 } },
-        { "Deathless Marrow", false, { 271718 } },
+        { "Zul'Alai", false, { 274599, 274598, 274600, 271718 } },
+        { "Var'Taka", false, { 274602, 274601, 274613, 271718 } },
+        { "Captain Dreadrise", false, { 274604, 274605, 274603, 271718 } },
+        { "Deathless Marrow", false, { 274606, 274614, 274607, 271718 } },
+        { "Primeval Elemental", false, { 274612, 274611, 274615, 271718 } },
         { "Gill", false, { 286646, 286649, 271718 } },
         { "Umbra", false, { 286662, 286658 } },
         { "\"Pyromancer\" Braxton", false, { 286650, 286651 } },
-        { "Min'loth the Serpent", false, { 271718 } },
+        { "Min'loth the Serpent", false, { 274610, 274608, 274609, 271718 } },
         { "Trash Drops", true, { 287002, 286997, 287005 } },
     },
     ["Scarlet Monastery: Armory"] = {

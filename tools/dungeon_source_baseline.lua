@@ -319,6 +319,7 @@ return { version = "2.0.7", bosses = {
         ["Deathless Marrow"] = "rare=0 optional=0 trash=0 summon=0 npc=- aliases=Deathless Marrow prior=",
         ["Gill"] = "rare=1 optional=0 trash=0 summon=0 npc=264177 aliases=Gill prior=",
         ["Min'loth the Serpent"] = "rare=0 optional=0 trash=0 summon=0 npc=260274 aliases=Min'loth,Min'loth the Serpent prior=",
+        ["Primeval Elemental"] = "rare=0 optional=0 trash=0 summon=0 npc=- aliases=Primeval Elemental prior=",
         ["Trash Drops"] = "rare=0 optional=0 trash=1 summon=0 npc=- aliases= prior=",
         ["Umbra"] = "rare=1 optional=0 trash=0 summon=0 npc=264172 aliases=Umbra prior=",
         ["Var'Taka"] = "rare=0 optional=0 trash=0 summon=0 npc=258924 aliases=Var'Taka,Zin'aka prior=",

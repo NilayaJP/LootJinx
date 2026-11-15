@@ -249,7 +249,7 @@ local function dropRollText(run, drop)
     return LJ.L("DETAIL_ROLL_NEED", value)
 end
 
-local function bossIndexFor(drop, bosses, catalogKind, catalogBoss)
+local function bossIndexFor(run, drop, bosses, catalogKind, catalogBoss)
     local id = tonumber(drop.bossID)
     if id and id > 0 then
         for i = #bosses, 1, -1 do
@@ -265,9 +265,20 @@ local function bossIndexFor(drop, bosses, catalogKind, catalogBoss)
     end
     if (id and id > 0) or drop.source == "encounter" then return nil end
     if catalogKind == "boss" and type(catalogBoss) == "string" then
+        local aliases = {}
+        for _, dungeon in ipairs(LJ.DungeonLoot and LJ.DungeonLoot:Candidates(run) or {}) do
+            for _, required in ipairs((LJ.DungeonCompletionData or {})[dungeon] or {}) do
+                if required.name == catalogBoss then
+                    for _, alias in ipairs(required.aliases or {}) do
+                        aliases[alias:lower()] = true
+                    end
+                end
+            end
+        end
         for i = #bosses, 1, -1 do
             if type(bosses[i].name) == "string"
-                and bosses[i].name:lower() == catalogBoss:lower() then return i end
+                and (bosses[i].name:lower() == catalogBoss:lower()
+                    or aliases[bosses[i].name:lower()]) then return i end
         end
     end
     return nil
@@ -436,7 +447,7 @@ local function buildLines(run)
             if LJ.DungeonLoot then
                 catalogKind, catalogBoss = LJ.DungeonLoot:Source(run, drop.id)
             end
-            local index = bossIndexFor(drop, bosses, catalogKind, catalogBoss)
+            local index = bossIndexFor(run, drop, bosses, catalogKind, catalogBoss)
             if index then
                 byBoss[index] = byBoss[index] or {}
                 byBoss[index][#byBoss[index] + 1] = drop

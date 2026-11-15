@@ -14,6 +14,16 @@ local source = { Constants = { ALBA_FAIRMOON_LOCATION = "" } }
 assert(loadfile(input))("ForeverDungeonJournal", source)
 local shared = loadfile(root .. "/Data/SharedLoot.lua")
 if shared then shared("ForeverDungeonJournal", source) end
+local updates = assert(io.open(root .. "/Data/QuestUpdates.lua", "r"))
+local updateText = updates:read("*a")
+updates:close()
+local drownedLoot = assert(updateText:match("%-%- BEGIN drownedloot(.-)%-%- END drownedloot"),
+    "Drowned City loot block missing from QuestUpdates.lua")
+assert(load("local _, FDJ = ...\n" .. drownedLoot, "@QuestUpdates.lua:drownedloot"))(
+    "ForeverDungeonJournal", source)
+local wowheadAdded, wowheadConflicts, wowheadSeen = assert(loadfile("tools/apply_wowhead_forever_loot.lua"))()(source)
+print(string.format("Wowhead Forever: %d reviewed references, %d added, %d conflicts", wowheadSeen, wowheadAdded, #wowheadConflicts))
+for _, conflict in ipairs(wowheadConflicts) do print("  conflict: " .. conflict) end
 assert(type(source.DB) == "table" and type(source.ORDER) == "table", "invalid source data")
 
 local function bossFlags()

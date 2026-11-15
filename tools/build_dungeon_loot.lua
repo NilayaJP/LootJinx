@@ -15,10 +15,21 @@ assert(loadfile(input))("ForeverDungeonJournal", source)
 local sharedPath = input:gsub("Dungeons%.lua$", "SharedLoot.lua")
 local sharedFile = loadfile(sharedPath)
 if sharedFile then sharedFile("ForeverDungeonJournal", source) end
+-- DungeonJournal adds the confirmed Drowned City boss drops after Dungeons.lua.
+local updates = assert(io.open(root .. "/Data/QuestUpdates.lua", "r"))
+local updateText = updates:read("*a")
+updates:close()
+local drownedLoot = assert(updateText:match("%-%- BEGIN drownedloot(.-)%-%- END drownedloot"),
+    "Drowned City loot block missing from QuestUpdates.lua")
+assert(load("local _, FDJ = ...\n" .. drownedLoot, "@QuestUpdates.lua:drownedloot"))(
+    "ForeverDungeonJournal", source)
+local wowheadAdded, wowheadConflicts, wowheadSeen = assert(loadfile("tools/apply_wowhead_forever_loot.lua"))()(source)
+print(string.format("Wowhead Forever: %d reviewed references, %d added, %d conflicts", wowheadSeen, wowheadAdded, #wowheadConflicts))
+for _, conflict in ipairs(wowheadConflicts) do print("  conflict: " .. conflict) end
 
 local out = assert(io.open("DungeonLootData.lua", "w"))
 out:write("-- Curated item ID/source index from ForeverDungeonJournal " .. version .. " (WoW Forever 1.60.1).\n")
-out:write("-- Sources: Data/Dungeons.lua and Data/SharedLoot.lua.\n")
+out:write("-- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, and tools/wowhead_forever_loot.tsv.\n")
 out:write("-- Reference data only: observations and client events decide whether an item actually dropped.\n")
 out:write("-- Regenerate with tools/build_dungeon_loot.lua after reviewing upstream data changes.\n")
 out:write("local ADDON, ns = ...\n")
