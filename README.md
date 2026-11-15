@@ -2,7 +2,7 @@
 
 LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: missing primary-stat drops, lost Need rolls, unlucky streaks, and personal records. Tracking starts automatically in group and scenario instances. Available in English and German, with **Classic** and **Dungeon Journal** designs.
 
-**Current version:** 1.6.3 · **Interface:** 16001 · **Dependencies:** None
+**Current version:** 1.6.4 · **Interface:** 16001 · **Dependencies:** None
 
 ## What it tracks
 
@@ -20,7 +20,7 @@ Browse recent runs and searchable history, filter or compare visits, and open ru
 
 Share a short statistics report in party or raid chat, with a selected same-faction player, or with a confirmed Battle.net friend. Settings include window scale, compact mode, record announcements, and design choice. Character runs are saved in `LootJinxCharDB`; display settings are saved account-wide in `LootJinxDB`.
 
-Version 1.6.3 retains early drops and rolls in long runs, restores previously trimmed drops when saved Loot History evidence exists, improves boss-loot attribution, and rejects unverified whisper targets.
+Version 1.6.4 fixes duplicate items in run details, including affected older runs. Repeated real drops remain separate.
 
 ## Install
 
