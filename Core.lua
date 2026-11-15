@@ -829,6 +829,18 @@ local function statValue(stats, keys)
     return 0
 end
 
+function LJ:ItemQuality(link, knownQuality)
+    local quality = tonumber(knownQuality)
+    if quality then return quality end
+    if type(link) ~= "string" then return nil end
+    quality = tonumber(link:match("^|cnIQ(%d+):"))
+    if quality then return quality end
+    local color = link:match("^|cff(%x%x%x%x%x%x)")
+    local colors = { ["9d9d9d"] = 0, ["ffffff"] = 1, ["1eff00"] = 2,
+        ["0070dd"] = 3, ["a335ee"] = 4, ["ff8000"] = 5 }
+    return color and colors[color:lower()] or nil
+end
+
 -- Returns a table:
 --   known      true when enough data is available to classify the item
 --   loot       true when the item is non-quest loot
@@ -872,7 +884,7 @@ function LJ:ClassifyItem(link, statKey)
         name = info.name or instant and instant.itemType,
         classID = classID,
         itemType = itemType,
-        quality = info.quality,
+        quality = self:ItemQuality(link, info.quality),
         icon = info.icon or (instant and instant.icon),
         quest = isQuest,
         known = known,

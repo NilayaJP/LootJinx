@@ -2,11 +2,11 @@
 
 LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: missing primary-stat drops, lost Need rolls, unlucky streaks, and personal records. Tracking starts automatically in group and scenario instances. Available in English and German, with **Classic** and **Dungeon Journal** designs.
 
-**Current version:** 1.6.4 · **Interface:** 16001 · **Dependencies:** None
+**Current version:** 1.6.5 · **Interface:** 16001 · **Dependencies:** None
 
 ## What it tracks
 
-- **Dungeon Curse:** Runs without an observed drop matching the primary stat saved for that run.
+- **Dungeon Curse:** Runs without an observed rare or better drop matching the primary stat saved for that run. Green trash gear remains visible in run details but does not reset the curse.
 - **Need Rolls:** Need wins, losses, and the current and longest losing streaks. Greed does not affect these statistics.
 - **No Need Win:** Dungeons where you rolled Need but won no Need roll.
 - **No Loot:** Recorded dungeon visits without observed eligible loot; quest items do not count.
@@ -20,7 +20,7 @@ Browse recent runs and searchable history, filter or compare visits, and open ru
 
 Share a short statistics report in party or raid chat, with a selected same-faction player, or with a confirmed Battle.net friend. Settings include window scale, compact mode, record announcements, and design choice. Character runs are saved in `LootJinxCharDB`; display settings are saved account-wide in `LootJinxDB`.
 
-Version 1.6.4 fixes duplicate items in run details, including affected older runs. Repeated real drops remain separate.
+Version 1.6.5 excludes green primary-stat drops from Dungeon Curse and corrects older runs when saved item evidence is sufficient.
 
 ## Install
 

@@ -289,6 +289,7 @@ function T:FinishActiveManually(runID)
 end
 
 local function markAgility(run, link, info)
+    if not info or not info.quality or info.quality < 3 then return false end
     if run.agilityDropped then return false end
     run.agilityDropped = true
     run.agiItemsSeen = (run.agiItemsSeen or 0) + 1
@@ -296,6 +297,50 @@ local function markAgility(run, link, info)
     run.agilityAt = run.agilityAt or now()
     if info and info.name then run.agilityName = info.name end
     return true
+end
+
+function T:ReconcileStatDrops()
+    local data = db()
+    if not data then return end
+    local changed = false
+    for _, run in ipairs(data.runs or {}) do
+        if run.stat and run.agilityDropped and run.agilityLink
+            and LJ:ItemQuality(run.agilityLink, LJ:ItemInfo(run.agilityLink).quality) == 2 then
+            local links, checked, unresolved, replacement = {}, {}, false, nil
+            for link in pairs(run.seenLinks or {}) do links[#links + 1] = link end
+            for _, drop in ipairs(run.drops or {}) do
+                if type(drop.link) == "string" then links[#links + 1] = drop.link end
+            end
+            for _, link in ipairs(links) do
+                if not checked[link] then
+                    checked[link] = true
+                    local info = LJ:ClassifyItem(link, run.stat)
+                    if not info or info.quality == nil then
+                        unresolved = true
+                        LJ:LoadItem(link)
+                    elseif info.quality >= 3 and info.agi == true then
+                        replacement = { link = link, name = info.name }
+                        break
+                    elseif info.quality >= 3 and info.agi == nil then
+                        unresolved = true
+                        LJ:LoadItem(link, info.id)
+                    end
+                end
+            end
+            if replacement then
+                run.agilityLink = replacement.link
+                run.agilityName = replacement.name
+                run.agilityAt = nil
+                changed = true
+            elseif not unresolved and #links > 0 then
+                run.agilityDropped = false
+                run.agiItemsSeen = 0
+                run.agilityLink, run.agilityName, run.agilityAt = nil, nil, nil
+                changed = true
+            end
+        end
+    end
+    if changed then LJ:Changed() end
 end
 
 function T:StartRun(d, partial)
@@ -643,7 +688,9 @@ function T:RecordItem(link, source)
         changed = true
         diag("item-counted", id, source)
     end
-    if info.agi == true then
+    if info.agi == true and info.quality == nil then
+        queuePending(run, link, id, info, source)
+    elseif info.agi == true then
         if markAgility(run, link, info) then changed = true end
         diag("item-stat", id, source)
     elseif info.agi == nil then
@@ -657,6 +704,7 @@ end
 local function finalizePending(entry, info)
     if info.quest then return "drop", false, false end
     if not info.loot then return "keep", false, false end
+    if info.agi == true and info.quality == nil then return "keep", true, false end
     if info.agi == true then return "agi", true, true end
     if info.agi == false then return "done", true, false end
     return "keep", true, false
@@ -711,6 +759,7 @@ function T:ReclassifyPending(itemID)
         end
     end
     if changed then LJ:Changed() end
+    self:ReconcileStatDrops()
 end
 
 function T:RefreshPendingItemData()

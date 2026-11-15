@@ -300,7 +300,7 @@ local S = {
     YESTERDAY = { de = "Gestern", en = "Yesterday" },
 
     TT_CURSE_TITLE = { de = "Dungeon-Fluch", en = "Dungeon Curse" },
-    TT_CURSE_1 = { de = "Zählt Runs, in denen kein Item mit deinem Primärstat (%s) beobachtet wurde.", en = "Counts runs where no item with your primary stat (%s) was observed." },
+    TT_CURSE_1 = { de = "Zählt Runs ohne seltenes oder besseres Item mit deinem Primärstat (%s).", en = "Counts runs without a rare or better item with your primary stat (%s)." },
     TT_CURSE_2 = { de = "Serie: aktuelle Folge ohne solchen Drop. Rekord: die längste je gemessene Folge.", en = "Streak: the current run of dungeons without such a drop. Record: the longest streak ever measured." },
     TT_CURSE_3 = { de = "Alle gespeicherten Runs zählen, auch offene, pausierte, teilweise erfasste und manuell beendete. Kein beobachteter Drop beweist nicht, dass keiner fiel.", en = "All saved runs count, including active, paused, partial, and manually finished runs. No observed drop does not prove none dropped." },
 
