@@ -308,6 +308,85 @@ local function normalizeRun(run, fallbackID)
         if roll then cleanRolls[#cleanRolls + 1] = roll end
     end
     run.rolls = cleanRolls
+    local function sameObservedDrop(a, b)
+        if a.id ~= b.id or math.abs((a.at or 0) - (b.at or 0)) > 900 then
+            return false
+        end
+        return not (a.bossID and b.bossID and a.bossID ~= b.bossID)
+    end
+    -- An older recovery pass could append a synthetic drop beside one that
+    -- was already observed but had not yet received its Loot History key.
+    for i = #cleanDrops, 1, -1 do
+        local recovered = cleanDrops[i]
+        if recovered.source == "loot-history-recovered" then
+            for j = 1, #cleanDrops do
+                local observed = cleanDrops[j]
+                if i ~= j and observed.source ~= "loot-history-recovered"
+                    and (not observed.lootHistoryKey
+                        or observed.lootHistoryKey == recovered.lootHistoryKey)
+                    and sameObservedDrop(recovered, observed) then
+                    table.remove(cleanDrops, i)
+                    break
+                end
+            end
+        end
+    end
+    -- Old runs can contain a second chat or loot-window observation of the
+    -- same keyed roll. Only coalesce it when exactly one keyed drop fits.
+    local function matchingObservation(keyed, duplicate)
+        return not duplicate.lootHistoryKey and not duplicate.rollID
+            and (duplicate.source == "chat" or duplicate.source == "chat-win"
+                or duplicate.source == "loot-window")
+            and keyed.lootHistoryKey and keyed.rollID
+            and keyed.id == duplicate.id
+            and math.abs((keyed.at or 0) - (duplicate.at or 0)) <= 30
+            and (not keyed.bossID or not duplicate.bossID
+                or keyed.bossID == duplicate.bossID)
+            and (not keyed.winner or not duplicate.winner
+                or LJ:SamePlayerName(keyed.winner, duplicate.winner))
+            and (not keyed.roll or not duplicate.roll
+                or keyed.roll == duplicate.roll)
+    end
+    local candidateCount = {}
+    for _, keyed in ipairs(cleanDrops) do
+        if keyed.lootHistoryKey and keyed.rollID then
+            local count = 0
+            for _, duplicate in ipairs(cleanDrops) do
+                if keyed ~= duplicate and matchingObservation(keyed, duplicate) then
+                    count = count + 1
+                end
+            end
+            candidateCount[keyed] = count
+        end
+    end
+    for i = #cleanDrops, 1, -1 do
+        local duplicate = cleanDrops[i]
+        if not duplicate.lootHistoryKey and not duplicate.rollID
+            and (duplicate.source == "chat" or duplicate.source == "chat-win"
+                or duplicate.source == "loot-window") then
+            local match, count = nil, 0
+            for j = 1, #cleanDrops do
+                local keyed = cleanDrops[j]
+                if i ~= j and matchingObservation(keyed, duplicate) then
+                    match, count = keyed, count + 1
+                end
+            end
+            if count == 1 and candidateCount[match] == 1 then
+                match.sources = match.sources or { [match.source or "unknown"] = true }
+                match.sources[duplicate.source] = true
+                for source in pairs(duplicate.sources or {}) do match.sources[source] = true end
+                if not match.winner then
+                    match.winner, match.winnerSource = duplicate.winner, duplicate.winnerSource
+                end
+                match.winnerClass = match.winnerClass or duplicate.winnerClass
+                match.roll = match.roll or duplicate.roll
+                match.rollKind = match.rollKind or duplicate.rollKind
+                match.bossID = match.bossID or duplicate.bossID
+                match.bossName = match.bossName or duplicate.bossName
+                table.remove(cleanDrops, i)
+            end
+        end
+    end
     -- Older versions trimmed the earliest drops in long runs. Loot History's
     -- keyed rolls and a link observed in that run can restore the missing item
     -- without inventing a winner or a roll result.
@@ -326,7 +405,19 @@ local function normalizeRun(run, fallbackID)
     for _, roll in ipairs(cleanRolls) do
         local key = roll.lootHistoryKey
         local link = key and linksByID[roll.id]
+        local alreadyObserved = false
         if link and not keyedDrops[key] then
+            local at = tonumber(roll.at) or 0
+            local bossID = tonumber(key:match("^(%d+):"))
+            for _, drop in ipairs(cleanDrops) do
+                if not drop.lootHistoryKey and sameObservedDrop(
+                    { id = roll.id, at = at, bossID = bossID }, drop) then
+                    alreadyObserved = true
+                    break
+                end
+            end
+        end
+        if link and not keyedDrops[key] and not alreadyObserved then
             local bossID = tonumber(key:match("^(%d+):"))
             local bossName
             for _, boss in ipairs(cleanBosses) do
@@ -446,7 +537,17 @@ local function nameOnly(name)
     return name
 end
 
+function LJ:SamePlayerName(a, b)
+    a, b = Plain(a), Plain(b)
+    if type(a) ~= "string" or type(b) ~= "string" then return false end
+    local function compact(name)
+        return name:lower():gsub("[%s%-]", "")
+    end
+    return compact(a) == compact(b)
+end
+
 function LJ:IsMe(name)
+    if self:SamePlayerName(name, self:PlayerName()) then return true end
     name = nameOnly(name)
     if not name then return false end
     local me = nameOnly(self:PlayerName())

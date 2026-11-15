@@ -1077,15 +1077,30 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
     local at = now()
 
     run.drops = run.drops or {}
+    local repeatedWindowMatch = false
+    if source == "loot-window" and not rollID then
+        local count = 0
+        for _, candidate in ipairs(run.drops) do
+            if candidate.id == id and candidate.rollID
+                and at - (candidate.at or 0) >= 0
+                and at - (candidate.at or 0) <= 30 then
+                count = count + 1
+            end
+        end
+        repeatedWindowMatch = count == 1
+    end
     for i = #run.drops, 1, -1 do
         local d = run.drops[i]
         local sources = d.sources or { [d.source or "unknown"] = true }
         local age = at - (d.at or 0)
         local mergeAge = (source == "roll" or sources.roll) and 180 or 30
         if d.id == id and age >= 0 and age <= mergeAge
-            and (not sources[source] or (rollID and d.rollID == rollID))
+            and (not sources[source] or (rollID and d.rollID == rollID)
+                or (repeatedWindowMatch and d.rollID))
             and (not rollID or not d.rollID or d.rollID == rollID) then
-            local sameWinner = not d.winner or not winner or lower(d.winner) == lower(winner)
+            local sameWinner = not d.winner or not winner
+                or (LJ.SamePlayerName and LJ:SamePlayerName(d.winner, winner))
+                or lower(d.winner) == lower(winner)
             if sameWinner then
                 local changed = false
                 d.sources = sources
@@ -1245,7 +1260,9 @@ local function recentDrop(run, id, at, historyKey, winnerName)
         if drop.id == id and not drop.lootHistoryKey
             and math.abs((tonumber(drop.at) or 0) - at) <= 900 then
             candidates[#candidates + 1] = drop
-            if winnerName and drop.winner and lower(drop.winner) == lower(winnerName) then
+            if winnerName and drop.winner
+                and ((LJ.SamePlayerName and LJ:SamePlayerName(drop.winner, winnerName))
+                    or lower(drop.winner) == lower(winnerName)) then
                 winnerMatches[#winnerMatches + 1] = drop
             end
         end
@@ -1253,6 +1270,7 @@ local function recentDrop(run, id, at, historyKey, winnerName)
     if #winnerMatches == 1 then return winnerMatches[1] end
     if #candidates == 1 and (#winnerMatches == 1 or not winnerName
         or not candidates[1].winner) then return candidates[1] end
+    return nil, #candidates > 0
 end
 
 -- C_LootHistory liefert für Encounter-Beute die echten Rollzahlen aller
@@ -1336,14 +1354,14 @@ function T:OnLootHistoryDrop(encounterID, lootListID)
     else
         winnerName = nil
     end
-    local drop = recentDrop(run, id, now(), historyKey, winnerName)
+    local drop, observedUnkeyed = recentDrop(run, id, now(), historyKey, winnerName)
     local observedBoss = bossByID(run, encounterID)
     if not drop and not observedBoss and not (run.seenLinks and run.seenLinks[link]) then
         diag("loot-history-skip", id, "unseen")
         return
     end
     local createdDrop = false
-    if not drop then
+    if not drop and not observedUnkeyed then
         -- Loot History can arrive without a START_LOOT_ROLL drop. A matching
         -- encounter or a link already observed in this run confirms the item.
         if not (run.seenLinks and run.seenLinks[link]) then
