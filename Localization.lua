@@ -464,6 +464,7 @@ local S = {
     STAT_SHORT_INTELLECT = { de = "INT", en = "INT", es = "INT", fr = "INT", it = "INT", pt = "INT", ru = "INT", ko = "INT", zhCN = "INT", zhTW = "INT" },
     UNKNOWN_CLASS = { de = "Abenteurer", en = "Adventurer", es = "Aventurero", fr = "Aventurier", it = "Avventuriero", pt = "Aventureiro", ru = "Искатель приключений", ko = "모험가", zhCN = "冒险者", zhTW = "冒險者" },
     UNKNOWN_DUNGEON = { de = "Dungeon", en = "Dungeon", es = "Mazmorra", fr = "Donjon", it = "Sotterraneo", pt = "Masmorra", ru = "Подземелье", ko = "던전", zhCN = "地下城", zhTW = "地城" },
+    LANG_CHANGED = { de = "Sprache auf %s gesetzt. Tippe /reload, um sie anzuwenden.", en = "Language set to %s. Type /reload to apply it.", es = "Idioma cambiado a %s. Escribe /reload para aplicarlo.", fr = "Langue définie sur %s. Tapez /reload pour l'appliquer.", it = "Lingua impostata su %s. Digita /reload per applicarla.", pt = "Idioma definido como %s. Digite /reload para aplicar.", ru = "Язык изменён на %s. Введите /reload, чтобы применить.", ko = "언어가 %s(으)로 변경되었습니다. 적용하려면 /reload를 입력하세요.", zhCN = "语言已切换为 %s。输入 /reload 以应用。", zhTW = "語言已切換為 %s。輸入 /reload 以套用。" },
 }
 
 local function lookup(key)

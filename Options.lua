@@ -359,15 +359,11 @@ function O:RefreshLanguage()
         controls.langDropdown.label:SetText(languageName(code))
     end
     if LJ.SetLanguage then LJ:SetLanguage(code) end
-    -- Sprache wirkt auf alle statischen Beschriftungen; ein Reload wendet sie an.
-    -- ReloadUI() ist geschützt und würde aus dem OnClick-Handler geblockt;
-    -- C_UI.Reload() ist die sichere, nicht-geschützte Variante.
-    if C_Timer and C_Timer.After then
-        C_Timer.After(0.2, function()
-            if C_UI and C_UI.Reload then
-                C_UI.Reload()
-            end
-        end)
+    -- Dieser Client blockiert sowohl ReloadUI() als auch C_UI.Reload(), da beide
+    -- die geschützte Funktion Reload() aufrufen. Daher kein Auto-Reload; der
+    -- Nutzer lädt manuell neu, damit alle statischen Beschriftungen übernommen werden.
+    if LJ.Print then
+        LJ:Print(LJ.L("LANG_CHANGED", languageName(code)))
     end
 end
 
