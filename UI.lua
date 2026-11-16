@@ -842,12 +842,8 @@ local function refreshContent()
         live = LJ.Tracker:IsLive()
     end)
     if statusPill then
-        if active and active.provisionalPreviousID then
-            statusPill:SetState(LJ.L("STATUS_COPY_CHECKING_SHORT"), C.orange, C.orange)
-        elseif live and active then
+        if live and active then
             statusPill:SetState(LJ.L("STATUS_LIVE") .. " · " .. W:Truncate(active.name, 18), C.green, C.green)
-        elseif active then
-            statusPill:SetState(LJ.L("STATUS_IDLE") .. " · " .. W:Truncate(active.name, 16), C.orange, C.orange)
         else
             statusPill:SetState(LJ.L("STATUS_READY"), C.muted, C.dim)
         end
@@ -943,7 +939,7 @@ local function refreshContent()
                 local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 36)
                 if active == run then
                     local status = LJ:RunStatusMarker(run)
-                        or (live and LJ.L("LIVE") or LJ.L("STATUS_IDLE"))
+                        or (live and LJ.L("LIVE") or LJ.L("STATUS_READY"))
                     row.name:SetText(colored(C.green, status .. " ") .. colored(C.text, name))
                     row.bar:SetColorTexture(C.green[1], C.green[2], C.green[3], 1)
                 else

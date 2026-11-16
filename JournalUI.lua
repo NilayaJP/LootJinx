@@ -346,9 +346,7 @@ function J:Refresh()
     if latest then self.compactLatest.label:SetText(LJ:CompactLatestText(latest)) end
     self.compactLatest:SetShown(LJ.DB.compact == true and latest ~= nil)
     self.footer:SetShown(LJ.DB.compact ~= true or latest == nil)
-    self.fields.status:SetText(active and (active.provisionalPreviousID and LJ.L("STATUS_COPY_CHECKING")
-        or live and LJ.L("STATUS_LIVE") or LJ.L("STATUS_IDLE"))
-        or latest and latest.paused and LJ.L("STATUS_IDLE") or LJ.L("STATUS_READY"))
+    self.fields.status:SetText(active and live and LJ.L("STATUS_LIVE") or LJ.L("STATUS_READY"))
     local hero, need = self.hero.metric, self.needCard.metric
     hero.value:SetText(tostring(stats.noAgiDungeons or 0))
     hero.sub:SetText(LJ.L("CARD_CURSE_OF_RUNS", stats.totalDungeons or 0))

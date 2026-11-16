@@ -179,6 +179,21 @@ local function emptyVisit(run)
     return true
 end
 
+local function discardRun(data, run)
+    if not data or not run then return end
+    for i = #data.runs, 1, -1 do
+        if data.runs[i] == run then
+            table.remove(data.runs, i)
+            diag("run-discarded", run.id, "empty")
+            return
+        end
+    end
+end
+
+function T:IsCounted(run)
+    return not emptyVisit(run)
+end
+
 function T:GetRuns()
     local data = db()
     local runs = data and data.runs or {}
@@ -254,29 +269,25 @@ function T:CloseActive(reason)
     local run = activeRun()
     if not run then return false end
     diag("run-close", run.id, reason or "closed")
-    local previous = run.provisionalPreviousID and runByID(run.provisionalPreviousID)
-    if previous then
-        T:ResolveStaleNeeds(previous, true)
-        T:FinalizeRunItems(previous)
-    end
-    run.provisionalPreviousID = nil
     if reason ~= "manual" then T:ResolveStaleNeeds(run, true) end
     T:FinalizeRunItems(run)
     run.closed = true
     run.paused = false
     run.ended = run.ended or now()
     run.closedReason = reason or "closed"
+    run.reenterPending = nil
     local data = db()
     if data then data.activeID = nil end
     if exitGraceRun == run then exitGraceRun, exitGraceUntil = nil, nil end
     if transitionGuardRun == run then transitionGuardRun = nil end
+    if emptyVisit(run) then discardRun(data, run) end
     LJ:Changed()
     return true
 end
 
 function T:FinishActiveManually(runID)
     local run = activeRun()
-    if not run or run.id ~= tonumber(runID) or run.provisionalPreviousID then return false end
+    if not run or run.id ~= tonumber(runID) then return false end
     local wasInside = inside
     if not T:CloseActive("manual") then return false end
     if wasInside then
@@ -297,6 +308,16 @@ local function markAgility(run, link, info)
     run.agilityAt = run.agilityAt or now()
     if info and info.name then run.agilityName = info.name end
     return true
+end
+
+-- Markiert einen Main-Stat-Gewinn NUR, wenn der Spieler das Item tatsächlich
+-- erhalten hat (Need-Sieg, direkter Loot, Encounter-Loot, "Du gewinnst"-Chat).
+-- Bloß beobachtete Drops (Gier, Pass, fremder Gewinn) zählen NICHT.
+local function markAgilityByLink(run, link)
+    if not run or not link or run.agilityDropped or not run.stat then return false end
+    local info = LJ:ClassifyItem(link, run.stat)
+    if not info or info.agi ~= true then return false end
+    return markAgility(run, link, info)
 end
 
 function T:ReconcileStatDrops()
@@ -407,65 +428,32 @@ function T:ObserveInstanceGUID(guid)
     local zoneID = guidZoneID(guid)
     local run = activeRun()
     if not zoneID or not run then return false end
-    local previous = run.provisionalPreviousID and runByID(run.provisionalPreviousID)
-    if previous then
-        run.provisionalPreviousID = nil
-        if previous.zoneID == zoneID then
-            local data = db()
-            local candidate = run
-            for _, field in ipairs({ "needs", "pending", "greeds", "bosses", "drops", "rolls" }) do
-                previous[field] = previous[field] or {}
-                for _, entry in ipairs(candidate[field] or {}) do
-                    previous[field][#previous[field] + 1] = entry
-                end
+    if run.reenterPending then
+        run.reenterPending = nil
+        if run.zoneID ~= zoneID then
+            -- A different instance copy: close the previous run and start fresh.
+            diag("copy-mismatch", run.id, "zone=" .. tostring(zoneID))
+            local fallback = {
+                name = run.name, key = run.key, instanceID = run.instanceID,
+                difficulty = run.difficulty,
+            }
+            local d = getDungeon()
+            T:CloseActive("switched-instance")
+            local candidate = T:StartRun(d or fallback, false)
+            if candidate then
+                candidate.zoneID = zoneID
+                diag("copy-confirmed", candidate.id, "zone=" .. tostring(zoneID))
             end
-            previous.seenLinks = previous.seenLinks or {}
-            for link in pairs(candidate.seenLinks or {}) do previous.seenLinks[link] = true end
-            previous.lootSeen = previous.lootSeen or candidate.lootSeen
-            previous.itemsSeen = (previous.itemsSeen or 0) + (candidate.itemsSeen or 0)
-            previous.agiItemsSeen = (previous.agiItemsSeen or 0) + (candidate.agiItemsSeen or 0)
-            previous.agilityDropped = previous.agilityDropped or candidate.agilityDropped
-            previous.agilityLink = previous.agilityLink or candidate.agilityLink
-            previous.agilityAt = previous.agilityAt or candidate.agilityAt
-            previous.agilityName = previous.agilityName or candidate.agilityName
-            if previous.stat then
-                previous.statHistory = previous.statHistory or { previous.stat }
-                local candidateHistory = candidate.statHistory
-                    or (candidate.stat and { candidate.stat }) or {}
-                for _, stat in ipairs(candidateHistory) do
-                    if previous.statHistory[#previous.statHistory] ~= stat then
-                        previous.statHistory[#previous.statHistory + 1] = stat
-                    end
-                end
-                previous.stat = previous.statHistory[#previous.statHistory]
-                previous.statMixed = #previous.statHistory > 1
-            end
-            previous.lastSeen = now()
-            previous.outsideAt = nil
-            previous.paused = false
-            previous.closed = false
-            previous.ended = nil
-            previous.closedReason = nil
-            previous.copyOutcome = "merged"
-            timelineEvent(previous, "return", now())
-            for i = #data.runs, 1, -1 do
-                if data.runs[i] == candidate then table.remove(data.runs, i); break end
-            end
-            data.activeID = previous.id
-            run = previous
-            diag("copy-merged", previous.id, "new=" .. tostring(candidate.id))
-            if LJ.RunDetail and LJ.RunDetail.ReplaceRun then
-                LJ.RunDetail:ReplaceRun(candidate, previous)
-            end
+            observeUnit("target")
+            observeUnit("mouseover")
             LJ:Changed()
-        else
-            previous.closedReason = "different-copy"
-            run.copyOutcome = "different"
-            T:ResolveStaleNeeds(previous, true)
-            T:FinalizeRunItems(previous)
-            diag("copy-mismatch", previous.id, "zone=" .. tostring(zoneID))
-            LJ:Changed()
+            return true
         end
+        -- Same copy: continue the existing run.
+        timelineEvent(run, "return", now())
+        diag("copy-merged", run.id, "zone=" .. tostring(zoneID))
+        LJ:Changed()
+        return true
     end
     if run and not run.zoneID then
         run.zoneID = zoneID
@@ -496,30 +484,9 @@ function T:CheckZone()
         if blocked then return end
         local run = activeRun()
         if run and sameInstance(run, d) then
-            if not inside or run.outsideAt then
+            local reentering = (not inside) or run.outsideAt ~= nil
+            if reentering then
                 diag("zone-reenter", run.id, run.zoneID and "known-copy" or "unknown-copy")
-                if run.zoneID then
-                    run.closed = true
-                    run.ended = now()
-                    run.closedReason = "pending-copy"
-                    db().activeID = nil
-                    local candidate = T:StartRun(d, false)
-                    if candidate then
-                        candidate.provisionalPreviousID = run.id
-                        if lastExitedRun == run and lastExitUntil and now() < lastExitUntil then
-                            transitionGuardRun = candidate
-                        end
-                        diag("copy-pending", candidate.id, "previous=" .. tostring(run.id))
-                        LJ:Changed()
-                    end
-                else
-                    diag("copy-unknown", run.id)
-                    T:CloseActive("unknown-copy")
-                    T:StartRun(d, false)
-                end
-                observeUnit("target")
-                observeUnit("mouseover")
-                return
             end
             inside = true
             run.paused = false
@@ -529,6 +496,7 @@ function T:CheckZone()
             run.instanceID = d.instanceID or run.instanceID
             run.difficulty = d.difficulty or run.difficulty
             if d.name and d.name ~= "" then run.name = d.name end
+            if reentering and run.zoneID then run.reenterPending = true end
             observeUnit("target")
             observeUnit("mouseover")
             LJ:Changed()
@@ -560,23 +528,27 @@ function T:CheckZone()
                 else
                     exitGraceUntil = now()
                 end
+                run.outsideAt = run.outsideAt or now()
+                run.lastSeen = now()
+                diag("zone-leave", run.id)
+                LJ:Changed()
+                return
             end
-            if not inExitGrace(run) and LJ.DungeonCompletion then
+            -- Kein "paused"-Zustand mehr: nach dem kurzen Settle-Fenster wird der
+            -- Run geschlossen (wie NIT die Instanz beim Verlassen schließt).
+            local reason = "left"
+            if LJ.DungeonCompletion then
                 local dungeon, observed, required = LJ.DungeonCompletion:Match(run)
                 if dungeon then
+                    reason = "all-bosses-cleared"
                     diag("completion-close", run.id, "bosses=" .. observed .. "/" .. required)
-                    T:CloseActive("all-bosses-cleared")
-                    return
+                else
+                    diag("completion-pending", run.id, "bosses=" .. observed .. "/" .. required)
                 end
-                diag("completion-pending", run.id, "bosses=" .. observed .. "/" .. required)
-                exitGraceRun, exitGraceUntil = nil, nil
             end
-            run.outsideAt = run.outsideAt or now()
-            run.lastSeen = now()
-            local wasPaused = run.paused == true
-            run.paused = true
-            if wasInside then diag("zone-leave", run.id) end
-            if wasInside or not wasPaused then LJ:Changed() end
+            exitGraceRun, exitGraceUntil = nil, nil
+            run.reenterPending = nil
+            T:CloseActive(reason)
         end
     end
 end
@@ -688,14 +660,11 @@ function T:RecordItem(link, source)
         changed = true
         diag("item-counted", id, source)
     end
-    if info.agi == true and info.quality == nil then
-        queuePending(run, link, id, info, source)
-    elseif info.agi == true then
-        if markAgility(run, link, info) then changed = true end
-        diag("item-stat", id, source)
-    elseif info.agi == nil then
+    if info.agi == nil then
         diag("item-stat-pending", id, source)
         queuePending(run, link, id, info, source)
+    elseif info.agi == true then
+        diag("item-stat", id, source)
     end
     if changed then LJ:Changed() end
     return changed
@@ -743,7 +712,6 @@ function T:ReclassifyPending(itemID)
                         diag("pending-counted", p.id or info.id)
                     end
                     if action == "agi" then
-                        if markAgility(run, p.link, info) then changed = true end
                         diag("pending-stat", p.id or info.id)
                     elseif action == "keep" then
                         keep[#keep + 1] = p
@@ -779,16 +747,12 @@ function T:RefreshPendingItemData()
 end
 
 function T:FinalizeRunItems(run)
+    -- Main-Stat wird nur noch bei einem tatsächlichen Gewinn markiert
+    -- (markAgilityByLink), nicht mehr beim Finalisieren beobachteter Items.
     if not run then return end
     local pending = run.pending
-    if type(pending) == "table" then
-        if #pending > 0 then diag("pending-finalized", run.id, "n=" .. tostring(#pending)) end
-        for i = 1, #pending do
-            local p = pending[i]
-            local stat = p.stat or run.stat
-            local info = stat and LJ:ClassifyItem(p.link, stat) or nil
-            if info and info.agi == true then markAgility(run, p.link, info) end
-        end
+    if type(pending) == "table" and #pending > 0 then
+        diag("pending-finalized", run.id, "n=" .. tostring(#pending))
     end
 end
 
@@ -851,13 +815,16 @@ function T:FindPendingNeed(itemID, link, maxAge)
     return found, foundRun, matches
 end
 
-function T:ResolveNeed(need, result, reason)
+function T:ResolveNeed(need, result, reason, run)
     if not need or (result ~= "won" and result ~= "lost") then return false end
     if need.result == "won" then return false end
     if need.result == "lost" and result ~= "won" then return false end
     need.result = result
     need.resolvedAt = now()
     need.reason = reason or "event"
+    if result == "won" then
+        markAgilityByLink(run, need.link)
+    end
     diag("need-result", need.id, tostring(result) .. ":" .. tostring(need.reason))
     LJ:Changed()
     return true
@@ -904,9 +871,9 @@ function T:ResolveNeedByBags(need, run, force)
             diag("greed-guard", id)
             return false
         end
-        return T:ResolveNeed(need, "won", "bags")
+        return T:ResolveNeed(need, "won", "bags", run)
     end
-    return T:ResolveNeed(need, "lost", "bags")
+    return T:ResolveNeed(need, "lost", "bags", run)
 end
 
 function T:ResolveStaleNeeds(run, force)
@@ -948,6 +915,7 @@ function T:RepairLostNeeds()
                         n.result = "won"
                         n.resolvedAt = t
                         n.reason = "repair"
+                        markAgilityByLink(run, n.link)
                         changed = true
                     end
                 end
@@ -1075,13 +1043,13 @@ function T:ResolveNeedByLink(link, result, reason)
         return false
     end
     if result == "won" then
-        return T:ResolveNeed(need, "won", reason)
+        return T:ResolveNeed(need, "won", reason, run)
     elseif result == "lost" then
         if T:HasGreedConflict(need, run) then
             need.noRepair = true
-            return T:ResolveNeed(need, "lost", "greed-guard")
+            return T:ResolveNeed(need, "lost", "greed-guard", run)
         end
-        return T:ResolveNeed(need, "lost", reason)
+        return T:ResolveNeed(need, "lost", reason, run)
     end
     return false
 end
@@ -1116,6 +1084,11 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
         if winner == "" then winner = nil end
     else
         winner = nil
+    end
+    -- Main-Stat nur bei tatsächlichem Gewinn markieren (Chat "Du gewinnst" /
+    -- "X gewinnt" mit dir als Sieger).
+    if winner and LJ:IsMe(winner) then
+        markAgilityByLink(run, link)
     end
     local bossID = boss and tonumber(boss.id) or 0
     if not bossID or bossID <= 0 then bossID = 0 end
@@ -1466,6 +1439,9 @@ function T:OnLootHistoryDrop(encounterID, lootListID)
     end
 
     if winnerName then
+        if LJ:IsMe(winnerName) then
+            markAgilityByLink(run, link)
+        end
         if drop then
             local changed = false
             if not drop.winner then
@@ -1573,6 +1549,7 @@ function T:OnEncounterLoot(...)
     end
     T:RecordItem(link, "encounter")
     noteDrop(run, link, nil, boss, "encounter")
+    markAgilityByLink(run, link)
 end
 
 function T:OnStartRoll(rollID)
@@ -2111,21 +2088,13 @@ local function diagnosticCopy(run)
         if inside then copy.state = "blocked" end
         return copy
     end
-    if run.zoneID then
+    if run.reenterPending then
+        copy.state = "pending"
+    elseif run.zoneID then
         copy.state = "confirmed"
         copy.zoneID = run.zoneID
-    elseif run.provisionalPreviousID then
-        copy.state = "pending"
     else
         copy.state = "unconfirmed"
-    end
-    if run.provisionalPreviousID then
-        copy.previousID = run.provisionalPreviousID
-        local previous = runByID(run.provisionalPreviousID)
-        if previous then
-            copy.previousZoneID = previous.zoneID
-            copy.previousClosedReason = previous.closedReason
-        end
     end
     return copy
 end
@@ -2159,7 +2128,6 @@ function T:GetDiagnosticState()
             closed = run.closed == true,
             paused = run.paused == true,
             closedReason = run.closedReason,
-            provisionalPreviousID = run.provisionalPreviousID,
             partial = run.partial == true,
             lootSeen = run.lootSeen == true,
             agilityDropped = run.agilityDropped == true,

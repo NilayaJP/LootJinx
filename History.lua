@@ -3,7 +3,7 @@ local ADDON, ns = ...
 local LJ = ns or _G.LootJinx
 if not LJ then return end
 
-local H = { query = "", dungeon = nil, range = "all", status = "all",
+local H = { query = "", dungeon = nil, range = "all", status = "all", sort = "date",
     page = 1, filterPage = 1,
     rows = {}, filterRows = {}, dateRows = {}, statusRows = {} }
 LJ.History = H
@@ -52,6 +52,109 @@ local function button(parent, text, width, height)
 end
 local function normalized(text)
     return string.lower(tostring(text or ""))
+end
+
+local function hex(c)
+    return string.format("|cff%02x%02x%02x",
+        math.floor((c[1] or 1) * 255),
+        math.floor((c[2] or 1) * 255),
+        math.floor((c[3] or 1) * 255))
+end
+
+local STATUS_COLORS = {
+    RUN_STATUS_LIVE = LJ.COLORS.green,
+    RUN_STATUS_OPEN = LJ.COLORS.cyan,
+    RUN_STATUS_PAUSED = LJ.COLORS.orange,
+    RUN_STATUS_MANUAL = LJ.COLORS.muted,
+    RUN_STATUS_PARTIAL = LJ.COLORS.muted,
+}
+
+local SORT_MODES = { "date", "dateAsc", "name", "wins", "losses" }
+local SORT_LABELS = {
+    date = "HISTORY_SORT_DATE",
+    dateAsc = "HISTORY_SORT_DATE_ASC",
+    name = "HISTORY_SORT_NAME",
+    wins = "HISTORY_SORT_WINS",
+    losses = "HISTORY_SORT_LOSSES",
+}
+
+local function runStatusKey(run)
+    local active = LJ.Tracker and LJ.Tracker:GetActive() == run
+    return LJ.Stats and LJ.Stats.RunStatusKey(run, active) or nil
+end
+
+local function needStats(run)
+    local won, lost = 0, 0
+    for _, n in ipairs(run and run.needs or {}) do
+        if n.result == "won" then won = won + 1
+        elseif n.result == "lost" then lost = lost + 1 end
+    end
+    return won, lost
+end
+
+local function needTextMatches(run, needle)
+    for _, need in ipairs(run and run.needs or {}) do
+        local link = need.link
+        if type(link) == "string" then
+            local name = link:match("%[(.-)%]")
+            if name and normalized(name):find(needle, 1, true) then return true end
+            local info = LJ:ItemInfo(link)
+            if info and info.name and normalized(info.name):find(needle, 1, true) then return true end
+        end
+    end
+    return false
+end
+
+local function runBadges(run)
+    local parts = {}
+    if not run.stat then
+        parts[#parts + 1] = hex(LJ.COLORS.muted) .. LJ.L("BADGE_STAT_UNKNOWN") .. "|r"
+    elseif run.agilityDropped then
+        parts[#parts + 1] = hex(LJ.COLORS.green)
+            .. LJ.L("BADGE_STAT", LJ:StatShort(run.stat)) .. "|r"
+    else
+        parts[#parts + 1] = hex(LJ.COLORS.red)
+            .. LJ.L("BADGE_NO_STAT", LJ:StatShort(run.stat)) .. "|r"
+    end
+    local total = #(run.needs or {})
+    if total > 0 then
+        local wins = needStats(run)
+        local color = wins > 0 and LJ.COLORS.green or LJ.COLORS.red
+        parts[#parts + 1] = hex(color) .. LJ.L("BADGE_NEED", wins, total) .. "|r"
+    end
+    if run.legacy then
+        parts[#parts + 1] = hex(LJ.COLORS.muted) .. LJ.L("HISTORY_LEGACY") .. "|r"
+    end
+    return table.concat(parts, " · ")
+end
+
+local function sortMatches(result, mode)
+    local function newer(a, b)
+        return (tonumber(a.started) or 0) > (tonumber(b.started) or 0)
+    end
+    local cmp
+    if mode == "dateAsc" then
+        cmp = function(a, b) return (tonumber(a.started) or 0) < (tonumber(b.started) or 0) end
+    elseif mode == "name" then
+        cmp = function(a, b) return normalized(a.name) < normalized(b.name) end
+    elseif mode == "wins" then
+        cmp = function(a, b)
+            local aw, al = needStats(a)
+            local bw, bl = needStats(b)
+            if aw == bw then return newer(a, b) end
+            return aw > bw
+        end
+    elseif mode == "losses" then
+        cmp = function(a, b)
+            local aw, al = needStats(a)
+            local bw, bl = needStats(b)
+            if al == bl then return newer(a, b) end
+            return al > bl
+        end
+    else
+        cmp = newer
+    end
+    table.sort(result, cmp)
 end
 
 local function dungeonIdentity(run, includeWing)
@@ -165,12 +268,14 @@ function H:Filter(runs, query, dungeon, range, now, status)
         if type(run) == "table" and (not dungeon or (selectedKey
             and filterKey(run, knownIDs) == selectedKey))
             and (needle == "" or normalized(name):find(needle, 1, true)
-                or searchIDs[dungeonIdentity(run)])
+                or searchIDs[dungeonIdentity(run)]
+                or needTextMatches(run, needle))
             and (not daysBack or (cutoff and started and started >= cutoff and started <= now))
             and self:StatusMatches(run, status) then
             result[#result + 1] = run
         end
     end
+    sortMatches(result, self.sort)
     return result
 end
 
@@ -317,6 +422,13 @@ function H:Create()
     end
     self.title = label(f, 16, LJ.L("HISTORY_TITLE"))
     self.title:SetPoint("TOPLEFT", 16, -14)
+    local legend = addButton(f, "?", 16, 16)
+    legend:SetPoint("LEFT", self.title, "RIGHT", 8, -1)
+    W:Tooltip(legend, LJ.L("HISTORY_LEGEND_TITLE"), {
+        LJ.L("HISTORY_LEGEND_COUNTED"),
+        LJ.L("HISTORY_LEGEND_EMPTY"),
+        LJ.L("HISTORY_LEGEND_STATUS"),
+    })
     self.count = label(f, 10, "")
     self.count:SetPoint("TOPLEFT", 16, -40)
     self.mutedLabels[#self.mutedLabels + 1] = self.count
@@ -420,7 +532,12 @@ function H:Create()
     self.summaryPanel:SetSize(578, 54)
     self.summaryTitle = label(self.summaryPanel, 10, "")
     self.summaryTitle:SetPoint("TOPLEFT", 10, -5)
-    self.summaryTitle:SetWidth(320)
+    self.summaryTitle:SetWidth(170)
+    self.sortButton = addButton(self.summaryPanel, "", 112, 20)
+    self.sortButton:SetPoint("TOPLEFT", 186, -4)
+    self.sortButton:SetScript("OnClick", function() H:CycleSort() end)
+    W:Tooltip(self.sortButton, LJ.L("HISTORY_SORT_TITLE"),
+        { LJ.L("HISTORY_SORT_HINT") })
     self.statusButton = addButton(self.summaryPanel, LJ.L("HISTORY_STATUS_ALL"), 138, 20)
     self.statusButton:SetPoint("TOPRIGHT", -102, -4)
     self.statusButton:SetScript("OnClick", function()
@@ -459,15 +576,38 @@ function H:Create()
     self.labels[#self.labels + 1] = self.summaryLine1
     self.labels[#self.labels + 1] = self.summaryLine2
 
+    self.headerDungeon = label(f, 8, LJ.L("HISTORY_COL_DUNGEON"))
+    self.headerDungeon:SetPoint("TOPLEFT", 34, -160)
+    self.headerInfo = label(f, 8, LJ.L("HISTORY_COL_INFO"))
+    self.headerInfo:SetPoint("TOPLEFT", 240, -160)
+    self.headerDate = label(f, 8, LJ.L("HISTORY_COL_DATE"))
+    self.headerDate:SetPoint("TOPRIGHT", -26, -160)
+    self.headerDate:SetJustifyH("RIGHT")
+    self.mutedLabels[#self.mutedLabels + 1] = self.headerDungeon
+    self.mutedLabels[#self.mutedLabels + 1] = self.headerInfo
+    self.mutedLabels[#self.mutedLabels + 1] = self.headerDate
+
     for i = 1, PAGE_SIZE do
         local row = addButton(f, "", 578, 31)
-        row:SetPoint("TOPLEFT", 16, -162 - (i - 1) * 34)
+        row:SetPoint("TOPLEFT", 16, -176 - (i - 1) * 34)
         row.label:ClearAllPoints()
-        row.label:SetPoint("LEFT", 10, 0)
-        row.label:SetWidth(355)
+        row.label:SetPoint("LEFT", 18, 0)
+        row.label:SetWidth(200)
         row.label:SetJustifyH("LEFT")
+        row.bar = row:CreateTexture(nil, "ARTWORK")
+        row.bar:SetSize(2, 18)
+        row.bar:SetPoint("LEFT", 0, 0)
+        row.bar:Hide()
+        row.status = row:CreateTexture(nil, "ARTWORK")
+        row.status:SetSize(6, 6)
+        row.status:SetPoint("LEFT", 7, 0)
+        row.status:Hide()
+        row.badges = W:Font(row, 9, LJ.COLORS.muted, "")
+        row.badges:SetPoint("LEFT", 224, 0)
+        row.badges:SetWidth(140)
+        row.badges:SetWordWrap(false)
         row.compare = addButton(row, LJ.L("HISTORY_COMPARE_PICK"), 76, 22)
-        row.compare:SetPoint("RIGHT", row, "RIGHT", -124, 0)
+        row.compare:SetPoint("RIGHT", row, "RIGHT", -118, 0)
         row.compare:SetScript("OnClick", function()
             if row.run then H:SelectForComparison(row.run) end
         end)
@@ -475,7 +615,7 @@ function H:Create()
             { LJ.L("HISTORY_COMPARE_HINT") })
         row.date = label(row, 9, "")
         row.date:SetPoint("RIGHT", -10, 0)
-        row.date:SetWidth(105)
+        row.date:SetWidth(88)
         row.date:SetJustifyH("RIGHT")
         self.mutedLabels[#self.mutedLabels + 1] = row.date
         row:SetScript("OnClick", function(self)
@@ -483,6 +623,16 @@ function H:Create()
                 H.menu:Hide()
                 LJ.RunDetail:Show(self.run, LJ.UI and LJ.UI:GetLayout())
             end
+        end)
+        local prevEnter = row:GetScript("OnEnter")
+        local prevLeave = row:GetScript("OnLeave")
+        row:SetScript("OnEnter", function(self)
+            if prevEnter then prevEnter(self) end
+            if self.run and LJ.ShowRecentTooltip then LJ:ShowRecentTooltip(self, self.run) end
+        end)
+        row:SetScript("OnLeave", function(self)
+            if prevLeave then prevLeave(self) end
+            if GameTooltip then GameTooltip:Hide() end
         end)
         self.rows[i] = row
     end
@@ -492,7 +642,7 @@ function H:Create()
     self.pageText = label(f, 9, "")
     self.pageText:SetPoint("BOTTOM", 0, 16)
     self.mutedLabels[#self.mutedLabels + 1] = self.pageText
-    self.prev = addButton(f, LJ.L("DETAIL_BACK"), 75, 22)
+    self.prev = addButton(f, LJ.L("DETAIL_PREV"), 75, 22)
     self.prev:SetPoint("BOTTOMLEFT", 16, 12)
     self.prev:SetScript("OnClick", function() H.page = H.page - 1; H:Refresh() end)
     self.next = addButton(f, LJ.L("DETAIL_NEXT"), 75, 22)
@@ -616,6 +766,17 @@ function H:SelectForComparison(run)
     return true
 end
 
+function H:CycleSort()
+    local idx = 1
+    for i, mode in ipairs(SORT_MODES) do
+        if mode == self.sort then idx = i break end
+    end
+    idx = (idx % #SORT_MODES) + 1
+    self.sort = SORT_MODES[idx]
+    self.page = 1
+    self:Refresh()
+end
+
 function H:Refresh()
     if not self.frame or not LJ.Tracker then return end
     local runs = LJ.Tracker:GetRuns()
@@ -634,6 +795,7 @@ function H:Refresh()
     self.filterButton.label:SetText(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"))
     self.dateButton.label:SetText(LJ.L("HISTORY_DATE_" .. string.upper(self.range)))
     self.statusButton.label:SetText(LJ.L("HISTORY_STATUS_" .. string.upper(self.status)))
+    self.sortButton.label:SetText(LJ.L("HISTORY_SORT_BUTTON", LJ.L(SORT_LABELS[self.sort])))
     self.count:SetText(LJ.L("HISTORY_COUNT", #matches, preview.savedRuns))
     self.empty:SetShown(#matches == 0)
     self.pageText:SetText(self.page .. " / " .. pages)
@@ -647,23 +809,24 @@ function H:Refresh()
             row.compare.label:SetText(run == self.compareA and LJ.L("HISTORY_COMPARE_A")
                 or run == self.compareB and LJ.L("HISTORY_COMPARE_B")
                 or LJ.L("HISTORY_COMPARE_PICK"))
-            local marker = ""
-            if run.legacy then
-                marker = marker .. "  ·  " .. LJ.L("HISTORY_LEGACY")
+            local color = LJ.Tracker:IsCounted(run) and LJ.COLORS.green or LJ.COLORS.red
+            row.bar:SetColorTexture(color[1], color[2], color[3], 0.85)
+            row.bar:Show()
+            local key = runStatusKey(run)
+            if key and STATUS_COLORS[key] then
+                local sc = STATUS_COLORS[key]
+                row.status:SetColorTexture(sc[1], sc[2], sc[3], 1)
+                row.status:Show()
+            else
+                row.status:Hide()
             end
-            if not run.stat then marker = marker .. "  ·  " .. LJ.L("HISTORY_STAT_UNKNOWN") end
-            if run.closedReason == "manual" then
-                marker = marker .. "  ·  " .. LJ.L("RUN_FINISH_MANUAL")
+            local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 22)
+            if key then
+                local sc = STATUS_COLORS[key] or LJ.COLORS.muted
+                name = name .. " · " .. hex(sc) .. LJ.L(key) .. "|r"
             end
-            if run.provisionalPreviousID or run.closedReason == "pending-copy" then
-                marker = marker .. "  ·  " .. LJ.L("STATUS_COPY_CHECKING_SHORT")
-            elseif run.copyOutcome == "merged" then
-                marker = marker .. "  ·  " .. LJ.L("STATUS_COPY_MERGED_SHORT")
-            elseif run.copyOutcome == "different" or run.closedReason == "different-copy" then
-                marker = marker .. "  ·  " .. LJ.L("STATUS_COPY_DIFFERENT_SHORT")
-            end
-            local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), marker ~= "" and 30 or 48)
-            row.label:SetText(name .. marker)
+            row.label:SetText(name)
+            row.badges:SetText(runBadges(run))
             row.date:SetText(date and date("%d.%m.%Y", run.started or 0) or "")
         end
     end

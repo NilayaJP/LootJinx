@@ -303,6 +303,10 @@ local function otherLootReason(run, drop, catalogKind)
 end
 
 local function bossLootQuality(drop)
+    -- Fast path: drops whose link already encodes a sub-rare quality can be
+    -- filtered out without any item-data lookup.
+    local linkQuality = LJ:ItemQuality(drop.link)
+    if linkQuality and linkQuality < 2 then return nil end
     LJ:LoadItem(drop.link, drop.id)
     local info = LJ:ItemInfo(drop.link or drop.id)
     local instant = LJ:ItemInfoInstant(drop.link or drop.id) or LJ:ItemInfoInstant(drop.id)
@@ -1069,7 +1073,7 @@ end
 
 function M:ConfirmFinish()
     local active = LJ.Tracker and LJ.Tracker:GetActive()
-    if not currentRun or active ~= currentRun or active.provisionalPreviousID then return false end
+    if not currentRun or active ~= currentRun then return false end
     if type(StaticPopup_Show) ~= "function"
         or type(StaticPopupDialogs) ~= "table"
         or not StaticPopupDialogs.LOOTJINX_FINISH_RUN then
@@ -1094,20 +1098,14 @@ function M:Refresh()
     local run = currentRun
     title:SetText(W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 42))
     local active = LJ.Tracker and LJ.Tracker.GetActive and LJ.Tracker:GetActive()
-    local status = active == run and (LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("STATUS_IDLE"))
+    local status = active == run and (LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("DETAIL_ENDED"))
         or LJ.L(run.closedReason == "all-bosses-cleared" and "DETAIL_CLOSED" or "DETAIL_ENDED")
-    if run.provisionalPreviousID or run.closedReason == "pending-copy" then
-        status = LJ.L("STATUS_COPY_CHECKING")
-    elseif run.closedReason == "manual" then
+    if run.closedReason == "manual" then
         status = LJ.L("RUN_FINISH_MANUAL")
-    elseif run.copyOutcome == "merged" then
-        status = status .. " · " .. LJ.L("STATUS_COPY_MERGED")
-    elseif run.copyOutcome == "different" or run.closedReason == "different-copy" then
-        status = status .. " · " .. LJ.L("STATUS_COPY_DIFFERENT")
     end
     local statText, statColor = statContext(run)
     subtitle:SetText(formatDate(run) .. " · " .. status .. " · " .. colored(statColor, statText))
-    if finishButton then finishButton:SetShown(active == run and not run.provisionalPreviousID) end
+    if finishButton then finishButton:SetShown(active == run) end
 
     local bossCount = #(run.bosses or {})
     local lines, dropCount = buildLines(run)

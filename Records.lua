@@ -15,18 +15,10 @@ local RECORDS = {
 }
 
 local function settledRuns(runs)
-    local provisional = {}
-    for i = 1, #(runs or {}) do
-        local run = runs[i]
-        if type(run) == "table" and run.provisionalPreviousID then
-            provisional[run.provisionalPreviousID] = true
-        end
-    end
     local closed = {}
     for i = 1, #(runs or {}) do
         local run = runs[i]
-        if type(run) == "table" and run.closed == true
-            and not provisional[run.id] then
+        if type(run) == "table" and run.closed == true then
             closed[#closed + 1] = run
         end
     end

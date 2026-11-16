@@ -65,7 +65,7 @@ function LJ:AddOnVersion()
         local ok, version = pcall(getter, "LootJinx", "Version")
         if ok and type(version) == "string" and version ~= "" then return version end
     end
-    return "1.6.5"
+    return "1.6.6"
 end
 
 local function normalizeBoss(b, fallbackAt)
@@ -201,10 +201,9 @@ local function normalizeRun(run, fallbackID)
     run.key = type(run.key) == "string" and run.key or nil
     run.instanceID = tonumber(run.instanceID)
     run.zoneID = tonumber(run.zoneID)
-    run.provisionalPreviousID = tonumber(run.provisionalPreviousID)
-    if run.copyOutcome ~= "merged" and run.copyOutcome ~= "different" then
-        run.copyOutcome = nil
-    end
+    -- The instance-copy check was removed; legacy copy fields are dropped.
+    run.provisionalPreviousID = nil
+    run.copyOutcome = nil
     run.difficulty = type(run.difficulty) == "string" and run.difficulty or nil
     run.started = tonumber(run.started) or 0
     run.lastSeen = tonumber(run.lastSeen) or run.started
@@ -219,6 +218,19 @@ local function normalizeRun(run, fallbackID)
     run.agilityAt = tonumber(run.agilityAt)
     run.closed = run.closed == true
     run.closedReason = type(run.closedReason) == "string" and run.closedReason or nil
+    if run.closedReason == "pending-copy" or run.closedReason == "different-copy"
+        or run.closedReason == "unknown-copy" then
+        run.closedReason = "closed"
+    end
+    -- Legacy-Migration: "paused"-Runs (alter Leave-Zustand vor dem
+    -- NIT-Style-Close) werden zu geschlossenen Runs, damit kein
+    -- "PAUSIERT"-Status (orangener Punkt) mehr erscheint.
+    if run.paused then
+        run.paused = false
+        run.closed = true
+        run.closedReason = run.closedReason or "left"
+        run.ended = run.ended or run.lastSeen or run.started
+    end
     run.partial = run.partial == true
     if type(run.timeline) == "table" then
         local cleanTimeline = {}
@@ -753,7 +765,26 @@ local function itemInfoCall(linkOrID)
         Plain(j), tonumber(Plain(k))
 end
 
+-- Item-Lookups sind der Hot-Path beim Rendern der Run-Details: Dieselbe
+-- Item-ID wird pro Render und über mehrere Render hinweg mehrfach aufgelöst.
+-- Erfolgreiche Ergebnisse werden für die Session gecacht (Item-Daten sind pro
+-- ID statisch). Ein Treffer wird bewusst NICHT gecacht, damit der nächste
+-- Render es erneut versucht, sobald die Item-Daten asynchron geladen sind.
+local itemInfoCache = {}
+local itemInfoInstantCache = {}
+local itemLoadRequested = {}
+
+local function itemIDKey(linkOrID)
+    if type(linkOrID) == "number" then return linkOrID end
+    if type(linkOrID) == "string" then
+        return tonumber(linkOrID) or LJ:ItemID(linkOrID)
+    end
+    return nil
+end
+
 function LJ:ItemInfo(linkOrID)
+    local key = itemIDKey(linkOrID)
+    if key and itemInfoCache[key] then return itemInfoCache[key] end
     local name, link, quality, itemLevel, requiredLevel, classID, subclassID, maxStack, equipLoc, icon, sellPrice = itemInfoCall(linkOrID)
     if not name and not link and not classID then
         local fn = (C_Item and C_Item.GetItemInfo) or GetItemInfo
@@ -765,7 +796,7 @@ function LJ:ItemInfo(linkOrID)
             end
         end
     end
-    return {
+    local info = {
         name = name or nil,
         link = link or nil,
         quality = quality,
@@ -778,14 +809,20 @@ function LJ:ItemInfo(linkOrID)
         icon = icon,
         sellPrice = sellPrice,
     }
+    -- Nur vollständig geladene Einträge cachen; classID fehlt, solange der
+    -- Item-Datensatz im Client noch nicht verfügbar ist.
+    if key and info.classID then itemInfoCache[key] = info end
+    return info
 end
 
 function LJ:ItemInfoInstant(linkOrID)
+    local key = itemIDKey(linkOrID)
+    if key and itemInfoInstantCache[key] then return itemInfoInstantCache[key] end
     local fn = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
     if type(fn) ~= "function" then return nil end
     local ok, itemID, itemType, itemSubType, itemEquipLoc, icon, classID = pcall(fn, linkOrID)
     if not ok then return nil end
-    return {
+    local info = {
         id = tonumber(Plain(itemID)),
         itemType = Plain(itemType),
         itemSubType = Plain(itemSubType),
@@ -793,6 +830,8 @@ function LJ:ItemInfoInstant(linkOrID)
         icon = Plain(icon),
         classID = tonumber(Plain(classID)),
     }
+    if key and info.classID then itemInfoInstantCache[key] = info end
+    return info
 end
 
 function LJ:ItemStats(link)
@@ -913,8 +952,12 @@ end
 function LJ:LoadItem(link, id)
     id = tonumber(id) or self:ItemID(link)
     if not id then return end
-    local req = C_Item and C_Item.RequestLoadItemDataByID
-    if type(req) == "function" then pcall(req, id) end
+    if itemInfoCache[id] then return end
+    if not itemLoadRequested[id] then
+        itemLoadRequested[id] = true
+        local req = C_Item and C_Item.RequestLoadItemDataByID
+        if type(req) == "function" then pcall(req, id) end
+    end
     local get = (C_Item and C_Item.GetItemInfo) or GetItemInfo
     if type(get) == "function" then pcall(get, link or id) end
 end

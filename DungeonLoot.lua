@@ -31,6 +31,10 @@ local BY_INSTANCE = {
     [429] = { "Dire Maul: East", "Dire Maul: West", "Dire Maul: North" },
     [229] = { "Lower Blackrock Spire", "Upper Blackrock Spire" },
     [329] = { "Stratholme: Living", "Stratholme: Undead" },
+    -- Raids (Klassik-Instanz-IDs, in Forever unverändert)
+    [409] = "Molten Core", [249] = "Onyxia's Lair", [469] = "Blackwing Lair",
+    [309] = "Zul'Gurub", [509] = "Ruins of Ahn'Qiraj",
+    [531] = "Ahn'Qiraj Temple", [533] = "Naxxramas",
 }
 
 local itemIndex, byLowerName

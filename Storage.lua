@@ -9,7 +9,7 @@ local AGE_SECONDS = S.AGE_DAYS * 86400
 
 local function eligible(run, active, now)
     if type(run) ~= "table" or run == active or run.closed ~= true
-        or run.detailVersion == nil or run.provisionalPreviousID then return false end
+        or run.detailVersion == nil then return false end
     local lastAt = tonumber(run.ended) or tonumber(run.lastSeen) or tonumber(run.started)
     if not lastAt or lastAt <= 0 or now - lastAt < AGE_SECONDS then return false end
     if type(run.pending) == "table" and #run.pending > 0 then return false end
