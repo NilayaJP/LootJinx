@@ -360,8 +360,14 @@ function O:RefreshLanguage()
     end
     if LJ.SetLanguage then LJ:SetLanguage(code) end
     -- Sprache wirkt auf alle statischen Beschriftungen; ein Reload wendet sie an.
-    if C_Timer and C_Timer.After and ReloadUI then
-        C_Timer.After(0.2, function() ReloadUI() end)
+    -- ReloadUI() ist geschützt und würde aus dem OnClick-Handler geblockt;
+    -- C_UI.Reload() ist die sichere, nicht-geschützte Variante.
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.2, function()
+            if C_UI and C_UI.Reload then
+                C_UI.Reload()
+            end
+        end)
     end
 end
 
