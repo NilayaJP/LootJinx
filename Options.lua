@@ -29,6 +29,13 @@ local function applyOption(key)
     end
 end
 
+local function languageName(code)
+    for _, loc in ipairs(LJ.LOCALES or {}) do
+        if loc.code == code then return loc.name end
+    end
+    return "Auto"
+end
+
 local function createCheck(parent, key, labelText, hintText, y)
     local check = CreateFrame("CheckButton", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     check:SetSize(18, 18)
@@ -103,10 +110,11 @@ end
 local function buildPanel()
     panel = CreateFrame("Frame", "LootJinxOptionsPanel")
     panel.name = LJ.L("OPTIONS_TAB")
-    panel:SetSize(600, 600)
+    panel:SetSize(600, 680)
     panel:SetScript("OnShow", function() O:Refresh() end)
     panel:SetScript("OnHide", function()
         if controls.layoutMenu then controls.layoutMenu:Hide() end
+        if controls.langMenu then controls.langMenu:Hide() end
     end)
     O.panel = panel
 
@@ -247,8 +255,46 @@ local function buildPanel()
     layoutHint:SetWidth(530)
     layoutHint:SetText(LJ.L("OPT_LAYOUT_HINT"))
 
+    local languageCard = W:Card(panel)
+    languageCard:SetPoint("TOPLEFT", 16, -564)
+    languageCard:SetSize(568, 76)
+    local languageTitle = W:Font(languageCard, 9, C.accent, "OUTLINE")
+    languageTitle:SetPoint("TOPLEFT", 14, -10)
+    languageTitle:SetText(LJ.L("OPT_LANGUAGE"))
+
+    local langDropdown = W:Button(languageCard, "", 322, 25)
+    langDropdown:SetPoint("TOPLEFT", 14, -31)
+    local langArrow = W:Font(langDropdown, 12, C.text, "")
+    langArrow:SetPoint("RIGHT", -10, 0)
+    langArrow:SetText("v")
+    local langMenu = W:Card(panel)
+    langMenu:SetPoint("BOTTOMLEFT", langDropdown, "TOPLEFT", 0, 2)
+    langMenu:SetSize(322, 280)
+    langMenu:SetFrameLevel(languageCard:GetFrameLevel() + 10)
+    local langButtons = {}
+    for i, loc in ipairs(LJ.LOCALES) do
+        local b = W:Button(langMenu, loc.name, 310, 24)
+        b:SetPoint("TOPLEFT", 6, -4 - (i - 1) * 25)
+        b.code = loc.code
+        b:SetScript("OnClick", function(self)
+            langMenu:Hide()
+            LJ.DB.language = self.code
+            LJ:SetLanguage(self.code)
+            O:RefreshLanguage()
+        end)
+        langButtons[i] = b
+    end
+    langDropdown:SetScript("OnClick", function() langMenu:SetShown(not langMenu:IsShown()) end)
+    langMenu:Hide()
+    controls.langDropdown, controls.langMenu = langDropdown, langMenu
+    controls.langButtons = langButtons
+    local languageHint = W:Font(languageCard, 8, C.dim, "")
+    languageHint:SetPoint("TOPLEFT", 14, -61)
+    languageHint:SetWidth(530)
+    languageHint:SetText(LJ.L("OPT_LANGUAGE_HINT"))
+
     local footer = W:Font(panel, 9, C.muted, "")
-    footer:SetPoint("TOPLEFT", 18, -566)
+    footer:SetPoint("TOPLEFT", 18, -654)
     footer:SetWidth(560)
     footer:SetText(LJ.L("OPT_FOOTER"))
 end
@@ -300,6 +346,22 @@ function O:Refresh()
     if controls.layoutDropdown then
         controls.layoutDropdown.label:SetText(LJ.L(LJ.DB.layoutPreview == "journal"
             and "OPT_LAYOUT_JOURNAL" or "OPT_LAYOUT_CLASSIC"))
+    end
+    if controls.langDropdown then
+        controls.langDropdown.label:SetText(languageName(LJ.DB.language or "auto"))
+    end
+end
+
+function O:RefreshLanguage()
+    if not LJ.DB then return end
+    local code = LJ.DB.language or "auto"
+    if controls.langDropdown then
+        controls.langDropdown.label:SetText(languageName(code))
+    end
+    if LJ.SetLanguage then LJ:SetLanguage(code) end
+    -- Sprache wirkt auf alle statischen Beschriftungen; ein Reload wendet sie an.
+    if C_Timer and C_Timer.After and ReloadUI then
+        C_Timer.After(0.2, function() ReloadUI() end)
     end
 end
 

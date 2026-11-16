@@ -65,7 +65,7 @@ function LJ:AddOnVersion()
         local ok, version = pcall(getter, "LootJinx", "Version")
         if ok and type(version) == "string" and version ~= "" then return version end
     end
-    return "1.6.6"
+    return "1.6.7"
 end
 
 local function normalizeBoss(b, fallbackAt)
@@ -470,10 +470,12 @@ function LJ:InitDB()
     db.compact = db.compact == true
     db.announceRecords = db.announceRecords == true
     db.layoutPreview = db.layoutPreview == "journal" and "journal" or "classic"
+    db.language = type(db.language) == "string" and db.language or "auto"
     db.minimapAngle = tonumber(db.minimapAngle) or 225
     if db.minimapAngle ~= db.minimapAngle then db.minimapAngle = 225 end
     db.minimapAngle = db.minimapAngle % 360
     self.DB = db
+    if self.SetLanguage then self:SetLanguage(db.language) end
 
     local char = _G.LootJinxCharDB
     if type(char) ~= "table" then
