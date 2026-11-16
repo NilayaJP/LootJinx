@@ -36,6 +36,35 @@ local function languageName(code)
     return "Auto"
 end
 
+local function closeOptionsPanel()
+    if SettingsPanel and SettingsPanel:IsShown() then SettingsPanel:Hide() end
+    if InterfaceOptionsFrame and InterfaceOptionsFrame:IsShown() then InterfaceOptionsFrame:Hide() end
+    if panel and panel:IsShown() then panel:Hide() end
+end
+
+local function showReloadPopup()
+    if not StaticPopupDialogs or not StaticPopup_Show then return end
+    StaticPopupDialogs["LOOTJINX_RELOAD"] = {
+        text = "A UI reload is required to apply the new language.",
+        button1 = "Accept",
+        button2 = "Decline",
+        OnAccept = function()
+            if C_UI and C_UI.Reload then
+                C_UI.Reload()
+            elseif ReloadUI then
+                ReloadUI()
+            end
+        end,
+        OnCancel = function() end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+        exclusive = 1,
+    }
+    StaticPopup_Show("LOOTJINX_RELOAD")
+end
+
 local function createCheck(parent, key, labelText, hintText, y)
     local check = CreateFrame("CheckButton", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     check:SetSize(18, 18)
@@ -359,12 +388,11 @@ function O:RefreshLanguage()
         controls.langDropdown.label:SetText(languageName(code))
     end
     if LJ.SetLanguage then LJ:SetLanguage(code) end
-    -- Dieser Client blockiert sowohl ReloadUI() als auch C_UI.Reload(), da beide
-    -- die geschützte Funktion Reload() aufrufen. Daher kein Auto-Reload; der
-    -- Nutzer lädt manuell neu, damit alle statischen Beschriftungen übernommen werden.
-    if LJ.Print then
-        LJ:Print(LJ.L("LANG_CHANGED", languageName(code)))
-    end
+    -- Reload() darf nur als Reaktion auf ein Hardware-Event (Klick) erfolgen, nicht
+    -- aus einem Timer. Daher Fenster schließen und ein Bestätigungspopup zeigen;
+    -- dessen Accept-Button ruft C_UI.Reload() im Klick-Kontext auf.
+    closeOptionsPanel()
+    showReloadPopup()
 end
 
 function O:Open()
