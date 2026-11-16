@@ -20,7 +20,8 @@ local locale = (GetLocale and GetLocale()) or "enUS"
 LJ.locale = locale
 LJ.lang = LOCALE_LANG[locale] or "en"
 
--- Auswählbare Sprachen (Name in der jeweiligen Sprache, wie im Client üblich).
+-- Auswählbare Sprachen. Namen in lateinischer Schrift, damit sie auf jedem
+-- Client (auch ohne CJK-/kyrillische Fonts) korrekt dargestellt werden.
 LJ.LOCALES = {
     { code = "auto", name = "Auto" },
     { code = "en", name = "English" },
@@ -29,10 +30,10 @@ LJ.LOCALES = {
     { code = "fr", name = "Français" },
     { code = "it", name = "Italiano" },
     { code = "pt", name = "Português" },
-    { code = "ru", name = "Русский" },
-    { code = "ko", name = "한국어" },
-    { code = "zhCN", name = "简体中文" },
-    { code = "zhTW", name = "繁體中文" },
+    { code = "ru", name = "Russian" },
+    { code = "ko", name = "Korean" },
+    { code = "zhCN", name = "Chinese (Simplified)" },
+    { code = "zhTW", name = "Chinese (Traditional)" },
 }
 
 function LJ:SetLanguage(lang)
