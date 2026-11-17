@@ -49,6 +49,18 @@ function LJ:FormatNumber(n)
     return tostring(n)
 end
 
+-- Zeitstempel lokalisierbar formatieren. 0/nil steht bei Legacy- und
+-- Importdaten für "kein Datum" und darf nicht als 1.1.1970 erscheinen.
+function LJ:FormatTime(stamp, format)
+    stamp = tonumber(stamp)
+    if not stamp or stamp <= 0 then return "–" end
+    local fn = type(date) == "function" and date or (os and os.date)
+    if type(fn) ~= "function" then return "–" end
+    local ok, text = pcall(fn, format or "%d.%m.%Y", stamp)
+    if ok and type(text) == "string" then return text end
+    return "–"
+end
+
 function LJ:Print(msg, ...)
     if select("#", ...) > 0 then
         local ok, formatted = pcall(string.format, tostring(msg), ...)

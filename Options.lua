@@ -9,6 +9,12 @@ local W = LJ.Widgets
 local C = LJ.COLORS
 local MEDIA = "Interface\\AddOns\\LootJinx\\Media\\"
 
+-- Muss zu den Klammerungen in Core/UI/JournalUI passen.
+local SCALE_MIN, SCALE_MAX = 0.80, 1.30
+local function scalePercent(value)
+    return math.floor(value * 100 + 0.5)
+end
+
 local panel
 local registered = false
 local controls = {}
@@ -190,12 +196,12 @@ local function buildPanel()
     local scale = CreateFrame("Slider", nil, window, "OptionsSliderTemplate")
     scale:SetPoint("TOPLEFT", 14, -48)
     scale:SetWidth(300)
-    scale:SetMinMaxValues(0.80, 1.30)
+    scale:SetMinMaxValues(SCALE_MIN, SCALE_MAX)
     scale:SetValueStep(0.05)
     scale:SetObeyStepOnDrag(true)
     if scale.Text then scale.Text:SetText("") end
-    if scale.Low then scale.Low:SetText("80 %") end
-    if scale.High then scale.High:SetText("130 %") end
+    if scale.Low then scale.Low:SetText(string.format("%d %%", scalePercent(SCALE_MIN))) end
+    if scale.High then scale.High:SetText(string.format("%d %%", scalePercent(SCALE_MAX))) end
     scale:SetScript("OnValueChanged", function(self, value)
         if controls.updating then return end
         value = tonumber(value) or 1
@@ -222,7 +228,7 @@ local function buildPanel()
     local windowHint = W:Font(window, 8, C.dim, "")
     windowHint:SetPoint("TOPLEFT", 14, -88)
     windowHint:SetWidth(520)
-    windowHint:SetText(LJ.L("OPT_SCALE_RANGE"))
+    windowHint:SetText(LJ.L("OPT_SCALE_RANGE", scalePercent(SCALE_MIN), scalePercent(SCALE_MAX)))
 
     local behavior = W:Card(panel)
     behavior:SetPoint("TOPLEFT", 16, -224)

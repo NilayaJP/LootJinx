@@ -402,7 +402,7 @@ function J:Refresh()
             local rolls = LJ.RecentRolls:Summary(run)
             if rolls then badges = badges .. " · " .. rolls end
             row.badges:SetText(badges)
-            row.date:SetText(date and date("%d.%m.", run.started or 0) or "")
+            row.date:SetText(LJ:FormatTime(run.started, "%d.%m."))
         end
     end
 end

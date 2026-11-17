@@ -199,7 +199,7 @@ function T:GetRuns()
     local runs = data and data.runs or {}
     local visible
     for i, run in ipairs(runs) do
-        if (run.closed or run.paused) and emptyVisit(run) then
+        if run.closed and emptyVisit(run) then
             if not visible then
                 visible = {}
                 for j = 1, i - 1 do visible[#visible + 1] = runs[j] end
@@ -272,7 +272,6 @@ function T:CloseActive(reason)
     if reason ~= "manual" then T:ResolveStaleNeeds(run, true) end
     T:FinalizeRunItems(run)
     run.closed = true
-    run.paused = false
     run.ended = run.ended or now()
     run.closedReason = reason or "closed"
     run.reenterPending = nil
@@ -395,7 +394,6 @@ function T:StartRun(d, partial)
         legacy = false,
         partial = partial == true,
         closed = false,
-        paused = false,
         stat = stat,
         statHistory = stat and { stat } or nil,
         statMixed = false,
@@ -490,7 +488,6 @@ function T:CheckZone()
                 diag("zone-reenter", run.id, run.zoneID and "known-copy" or "unknown-copy")
             end
             inside = true
-            run.paused = false
             run.outsideAt = nil
             run.lastSeen = now()
             run.key = d.key
@@ -2127,7 +2124,6 @@ function T:GetDiagnosticState()
             lastSeen = run.lastSeen,
             outsideAt = run.outsideAt,
             closed = run.closed == true,
-            paused = run.paused == true,
             closedReason = run.closedReason,
             partial = run.partial == true,
             lootSeen = run.lootSeen == true,

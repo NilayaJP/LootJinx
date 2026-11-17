@@ -62,17 +62,24 @@ function R:Entries(run)
     return entries
 end
 
+-- Ein Badge ist knapp. Statt nur den letzten Need-Wert zu zeigen (bei
+-- mehreren Würfen im selben Run irreführend) zählt die Zusammenfassung die
+-- beobachteten Würfe je Art. Item, Spieler und Werte stehen im Tooltip.
 function R:Summary(run)
-    local own, other
+    local counts, total = {}, 0
     for _, entry in ipairs(self:Entries(run)) do
-        if entry.kind == "need" then
-            if entry.own then own = entry.value else other = entry.value end
+        counts[entry.kind] = (counts[entry.kind] or 0) + 1
+        total = total + 1
+    end
+    if total == 0 then return nil end
+    local parts = {}
+    for _, kind in ipairs({ "need", "greed", "transmog" }) do
+        local count = counts[kind]
+        if count then
+            parts[#parts + 1] = LJ.L("RECENT_ROLL_" .. string.upper(kind) .. "_COUNT", count)
         end
     end
-    if own and other then return LJ.L("RECENT_ROLL_BOTH", own, other) end
-    if own then return LJ.L("RECENT_ROLL_OWN", own) end
-    if other then return LJ.L("RECENT_ROLL_OTHER", other) end
-    return nil
+    return table.concat(parts, " · ")
 end
 
 function R:Lines(run)

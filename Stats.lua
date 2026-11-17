@@ -70,14 +70,15 @@ function Stats.Compute(runs)
             out.lastRun = run
             if run.closed == true then out.completedDungeons = out.completedDungeons + 1 end
 
-            -- Dungeons ohne Primärstat-Drop (Feldname "agi" ist historisch)
-            if not run.stat then
-                out.noAgiCurrent = 0
-            elseif run.agilityDropped == true then
+            -- Dungeons ohne Primärstat-Drop (Feldname "agi" ist historisch).
+            -- Ein beobachteter Drop zählt zuerst, auch wenn der Stat-Kontext
+            -- fehlt. Runs ganz ohne Stat-Kontext (Legacy/Import) sind neutral:
+            -- sie unterbrechen die Serie weder noch verlängern sie sie.
+            if run.agilityDropped == true then
                 out.agilityDungeons = out.agilityDungeons + 1
                 out.noAgiCurrent = 0
                 out.lastAgilityRun = run
-            else
+            elseif run.stat then
                 out.noAgiDungeons = out.noAgiDungeons + 1
                 out.noAgiCurrent = out.noAgiCurrent + 1
                 out.noAgiMax = max(out.noAgiMax, out.noAgiCurrent)
@@ -193,7 +194,6 @@ function Stats.RunStatusKey(run, active)
     if type(run) ~= "table" then return nil end
     if run.closedReason == "manual" then return "RUN_STATUS_MANUAL" end
     if run.partial then return "RUN_STATUS_PARTIAL" end
-    if run.paused then return "RUN_STATUS_PAUSED" end
     if active then return "RUN_STATUS_LIVE" end
     if not run.closed then return "RUN_STATUS_OPEN" end
     return nil

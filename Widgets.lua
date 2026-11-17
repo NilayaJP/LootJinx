@@ -122,6 +122,9 @@ function W:Button(parent, text, width, height)
     b.label = self:Font(b, 10, C.muted, "")
     b.label:SetPoint("CENTER", 0, 0)
     b.label:SetText(text or "")
+    local function restLabel(self)
+        self.label:SetPoint("CENTER", 0, 0)
+    end
     b:SetScript("OnEnter", function(self)
         if self.SetBackdropBorderColor then self:SetBackdropBorderColor(c4(C.accent)) end
         if self.SetBackdropColor then self:SetBackdropColor(0.16, 0.13, 0.20, 0.98) end
@@ -131,9 +134,13 @@ function W:Button(parent, text, width, height)
         if self.SetBackdropBorderColor then self:SetBackdropBorderColor(c4(C.border)) end
         if self.SetBackdropColor then self:SetBackdropColor(0.10, 0.11, 0.14, 0.96) end
         self.label:SetTextColor(c4(C.muted))
+        -- Wird die Maustaste außerhalb des Buttons losgelassen, feuert kein
+        -- OnMouseUp. Das versetzte Label muss auch hier zurück.
+        restLabel(self)
     end)
     b:SetScript("OnMouseDown", function(self) self.label:SetPoint("CENTER", 0, -1) end)
-    b:SetScript("OnMouseUp", function(self) self.label:SetPoint("CENTER", 0, 0) end)
+    b:SetScript("OnMouseUp", restLabel)
+    b:SetScript("OnHide", restLabel)
     return b
 end
 

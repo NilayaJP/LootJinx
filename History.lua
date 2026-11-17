@@ -64,7 +64,6 @@ end
 local STATUS_COLORS = {
     RUN_STATUS_LIVE = LJ.COLORS.green,
     RUN_STATUS_OPEN = LJ.COLORS.cyan,
-    RUN_STATUS_PAUSED = LJ.COLORS.orange,
     RUN_STATUS_MANUAL = LJ.COLORS.muted,
     RUN_STATUS_PARTIAL = LJ.COLORS.muted,
 }
@@ -225,7 +224,6 @@ end
 function H:StatusMatches(run, status)
     status = status or "all"
     if status == "all" then return true end
-    if status == "paused" then return run.paused == true end
     if status == "clear" then return run.closedReason == "all-bosses-cleared" end
     if status == "manual" then return run.closedReason == "manual" end
     if status == "pending" then
@@ -308,7 +306,6 @@ local function comparisonState(run)
     if run.closedReason == "all-bosses-cleared" then return "HISTORY_COMPARE_CLEAR" end
     if run.closedReason == "manual" then return "HISTORY_COMPARE_MANUAL" end
     if run.partial then return "HISTORY_COMPARE_PARTIAL" end
-    if run.paused then return "HISTORY_COMPARE_PAUSED" end
     if run.closed then return "HISTORY_COMPARE_CLOSED" end
     return "HISTORY_COMPARE_OPEN"
 end
@@ -328,7 +325,6 @@ end
 local function compareStateColor(key)
     if key == "HISTORY_COMPARE_CLEAR" then return LJ.COLORS.green end
     if key == "HISTORY_COMPARE_OPEN" then return LJ.COLORS.cyan end
-    if key == "HISTORY_COMPARE_PAUSED" then return LJ.COLORS.orange end
     return LJ.COLORS.muted
 end
 
@@ -595,10 +591,10 @@ function H:Create()
     self.resetFilters:SetPoint("TOPRIGHT", -8, -4)
     self.resetFilters:SetScript("OnClick", function() H:ResetFilters() end)
     self.statusMenu = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    self.statusMenu:SetSize(138, 130)
+    self.statusMenu:SetSize(138, 106)
     self.statusMenu:SetPoint("TOPLEFT", self.statusButton, "BOTTOMLEFT", 0, -2)
     self.statusMenu:SetFrameLevel(f:GetFrameLevel() + 25)
-    for i, status in ipairs({ "all", "paused", "clear", "manual", "pending" }) do
+    for i, status in ipairs({ "all", "clear", "manual", "pending" }) do
         local choice = addButton(self.statusMenu,
             LJ.L("HISTORY_STATUS_" .. string.upper(status)), 126, 22)
         choice:SetPoint("TOPLEFT", 6, -5 - (i - 1) * 24)
@@ -791,7 +787,7 @@ function H:ShowComparison(first, second)
     self:ApplyTheme()
     for i, run in ipairs({ data.first, data.second }) do
         local column = self.compareValues[i]
-        local when = run.started > 0 and date and date("%d.%m.%Y %H:%M", run.started) or "–"
+        local when = LJ:FormatTime(run.started, "%d.%m.%Y %H:%M")
         column.date:SetText(LJ.L("HISTORY_COMPARE_DATE", when))
         column.date:SetTextColor(rgba(LJ.COLORS.muted))
         column.stat:SetText(LJ.L(run.stat))
@@ -900,7 +896,7 @@ function H:Refresh()
             end
             row.label:SetText(name)
             row.badges:SetText(runBadges(run))
-            row.date:SetText(date and date("%d.%m.%Y", run.started or 0) or "")
+            row.date:SetText(LJ:FormatTime(run.started, "%d.%m.%Y"))
         end
     end
     self:ApplyTheme()
