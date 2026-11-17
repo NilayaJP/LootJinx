@@ -282,8 +282,8 @@ end
 local function comparisonState(run)
     if run.closedReason == "all-bosses-cleared" then return "HISTORY_COMPARE_CLEAR" end
     if run.closedReason == "manual" then return "HISTORY_COMPARE_MANUAL" end
-    if run.paused then return "HISTORY_COMPARE_PAUSED" end
     if run.partial then return "HISTORY_COMPARE_PARTIAL" end
+    if run.paused then return "HISTORY_COMPARE_PAUSED" end
     if run.closed then return "HISTORY_COMPARE_CLOSED" end
     return "HISTORY_COMPARE_OPEN"
 end
@@ -680,7 +680,7 @@ function H:Create()
     self.compareTitle:SetWidth(480)
     local compareClose = addButton(self.comparePanel, "×", 24, 22)
     compareClose:SetPoint("TOPRIGHT", -12, -10)
-    compareClose:SetScript("OnClick", function() H.comparePanel:Hide() end)
+    compareClose:SetScript("OnClick", function() H:ClearComparison(); H:Refresh() end)
     self.compareValues = {}
     self.compareCards = {}
     self.compareColTitles = {}
@@ -787,8 +787,9 @@ function H:SelectForComparison(run)
     elseif not self.compareA then
         self.compareA = run
     elseif not sameDungeon(self.compareA, run, true) then
-        LJ:Print(LJ.L("HISTORY_COMPARE_SAME_DUNGEON"))
-        return false
+        -- Anderer Dungeon: Auswahl neu starten, statt den Nutzer zu blockieren.
+        self.compareA, self.compareB = run, nil
+        self.comparePanel:Hide()
     else
         self.compareB = run
         self:ShowComparison(self.compareA, self.compareB)
