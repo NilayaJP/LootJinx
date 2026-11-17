@@ -375,7 +375,7 @@ function T:StartRun(d, partial)
         name = d.name,
         key = d.key,
         instanceID = d.instanceID,
-        zoneID = nil,
+        zoneID = nil, -- Instanz-ID der Kopie (GUID-Feld 4), nicht die Karten-ID
         difficulty = d.difficulty,
         started = now(),
         lastSeen = now(),
@@ -412,20 +412,27 @@ function T:StartRun(d, partial)
     return run
 end
 
--- Die ID aus GetInstanceInfo bezeichnet die Karte. Feld 5 einer Kreatur-
--- oder Cast-GUID bezeichnet die konkrete Instanzkopie (wie in NIT).
-local function guidZoneID(guid)
+-- Die ID aus GetInstanceInfo bezeichnet die Karte. Feld 4 einer Kreatur-
+-- oder Cast-GUID ist die Instanz-ID der konkreten Kopie (Feld 5 ist die
+-- zoneUID/Layer-ID und unterscheidet keine Kopien).
+local function guidInstanceID(guid)
     if type(issecretvalue) == "function" and issecretvalue(guid) then return nil end
     if type(guid) ~= "string" then return nil end
-    local kind, id = guid:match("^(%a+)%-[^-]*%-[^-]*%-[^-]*%-(%d+)%-")
+    local kind, id = guid:match("^(%a+)%-[^-]*%-[^-]*%-(%d+)%-")
     if kind ~= "Creature" and kind ~= "Cast" then return nil end
     id = tonumber(id)
     return id and id > 0 and id or nil
 end
 
+local function observeUnit(unit)
+    if type(UnitGUID) ~= "function" then return end
+    local ok, guid = pcall(UnitGUID, unit)
+    if ok then T:ObserveInstanceGUID(guid) end
+end
+
 function T:ObserveInstanceGUID(guid)
     if not inside then return false end
-    local zoneID = guidZoneID(guid)
+    local zoneID = guidInstanceID(guid)
     local run = activeRun()
     if not zoneID or not run then return false end
     if run.reenterPending then
@@ -461,12 +468,6 @@ function T:ObserveInstanceGUID(guid)
         LJ:Changed()
     end
     return true
-end
-
-local function observeUnit(unit)
-    if type(UnitGUID) ~= "function" then return end
-    local ok, guid = pcall(UnitGUID, unit)
-    if ok then T:ObserveInstanceGUID(guid) end
 end
 
 function T:CheckZone()

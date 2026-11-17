@@ -3,7 +3,7 @@ local ADDON, ns = ...
 local LJ = ns or _G.LootJinx
 if not LJ then return end
 
-local H = { query = "", dungeon = nil, range = "all", status = "all", sort = "date",
+local H = { query = "", dungeon = nil, dungeonKey = nil, range = "all", status = "all", sort = "date",
     page = 1, filterPage = 1,
     rows = {}, filterRows = {}, dateRows = {}, statusRows = {} }
 LJ.History = H
@@ -236,7 +236,37 @@ function H:StatusMatches(run, status)
     return false
 end
 
-function H:Filter(runs, query, dungeon, range, now, status)
+-- Das Dropdown-Label ist kein stabiler Schlüssel: sobald ein zweiter Eintrag
+-- mit gleichem Dungeon-Namen dazukommt, wird daraus "Name (Instanz-ID)", und
+-- nach dem Aufräumen fällt der Zusatz wieder weg. Deshalb wird die Auswahl
+-- zusätzlich über den Schlüssel aufgelöst.
+function H:ResolveDungeonKey(dungeon, runs, rememberedKey)
+    if type(dungeon) ~= "string" or dungeon == "" then return nil end
+    local options = self:DungeonOptions(runs)
+    for _, option in ipairs(options) do
+        if option.label == dungeon then return option.key end
+    end
+    local base = dungeon:gsub("%s+%b()%s*$", "")
+    local found, ambiguous
+    for _, option in ipairs(options) do
+        if option.name == base then
+            if found == nil then
+                found = option.key
+            elseif found ~= option.key then
+                ambiguous = true
+            end
+        end
+    end
+    if found and not ambiguous then return found end
+    if rememberedKey then
+        for _, option in ipairs(options) do
+            if option.key == rememberedKey then return option.key end
+        end
+    end
+    return nil
+end
+
+function H:Filter(runs, query, dungeon, range, now, status, dungeonKey)
     local result, needle = {}, normalized(query)
     range = range or "all"
     now = tonumber(now) or (LJ.Now and LJ.Now()) or 0
@@ -253,12 +283,7 @@ function H:Filter(runs, query, dungeon, range, now, status)
     end
     local selectedKey
     if dungeon then
-        for _, option in ipairs(self:DungeonOptions(runs)) do
-            if option.label == dungeon then
-                selectedKey = option.key
-                break
-            end
-        end
+        selectedKey = self:ResolveDungeonKey(dungeon, runs, dungeonKey)
     end
     local knownIDs = knownDungeonIDs(runs)
     for i = #(runs or {}), 1, -1 do
@@ -529,7 +554,7 @@ function H:Create()
         local choice = addButton(self.menu, "", 264, 23)
         choice:SetPoint("TOPLEFT", 7, -6 - (i - 1) * 24)
         choice:SetScript("OnClick", function(self)
-            H.dungeon = self.dungeon
+            H.dungeon, H.dungeonKey = self.dungeon, self.dungeonKey
             H.page = 1
             H:ClearComparison()
             H.menu:Hide()
@@ -724,14 +749,18 @@ end
 
 function H:RefreshFilterMenu()
     local options = { false }
-    for _, name in ipairs(self:Dungeons(LJ.Tracker:GetRuns())) do options[#options + 1] = name end
+    for _, option in ipairs(self:DungeonOptions(LJ.Tracker:GetRuns())) do
+        options[#options + 1] = option
+    end
     local pages = math.max(1, math.ceil(#options / FILTER_PAGE_SIZE))
     self.filterPage = math.max(1, math.min(self.filterPage, pages))
     for i, row in ipairs(self.filterRows) do
-        local name = options[(self.filterPage - 1) * FILTER_PAGE_SIZE + i]
-        row.dungeon = name or nil
-        row.label:SetText(name == false and LJ.L("HISTORY_ALL_DUNGEONS") or name or "")
-        row:SetShown(name ~= nil)
+        local option = options[(self.filterPage - 1) * FILTER_PAGE_SIZE + i]
+        row.dungeon = option and option.label or nil
+        row.dungeonKey = option and option.key or nil
+        row.label:SetText(option == false and LJ.L("HISTORY_ALL_DUNGEONS")
+            or (option and option.label) or "")
+        row:SetShown(option ~= nil)
     end
     self.filterPageText:SetText(self.filterPage .. " / " .. pages)
     self.filterPrev:SetShown(self.filterPage > 1)
@@ -744,7 +773,7 @@ function H:ClearComparison()
 end
 
 function H:ResetFilters()
-    self.query, self.dungeon, self.range, self.status = "", nil, "all", "all"
+    self.query, self.dungeon, self.dungeonKey, self.range, self.status = "", nil, nil, "all", "all"
     self.page, self.filterPage = 1, 1
     self:ClearComparison()
     if self.search then self.search:SetText("") end
@@ -812,7 +841,19 @@ end
 function H:Refresh()
     if not self.frame or not LJ.Tracker then return end
     local runs = LJ.Tracker:GetRuns()
-    local matches = self:Filter(runs, self.query, self.dungeon, self.range, LJ.Now(), self.status)
+    if self.dungeon then
+        local key = self:ResolveDungeonKey(self.dungeon, runs, self.dungeonKey)
+        if key then
+            self.dungeonKey = key
+        else
+            -- Der gewählte Dungeon existiert nicht mehr (z. B. nach dem Aufräumen):
+            -- Filter zurücksetzen, statt eine leere Liste ohne Erklärung zu zeigen.
+            self.dungeon, self.dungeonKey = nil, nil
+            self.page, self.filterPage = 1, 1
+        end
+    end
+    local matches = self:Filter(runs, self.query, self.dungeon, self.range, LJ.Now(), self.status,
+        self.dungeonKey)
     local preview = LJ.Storage:Preview(runs, LJ.Tracker:GetActive(), LJ.Now())
     self.cleanupButton.label:SetText(LJ.L("HISTORY_CLEANUP_BUTTON", preview.eligible))
     local summary = self:Summarize(matches)

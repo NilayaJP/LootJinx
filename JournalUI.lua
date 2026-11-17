@@ -400,7 +400,7 @@ function J:Refresh()
             local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), marker and 24 or 36)
             row.name:SetText(marker and (name .. " · " .. marker) or name)
             local rolls = LJ.RecentRolls:Summary(run)
-            if rolls then badges = statBadge .. " · " .. rolls end
+            if rolls then badges = badges .. " · " .. rolls end
             row.badges:SetText(badges)
             row.date:SetText(date and date("%d.%m.", run.started or 0) or "")
         end

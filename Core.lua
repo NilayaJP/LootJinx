@@ -762,6 +762,8 @@ local function itemInfoCall(linkOrID)
             tonumber(Plain(info.maxStack)), Plain(info.equipLoc), Plain(info.icon),
             tonumber(Plain(info.sellPrice))
     end
+    -- Forever returns classID/subclassID after sellPrice (positions 12 and 13),
+    -- while positions 6 and 7 are the localized type strings.
     return Plain(a), Plain(b), tonumber(Plain(c)), tonumber(Plain(d)), tonumber(Plain(e)),
         tonumber(Plain(l)), tonumber(Plain(m)), tonumber(Plain(h)), Plain(i),
         Plain(j), tonumber(Plain(k))

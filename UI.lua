@@ -970,8 +970,7 @@ local function refreshContent()
                 end
                 local rolls = LJ.RecentRolls:Summary(run)
                 if rolls then
-                    badges = colored(badgeColor, badgeText)
-                        .. " · " .. rolls
+                    badges = badges .. " · " .. rolls
                 end
                 setText(row.badges, badges)
             end
