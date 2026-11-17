@@ -288,6 +288,25 @@ local function comparisonState(run)
     return "HISTORY_COMPARE_OPEN"
 end
 
+local function compareStatColor(key)
+    if key == "HISTORY_COMPARE_STAT_YES" then return LJ.COLORS.green end
+    if key == "HISTORY_COMPARE_STAT_NO" then return LJ.COLORS.red end
+    return LJ.COLORS.muted
+end
+
+local function compareNeedColor(won, lost)
+    if won > 0 then return LJ.COLORS.green end
+    if lost > 0 then return LJ.COLORS.red end
+    return LJ.COLORS.muted
+end
+
+local function compareStateColor(key)
+    if key == "HISTORY_COMPARE_CLEAR" then return LJ.COLORS.green end
+    if key == "HISTORY_COMPARE_OPEN" then return LJ.COLORS.cyan end
+    if key == "HISTORY_COMPARE_PAUSED" then return LJ.COLORS.orange end
+    return LJ.COLORS.muted
+end
+
 local function comparisonRun(run)
     local won, lost, pending = 0, 0, 0
     for _, need in ipairs(run.needs or {}) do
@@ -391,11 +410,13 @@ function H:ApplyTheme()
     paint(self.statusMenu, p.card, p.border)
     paint(self.summaryPanel, p.card, p.border)
     paint(self.comparePanel, p.bg, p.border)
+    for _, card in ipairs(self.compareCards or {}) do paint(card, p.card, p.border) end
     for _, f in ipairs(self.labels) do f:SetTextColor(rgba(p.text)) end
     for _, f in ipairs(self.mutedLabels) do f:SetTextColor(rgba(p.muted)) end
     self.title:SetTextColor(rgba(p.accent))
     self.summaryTitle:SetTextColor(rgba(p.accent))
     self.compareTitle:SetTextColor(rgba(p.accent))
+    for _, t in ipairs(self.compareColTitles or {}) do t:SetTextColor(rgba(p.accent)) end
     for _, b in ipairs(self.buttons) do
         paint(b, p.card, p.border)
         b.label:SetTextColor(rgba(p.text))
@@ -650,33 +671,39 @@ function H:Create()
     self.next:SetScript("OnClick", function() H.page = H.page + 1; H:Refresh() end)
     self.comparePanel = CreateFrame("Frame", nil, f,
         BackdropTemplateMixin and "BackdropTemplate" or nil)
-    self.comparePanel:SetSize(540, 220)
+    self.comparePanel:SetSize(560, 240)
     self.comparePanel:SetPoint("CENTER", f, "CENTER", 0, 0)
     self.comparePanel:SetFrameLevel(f:GetFrameLevel() + 40)
     self.comparePanel:EnableMouse(true)
-    self.compareTitle = label(self.comparePanel, 13, "")
+    self.compareTitle = label(self.comparePanel, 14, "")
     self.compareTitle:SetPoint("TOPLEFT", 16, -14)
-    self.compareTitle:SetWidth(460)
+    self.compareTitle:SetWidth(480)
     local compareClose = addButton(self.comparePanel, "×", 24, 22)
     compareClose:SetPoint("TOPRIGHT", -12, -10)
     compareClose:SetScript("OnClick", function() H.comparePanel:Hide() end)
     self.compareValues = {}
+    self.compareCards = {}
+    self.compareColTitles = {}
     for i = 1, 2 do
-        local x = i == 1 and 18 or 278
-        local column = { title = label(self.comparePanel, 11,
+        local x = i == 1 and 16 or 290
+        local card = CreateFrame("Frame", nil, self.comparePanel,
+            BackdropTemplateMixin and "BackdropTemplate" or nil)
+        card:SetSize(254, 184)
+        card:SetPoint("TOPLEFT", x, -40)
+        self.compareCards[i] = card
+        local column = { card = card, title = label(card, 12,
             LJ.L(i == 1 and "HISTORY_COMPARE_A" or "HISTORY_COMPARE_B")) }
-        column.title:SetPoint("TOPLEFT", x, -42)
-        self.labels[#self.labels + 1] = column.title
+        column.title:SetPoint("TOPLEFT", 12, -12)
+        self.compareColTitles[i] = column.title
         for _, field in ipairs({ "date", "stat", "need", "state" }) do
-            column[field] = label(self.comparePanel, 10, "")
-            column[field]:SetWidth(240)
+            column[field] = label(card, 10, "")
+            column[field]:SetWidth(226)
             column[field]:SetWordWrap(true)
-            self.mutedLabels[#self.mutedLabels + 1] = column[field]
         end
-        column.date:SetPoint("TOPLEFT", x, -66)
-        column.stat:SetPoint("TOPLEFT", x, -92)
-        column.need:SetPoint("TOPLEFT", x, -123)
-        column.state:SetPoint("TOPLEFT", x, -156)
+        column.date:SetPoint("TOPLEFT", 12, -42)
+        column.stat:SetPoint("TOPLEFT", 12, -80)
+        column.need:SetPoint("TOPLEFT", 12, -118)
+        column.state:SetPoint("TOPLEFT", 12, -156)
         self.compareValues[i] = column
     end
     self.comparePanel:Hide()
@@ -732,15 +759,19 @@ function H:ShowComparison(first, second)
     if not data or not self.comparePanel then return false end
     self.compareTitle:SetText(LJ.L("HISTORY_COMPARE_TITLE",
         W:Truncate(data.name or LJ.L("UNKNOWN_DUNGEON"), 37)))
+    self:ApplyTheme()
     for i, run in ipairs({ data.first, data.second }) do
         local column = self.compareValues[i]
         local when = run.started > 0 and date and date("%d.%m.%Y %H:%M", run.started) or "–"
         column.date:SetText(LJ.L("HISTORY_COMPARE_DATE", when))
+        column.date:SetTextColor(rgba(LJ.COLORS.muted))
         column.stat:SetText(LJ.L(run.stat))
+        column.stat:SetTextColor(rgba(compareStatColor(run.stat)))
         column.need:SetText(LJ.L("HISTORY_COMPARE_NEED", run.won, run.lost, run.pending))
+        column.need:SetTextColor(rgba(compareNeedColor(run.won, run.lost)))
         column.state:SetText(LJ.L(run.state))
+        column.state:SetTextColor(rgba(compareStateColor(run.state)))
     end
-    self:ApplyTheme()
     self.comparePanel:Show()
     return true
 end
