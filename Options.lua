@@ -314,7 +314,6 @@ local function buildPanel()
         b:SetScript("OnClick", function(self)
             langMenu:Hide()
             LJ.DB.language = self.code
-            LJ:SetLanguage(self.code)
             O:RefreshLanguage()
         end)
         langButtons[i] = b
@@ -390,10 +389,17 @@ end
 function O:RefreshLanguage()
     if not LJ.DB then return end
     local code = LJ.DB.language or "auto"
-    if controls.langDropdown then
+    local before = LJ.lang
+    if LJ.SetLanguage then LJ:SetLanguage(code) end
+    if controls.langDropdown and controls.langDropdown.label then
         controls.langDropdown.label:SetText(languageName(code))
     end
-    if LJ.SetLanguage then LJ:SetLanguage(code) end
+    -- "auto" kann auf die bereits aktive Sprache auflösen; dann reicht ein
+    -- Neuzeichnen der Optionen und es ist kein UI-Reload nötig.
+    if LJ.lang == before then
+        O:Refresh()
+        return
+    end
     -- Reload() darf nur als Reaktion auf ein Hardware-Event (Klick) erfolgen, nicht
     -- aus einem Timer. Daher Fenster schließen und ein Bestätigungspopup zeigen;
     -- dessen Accept-Button ruft C_UI.Reload() im Klick-Kontext auf.

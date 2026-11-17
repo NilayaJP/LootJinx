@@ -328,7 +328,14 @@ function J:Create()
         self.shareTarget:ClearFocus()
     end)
     f:Hide()
-    if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "LootJinxJournalFrame") end
+    if type(UISpecialFrames) == "table" then
+        local escapeName = "LootJinxJournalFrame"
+        local found = false
+        for i = 1, #UISpecialFrames do
+            if UISpecialFrames[i] == escapeName then found = true break end
+        end
+        if not found then table.insert(UISpecialFrames, escapeName) end
+    end
     self:ApplyScale(LJ.DB.scale or 1)
     self:ApplyDisplayOptions()
     LJ:RegisterRefresh(function() if f:IsShown() then J:Refresh() end end)
@@ -402,7 +409,7 @@ function J:Refresh()
             local rolls = LJ.RecentRolls:Summary(run)
             if rolls then badges = badges .. " · " .. rolls end
             row.badges:SetText(badges)
-            row.date:SetText(LJ:FormatTime(run.started, "%d.%m."))
+            row.date:SetText(LJ:FormatTime(run.started, "DATE_LONG"))
         end
     end
 end

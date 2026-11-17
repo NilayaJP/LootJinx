@@ -126,9 +126,7 @@ end
 local function formatDate(run)
     local t = tonumber(run and run.started) or 0
     if t <= 0 then return LJ.L("NO_DATA") end
-    local ok, text = pcall(date, "%d.%m.%Y, %H:%M", t)
-    if ok and type(text) == "string" then return text end
-    return LJ.L("NO_DATA")
+    return LJ:FormatTime(t, "DATE_TIME")
 end
 
 local function statContext(run)
@@ -423,7 +421,7 @@ local function buildTimelineLines(run)
     end
     for i = first, #events do
         local event = events[i]
-        local stamp = date and date("%d.%m.%y %H:%M", event.at) or LJ.L("NO_DATA")
+        local stamp = LJ:FormatTime(event.at, "DATE_TIME_SHORT")
         lines[#lines + 1] = { kind = "note", text = stamp .. " · " .. event.text, muted = true }
     end
     if type(run.timeline) ~= "table" then

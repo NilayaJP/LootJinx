@@ -405,7 +405,8 @@ function T:StartRun(d, partial)
     blocked = false
     lootWindowOpen = false
     seenLootSlots = {}
-    diag("run-start", run.id, "partial=" .. tostring(run.partial))
+    diag("run-start", run.id, string.format("name=%s instance=%s partial=%s",
+        tostring(run.name), tostring(run.instanceID), tostring(run.partial)))
     LJ:Changed()
     return run
 end

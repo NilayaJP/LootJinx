@@ -51,12 +51,26 @@ end
 
 -- Zeitstempel lokalisierbar formatieren. 0/nil steht bei Legacy- und
 -- Importdaten für "kein Datum" und darf nicht als 1.1.1970 erscheinen.
+-- Der zweite Parameter ist entweder ein DATE_*-Schlüssel (lokalisiertes
+-- Format) oder ein explizites strftime-Muster.
+local DATE_FORMAT_KEYS = {
+    DATE_SHORT = true,
+    DATE_LONG = true,
+    DATE_TIME = true,
+    DATE_TIME_SHORT = true,
+}
+
 function LJ:FormatTime(stamp, format)
     stamp = tonumber(stamp)
     if not stamp or stamp <= 0 then return "–" end
+    if DATE_FORMAT_KEYS[format] then
+        format = self.L(format)
+    elseif type(format) ~= "string" or format == "" then
+        format = self.L("DATE_LONG")
+    end
     local fn = type(date) == "function" and date or (os and os.date)
     if type(fn) ~= "function" then return "–" end
-    local ok, text = pcall(fn, format or "%d.%m.%Y", stamp)
+    local ok, text = pcall(fn, format, stamp)
     if ok and type(text) == "string" then return text end
     return "–"
 end
@@ -1003,6 +1017,7 @@ if loader then
                 LJ:Print(LJ.L("ERROR_START", tostring(err)))
                 return
             end
+            if LJ.DebugLog then pcall(LJ.DebugLog.Init, LJ.DebugLog) end
             if LJ.Tracker then pcall(LJ.Tracker.Start, LJ.Tracker) end
             if LJ.SetupCommands then pcall(LJ.SetupCommands, LJ) end
         elseif event == "PLAYER_LOGIN" and LJ.dbReady then

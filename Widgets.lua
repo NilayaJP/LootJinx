@@ -194,15 +194,19 @@ end
 function W:Tooltip(frame, title, lines)
     if not frame then return end
     frame:EnableMouse(true)
+    frame.__ljTooltip = { title = title, lines = lines }
+    if frame.__ljTooltipInstalled then return end
+    frame.__ljTooltipInstalled = true
     local prevEnter = frame:GetScript("OnEnter")
     local prevLeave = frame:GetScript("OnLeave")
     frame:SetScript("OnEnter", function(self, ...)
         if prevEnter then prevEnter(self, ...) end
-        if not GameTooltip then return end
+        local data = self.__ljTooltip
+        if not data or not GameTooltip then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine(title, c4(C.accent))
-        for i = 1, #(lines or {}) do
-            local line = lines[i]
+        GameTooltip:AddLine(data.title, c4(C.accent))
+        for i = 1, #(data.lines or {}) do
+            local line = data.lines[i]
             if type(line) == "table" then
                 GameTooltip:AddLine(line[1], line[2], line[3], line[4], true)
             else
@@ -213,7 +217,13 @@ function W:Tooltip(frame, title, lines)
     end)
     frame:SetScript("OnLeave", function(self, ...)
         if prevLeave then prevLeave(self, ...) end
-        if GameTooltip then GameTooltip:Hide() end
+        if not GameTooltip then return end
+        local owned = true
+        if type(GameTooltip.IsOwned) == "function" then
+            local ok, result = pcall(GameTooltip.IsOwned, GameTooltip, self)
+            owned = ok and result == true
+        end
+        if owned then GameTooltip:Hide() end
     end)
 end
 

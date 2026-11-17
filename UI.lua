@@ -48,7 +48,7 @@ local function dateLabel(run)
     if d and yesterday and d.year == yesterday.year and d.yday == yesterday.yday then
         return LJ.L("YESTERDAY")
     end
-    return date("%d.%m.", t)
+    return LJ:FormatTime(t, "DATE_SHORT")
 end
 
 local function applyBackdrop(f)

@@ -33,7 +33,6 @@ local function normalizeAngle(value)
     value = tonumber(value)
     if not value or value ~= value then return DEFAULT_ANGLE end
     value = value % 360
-    if value < 0 then value = value + 360 end
     return value
 end
 

@@ -36,11 +36,18 @@ LJ.LOCALES = {
     { code = "zhTW", name = "Chinese (Traditional)" },
 }
 
-function LJ:SetLanguage(lang)
+-- Löst eine gespeicherte Sprachauswahl auf die tatsächlich angewendete
+-- Sprache auf. "auto" hängt vom Client ab; so lässt sich vor einem
+-- Sprachwechsel erkennen, ob sich überhaupt etwas ändert.
+function LJ:LanguageFor(lang)
     if lang == "auto" or lang == nil or lang == "" then
-        lang = LOCALE_LANG[self.locale] or "en"
+        return LOCALE_LANG[self.locale] or "en"
     end
-    self.lang = lang
+    return lang
+end
+
+function LJ:SetLanguage(lang)
+    self.lang = self:LanguageFor(lang)
 end
 
 local S = {
@@ -461,6 +468,10 @@ local S = {
     STAT_SHORT_INTELLECT = { de = "INT", en = "INT", es = "INT", fr = "INT", it = "INT", pt = "INT", ru = "INT", ko = "INT", zhCN = "INT", zhTW = "INT" },
     UNKNOWN_CLASS = { de = "Abenteurer", en = "Adventurer", es = "Aventurero", fr = "Aventurier", it = "Avventuriero", pt = "Aventureiro", ru = "Искатель приключений", ko = "모험가", zhCN = "冒险者", zhTW = "冒險者" },
     UNKNOWN_DUNGEON = { de = "Dungeon", en = "Dungeon", es = "Mazmorra", fr = "Donjon", it = "Sotterraneo", pt = "Masmorra", ru = "Подземелье", ko = "던전", zhCN = "地下城", zhTW = "地城" },
+    DATE_SHORT = { de = "%d.%m.", en = "%m/%d", es = "%d/%m", fr = "%d/%m", it = "%d/%m", pt = "%d/%m", ru = "%d.%m.", ko = "%m/%d", zhCN = "%m/%d", zhTW = "%m/%d" },
+    DATE_LONG = { de = "%d.%m.%Y", en = "%m/%d/%Y", es = "%d/%m/%Y", fr = "%d/%m/%Y", it = "%d/%m/%Y", pt = "%d/%m/%Y", ru = "%d.%m.%Y", ko = "%Y/%m/%d", zhCN = "%Y/%m/%d", zhTW = "%Y/%m/%d" },
+    DATE_TIME = { de = "%d.%m.%Y %H:%M", en = "%m/%d/%Y %H:%M", es = "%d/%m/%Y %H:%M", fr = "%d/%m/%Y %H:%M", it = "%d/%m/%Y %H:%M", pt = "%d/%m/%Y %H:%M", ru = "%d.%m.%Y %H:%M", ko = "%Y/%m/%d %H:%M", zhCN = "%Y/%m/%d %H:%M", zhTW = "%Y/%m/%d %H:%M" },
+    DATE_TIME_SHORT = { de = "%d.%m.%y %H:%M", en = "%m/%d/%y %H:%M", es = "%d/%m/%y %H:%M", fr = "%d/%m/%y %H:%M", it = "%d/%m/%y %H:%M", pt = "%d/%m/%y %H:%M", ru = "%d.%m.%y %H:%M", ko = "%y/%m/%d %H:%M", zhCN = "%y/%m/%d %H:%M", zhTW = "%y/%m/%d %H:%M" },
     LANG_CHANGED = { de = "Sprache auf %s gesetzt. Tippe /reload, um sie anzuwenden.", en = "Language set to %s. Type /reload to apply it.", es = "Idioma cambiado a %s. Escribe /reload para aplicarlo.", fr = "Langue définie sur %s. Tapez /reload pour l'appliquer.", it = "Lingua impostata su %s. Digita /reload per applicarla.", pt = "Idioma definido como %s. Digite /reload para aplicar.", ru = "Язык изменён на %s. Введите /reload, чтобы применить.", ko = "언어가 %s(으)로 변경되었습니다. 적용하려면 /reload를 입력하세요.", zhCN = "语言已切换为 %s。输入 /reload 以应用。", zhTW = "語言已切換為 %s。輸入 /reload 以套用。" },
 }
 

@@ -4,7 +4,7 @@
 ## Author: Zenyx
 ## Version: 1.6.7
 ## IconTexture: Interface\AddOns\LootJinx\Media\LootJinxIcon
-## SavedVariables: LootJinxDB
+## SavedVariables: LootJinxDB LootJinxDebugLog
 ## SavedVariablesPerCharacter: LootJinxCharDB
 ## AddonCompartmentFunc: LootJinx_OnAddonCompartmentClick
 ## AddonCompartmentFuncOnEnter: LootJinx_OnAddonCompartmentEnter
@@ -12,6 +12,7 @@
 
 Localization.lua
 Core.lua
+DebugLog.lua
 Evidence.lua
 Stats.lua
 Storage.lua

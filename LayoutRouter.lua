@@ -23,6 +23,7 @@ end
 local function syncFrame()
     R.frame = view().frame
     R.historyButton = view().historyButton
+    R.settingsButton = view().settingsButton
 end
 
 function R:GetLayout()
@@ -52,7 +53,6 @@ function R:Create()
     if not LJ.DB then return nil end
     -- Classic remains initialized for its legacy callbacks and saved position.
     if not Classic.frame then Classic:Create() end
-    self.settingsButton = Classic.settingsButton
     local active = view()
     if active == Journal and Journal and not Journal.frame then Journal:Create() end
     if Classic.frame and active ~= Classic then Classic:Hide() end

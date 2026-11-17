@@ -152,10 +152,17 @@ function D:Event(kind, id, detail)
         detail = detail and tostring(detail):sub(1, 60) or nil,
     }
     while #self.events > MAX_EVENTS do table.remove(self.events, 1) end
+    if LJ.DebugLog then
+        local parts = {}
+        if id ~= nil then parts[#parts + 1] = "id=" .. idText(id) end
+        if detail then parts[#parts + 1] = tostring(detail) end
+        LJ.DebugLog:Add(kind, table.concat(parts, " "))
+    end
 end
 
 function D:NoteDuplicate()
     self.duplicates = (self.duplicates or 0) + 1
+    if LJ.DebugLog then LJ.DebugLog:Add("duplicate", "count=" .. tostring(self.duplicates)) end
 end
 
 local function sameDecision(left, id, info, source)
@@ -206,6 +213,13 @@ function D:NoteItem(id, info, source)
         classID = info and tonumber(info.classID) or nil,
     }
     while #self.items > MAX_ITEMS do table.remove(self.items, 1) end
+    if LJ.DebugLog then
+        LJ.DebugLog:Add("item", string.format(
+            "id=%s source=%s known=%s loot=%s quest=%s agi=%s statState=%s classID=%s",
+            idText(id), source, boolText(info and info.known), boolText(info and info.loot),
+            boolText(info and info.quest), tostring(info and info.agi),
+            tostring(info and info.statState), idText(info and info.classID)))
+    end
 end
 
 local function trackerState()

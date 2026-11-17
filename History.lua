@@ -737,7 +737,14 @@ function H:Create()
         if LJ.RunDetail and LJ.RunDetail:IsShown() then LJ.RunDetail:Hide() end
         restoreDashboardEscape()
     end)
-    if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "LootJinxHistoryFrame") end
+    if type(UISpecialFrames) == "table" then
+        local escapeName = "LootJinxHistoryFrame"
+        local found = false
+        for i = 1, #UISpecialFrames do
+            if UISpecialFrames[i] == escapeName then found = true break end
+        end
+        if not found then table.insert(UISpecialFrames, escapeName) end
+    end
     f:Hide()
     LJ:RegisterRefresh(function() if f:IsShown() then H:Refresh() end end)
     return f
@@ -787,7 +794,7 @@ function H:ShowComparison(first, second)
     self:ApplyTheme()
     for i, run in ipairs({ data.first, data.second }) do
         local column = self.compareValues[i]
-        local when = LJ:FormatTime(run.started, "%d.%m.%Y %H:%M")
+        local when = LJ:FormatTime(run.started, "DATE_TIME")
         column.date:SetText(LJ.L("HISTORY_COMPARE_DATE", when))
         column.date:SetTextColor(rgba(LJ.COLORS.muted))
         column.stat:SetText(LJ.L(run.stat))
@@ -896,7 +903,7 @@ function H:Refresh()
             end
             row.label:SetText(name)
             row.badges:SetText(runBadges(run))
-            row.date:SetText(LJ:FormatTime(run.started, "%d.%m.%Y"))
+            row.date:SetText(LJ:FormatTime(run.started, "DATE_LONG"))
         end
     end
     self:ApplyTheme()
