@@ -1,18 +1,17 @@
 # LootJinx
 
-LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: missing primary-stat drops, lost Need rolls, unlucky streaks, and personal records. Tracking starts automatically in group and scenario instances. Available in English and German, with **Classic** and **Dungeon Journal** designs.
+LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: lost Need rolls, unlucky streaks, missing loot, and personal records. Tracking starts automatically in group and scenario instances. Available in all supported client languages, with **Classic** and **Dungeon Journal** designs.
 
-**Current version:** 1.6.5 · **Interface:** 16001 · **Dependencies:** None
+**Current version:** 1.6.8 · **Interface:** 16001 · **Dependencies:** None
 
 ## What it tracks
 
-- **Dungeon Curse:** Runs without an observed rare or better drop matching the primary stat saved for that run. Green trash gear remains visible in run details but does not reset the curse.
-- **Need Rolls:** Need wins, losses, and the current and longest losing streaks. Greed does not affect these statistics.
+- **Need Rolls:** Every Need roll is counted, with wins, losses, pending rolls, the current losing streak, and the personal record. Greed does not affect these statistics.
 - **No Need Win:** Dungeons where you rolled Need but won no Need roll.
 - **No Loot:** Recorded dungeon visits without observed eligible loot; quest items do not count.
 - **Since Need Win:** Dungeons since your last successful Need roll.
 
-All five trackers appear in both designs. Empty visits with no observed boss, item, or roll are omitted after leaving the instance.
+All trackers appear in both designs. Empty visits with no observed boss, item, or roll are omitted after leaving the instance.
 
 ## Review and share
 
@@ -20,7 +19,7 @@ Browse recent runs and searchable history, filter or compare visits, and open ru
 
 Share a short statistics report in party or raid chat, with a selected same-faction player, or with a confirmed Battle.net friend. Settings include window scale, compact mode, record announcements, and design choice. Character runs are saved in `LootJinxCharDB`; display settings are saved account-wide in `LootJinxDB`.
 
-Version 1.6.5 excludes green primary-stat drops from Dungeon Curse and corrects older runs when saved item evidence is sufficient. It also refreshes the dungeon loot catalog from ForeverDungeonJournal 2.0.8, adding new bosses, missing drops, and recipes.
+Version 1.6.8 removes primary-stat detection entirely: every Need roll counts regardless of item stats, and the former Dungeon Curse card is now a Need card showing wins, losses, and pending rolls. Older saved runs are migrated automatically when loaded.
 
 ## Install
 

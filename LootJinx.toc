@@ -1,10 +1,10 @@
 ## Interface: 16001
 ## Title: LootJinx
-## Notes: Dein Dungeon-Pech im Blick: Primärstat-Drops, Need-Rolls und Rekord-Serien.
+## Notes: Dein Dungeon-Pech im Blick: Need-Rolls, Loot-Serien und Rekorde.
 ## Author: Zenyx
-## Version: 1.6.7
+## Version: 1.6.8
 ## IconTexture: Interface\AddOns\LootJinx\Media\LootJinxIcon
-## SavedVariables: LootJinxDB LootJinxDebugLog
+## SavedVariables: LootJinxDB
 ## SavedVariablesPerCharacter: LootJinxCharDB
 ## AddonCompartmentFunc: LootJinx_OnAddonCompartmentClick
 ## AddonCompartmentFuncOnEnter: LootJinx_OnAddonCompartmentEnter
@@ -12,7 +12,6 @@
 
 Localization.lua
 Core.lua
-DebugLog.lua
 Evidence.lua
 Stats.lua
 Storage.lua

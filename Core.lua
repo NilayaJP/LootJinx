@@ -91,7 +91,7 @@ function LJ:AddOnVersion()
         local ok, version = pcall(getter, "LootJinx", "Version")
         if ok and type(version) == "string" and version ~= "" then return version end
     end
-    return "1.6.7"
+    return "1.6.8"
 end
 
 local function normalizeBoss(b, fallbackAt)
@@ -792,7 +792,6 @@ if loader then
                 LJ:Print(LJ.L("ERROR_START", tostring(err)))
                 return
             end
-            if LJ.DebugLog then pcall(LJ.DebugLog.Init, LJ.DebugLog) end
             if LJ.Tracker then pcall(LJ.Tracker.Start, LJ.Tracker) end
             if LJ.SetupCommands then pcall(LJ.SetupCommands, LJ) end
         elseif event == "PLAYER_LOGIN" and LJ.dbReady then
