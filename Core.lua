@@ -293,6 +293,23 @@ local function normalizeRun(run, fallbackID)
         if n then cleanNeeds[#cleanNeeds + 1] = n end
     end
     run.needs = cleanNeeds
+    -- Vor dem Need-Chat-Fix legte ein Chat-Echo ohne Item-Link einen zweiten
+    -- offenen Eintrag mit demselben Zeitstempel an. Nur diese Platzhalter
+    -- entfernen; echte offene Needs ohne Itemdaten bleiben erhalten.
+    local resolvedAt = {}
+    for i = 1, #cleanNeeds do
+        local n = cleanNeeds[i]
+        if n.result and n.at > 0 then resolvedAt[n.at] = true end
+    end
+    local mergedNeeds = {}
+    for i = 1, #cleanNeeds do
+        local n = cleanNeeds[i]
+        local placeholder = n.result == nil and n.chatSeen == true
+            and not n.id and not n.rollID and not n.roll and not n.link
+            and n.at > 0 and resolvedAt[n.at] == true
+        if not placeholder then mergedNeeds[#mergedNeeds + 1] = n end
+    end
+    run.needs = mergedNeeds
 
     local pending = type(run.pending) == "table" and run.pending or {}
     local cleanPending = {}

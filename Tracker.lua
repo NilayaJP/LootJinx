@@ -8,6 +8,7 @@ LJ.Tracker = T
 
 local NEED_TIMEOUT = 5 * 60
 local DEDUPE_SECONDS = 5
+local NEED_CHAT_SECONDS = 120
 local REPAIR_SECONDS = 15 * 60
 local MAX_BOSSES = 64
 local MAX_TIMELINE_EVENTS = 24
@@ -945,6 +946,26 @@ function T:OnNeedRoll(rollID, link)
     link = link or (rollID and rollLink(rollID)) or nil
     link = LJ:NormalizeLink(link)
     local id = LJ:ItemID(link)
+
+    -- Forever liefert beim eigenen Need-Chat keinen Item-Link. Solche Echos
+    -- dürfen keinen zweiten offenen Eintrag anlegen; sie bestätigen nur die
+    -- bereits per Roll-ID erfassten Needs.
+    if not rollID and not id then
+        local candidates = 0
+        for i = 1, #(run.needs or {}) do
+            local n = run.needs[i]
+            if n.result == nil and n.rollID and not n.chatSeen
+                and now() - (n.at or 0) <= NEED_CHAT_SECONDS then
+                n.chatSeen = true
+                candidates = candidates + 1
+            end
+        end
+        if candidates > 0 then
+            diag("need-chat-merge", nil, "open=" .. tostring(candidates))
+            LJ:Changed()
+            return
+        end
+    end
 
     if link then T:RecordItem(link, "need-roll") end
 

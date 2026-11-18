@@ -9,7 +9,7 @@ _G.LootJinx = LJ
 local D = {}
 LJ.DebugLog = D
 
-local MAX_ENTRIES = 600
+local MAX_ENTRIES = 3000
 
 local function stamp()
     local t = LJ.Now and LJ.Now() or 0
