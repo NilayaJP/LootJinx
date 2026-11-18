@@ -113,11 +113,8 @@ end
 function R:Build()
     local stats = LJ.Stats.Compute(LJ.Tracker:GetRuns())
     local className = select(1, LJ:ClassName())
-    local _, statLabel = LJ:PlayerStat()
     return {
-        LJ.L("REPORT_LINE_HEADER", className, statLabel),
-        LJ.L("REPORT_LINE_CURSE", stats.noAgiDungeons or 0, stats.totalDungeons or 0,
-            statLabel, stats.noAgiCurrent or 0, stats.noAgiMax or 0),
+        LJ.L("REPORT_LINE_HEADER", className),
         LJ.L("REPORT_LINE_NEED", stats.needWins or 0, stats.needLost or 0,
             stats.needPending or 0, stats.lostNeedCurrent or 0, stats.lostNeedMax or 0),
         LJ.L("REPORT_LINE_NO_WIN", stats.noNeedWinDungeons or 0,

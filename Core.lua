@@ -189,37 +189,6 @@ local function normalizeNeed(n, fallbackAt)
     return n
 end
 
-local VALID_STATS = { agility = true, strength = true, intellect = true }
-
--- Der Primärstat-Kontext eines Runs bleibt an den Run gebunden. Ältere Runs
--- ohne gespeicherten Kontext werden nicht nachträglich mit der aktuellen
--- Spezialisierung aufgefüllt, sondern bleiben ausdrücklich unbekannt.
-local function normalizeStatContext(run)
-    local history = type(run.statHistory) == "table" and run.statHistory or {}
-    local clean = {}
-    for i = 1, #history do
-        local stat = history[i]
-        if VALID_STATS[stat] and clean[#clean] ~= stat then
-            clean[#clean + 1] = stat
-        end
-    end
-    local stat = VALID_STATS[run.stat] and run.stat or nil
-    if #clean == 0 then
-        if stat then clean[1] = stat end
-    elseif stat and clean[#clean] ~= stat then
-        clean[#clean + 1] = stat
-    end
-    if #clean == 0 then
-        run.stat = nil
-        run.statHistory = nil
-        run.statMixed = false
-        return
-    end
-    run.stat = clean[#clean]
-    run.statHistory = clean
-    run.statMixed = #clean > 1
-end
-
 local function normalizeRun(run, fallbackID)
     if type(run) ~= "table" then return nil end
     run.id = tonumber(run.id) or fallbackID or 0
@@ -237,11 +206,16 @@ local function normalizeRun(run, fallbackID)
     run.paused = run.paused == true
     run.ended = tonumber(run.ended)
     run.lootSeen = run.lootSeen == true
-    run.agilityDropped = run.agilityDropped == true
+    -- Primary-stat tracking was removed; legacy fields are dropped on load.
+    run.stat = nil
+    run.statHistory = nil
+    run.statMixed = false
+    run.agilityDropped = nil
+    run.agiItemsSeen = nil
+    run.agilityLink = nil
+    run.agilityAt = nil
+    run.agilityName = nil
     run.itemsSeen = tonumber(run.itemsSeen) or 0
-    run.agiItemsSeen = tonumber(run.agiItemsSeen) or 0
-    run.agilityLink = type(run.agilityLink) == "string" and run.agilityLink or nil
-    run.agilityAt = tonumber(run.agilityAt)
     run.closed = run.closed == true
     run.closedReason = type(run.closedReason) == "string" and run.closedReason or nil
     if run.closedReason == "pending-copy" or run.closedReason == "different-copy"
@@ -274,7 +248,6 @@ local function normalizeRun(run, fallbackID)
         run.timeline = nil
         run.timelineOmitted = nil
     end
-    normalizeStatContext(run)
 
     -- Runs, die vor Version 1.3.0 aufgezeichnet wurden, tragen keinen
     -- Detailmarker. Für sie lassen sich keine Bosse und Empfänger anzeigen.
@@ -319,7 +292,6 @@ local function normalizeRun(run, fallbackID)
             p.id = tonumber(p.id) or LJ:ItemID(p.link)
             p.added = tonumber(p.added) or run.started
             p.countedLoot = p.countedLoot == true
-            p.stat = VALID_STATS[p.stat] and p.stat or nil
             if p.id then cleanPending[#cleanPending + 1] = p end
         end
     end
@@ -614,157 +586,6 @@ function LJ:IsMe(name)
     return false
 end
 
--- Primärstat: zuerst die Spezialisierung (C_SpecializationInfo), dann ein
--- Vergleich der Basiswerte über UnitStat, zuletzt der Klassen-Fallback.
--- So stimmen auch Hybridklassen (Druide, Schamane, Paladin, Mönch), deren
--- Primärstat sich je nach Spezialisierung unterscheidet.
-local CLASS_STAT = {
-    ROGUE = "agility", HUNTER = "agility", DRUID = "agility", SHAMAN = "agility",
-    MONK = "agility", DEMONHUNTER = "agility",
-    WARRIOR = "strength", PALADIN = "strength", DEATHKNIGHT = "strength",
-    MAGE = "intellect", PRIEST = "intellect", WARLOCK = "intellect", EVOKER = "intellect",
-}
-
-local STAT_KEYS = {
-    agility = { "ITEM_MOD_AGILITY_SHORT", "ITEM_MOD_AGILITY" },
-    strength = { "ITEM_MOD_STRENGTH_SHORT", "ITEM_MOD_STRENGTH" },
-    intellect = { "ITEM_MOD_INTELLECT_SHORT", "ITEM_MOD_INTELLECT" },
-}
-
-local STAT_LABELS = {
-    agility = "STAT_AGILITY",
-    strength = "STAT_STRENGTH",
-    intellect = "STAT_INTELLECT",
-}
-
-local STAT_BY_ID = {}
-local STAT_IDS = {}
-local statIDsReady = false
-
-local function InitStatIDs()
-    if statIDsReady then return end
-    statIDsReady = true
-    local function id(value, fallback)
-        value = tonumber(Plain(value))
-        if value and value >= 1 and value <= 4 then return value end
-        return fallback
-    end
-    local strength = id(_G.LE_UNIT_STAT_STRENGTH, 1)
-    local agility = id(_G.LE_UNIT_STAT_AGILITY, 2)
-    local intellect = id(_G.LE_UNIT_STAT_INTELLECT, 4)
-    STAT_BY_ID[strength] = "strength"
-    STAT_BY_ID[agility] = "agility"
-    STAT_BY_ID[intellect] = "intellect"
-    STAT_IDS.strength = strength
-    STAT_IDS.agility = agility
-    STAT_IDS.intellect = intellect
-end
-
-local function specIndexFrom(get)
-    if type(get) ~= "function" then return nil end
-    local ok, index = pcall(get)
-    index = ok and tonumber(Plain(index)) or nil
-    if index and index > 0 then return index end
-    return nil
-end
-
-local function currentSpec()
-    local api = _G.C_SpecializationInfo
-    local index = specIndexFrom(api and api.GetSpecialization)
-    if index then return index end
-    return specIndexFrom(_G.GetSpecialization)
-end
-
-local function specStatFrom(info, index)
-    if type(info) ~= "function" then return nil end
-    local ok, _, _, _, _, _, statID = pcall(info, index)
-    statID = ok and tonumber(Plain(statID)) or nil
-    if not statID then return nil end
-    InitStatIDs()
-    return STAT_BY_ID[statID]
-end
-
-local function specStat(index)
-    if not index then return nil end
-    local api = _G.C_SpecializationInfo
-    local stat = specStatFrom(api and api.GetSpecializationInfo, index)
-    return stat or specStatFrom(_G.GetSpecializationInfo, index)
-end
-
-local function unitStat(stat)
-    if type(UnitStat) ~= "function" then return nil end
-    InitStatIDs()
-    local index = STAT_IDS[stat]
-    if not index then return nil end
-    local ok, value = pcall(UnitStat, "player", index)
-    value = ok and tonumber(Plain(value)) or nil
-    if value and value > 0 then return value end
-    return nil
-end
-
-local function highestUnitStat()
-    local best, bestValue
-    for stat in pairs(STAT_KEYS) do
-        local value = unitStat(stat)
-        if value and (not bestValue or value > bestValue) then
-            best, bestValue = stat, value
-        end
-    end
-    return best
-end
-
-local statCache = { key = nil, stat = nil }
-
-function LJ:StatLabel(stat)
-    local keys = STAT_KEYS[stat]
-    local label = keys and _G[keys[1]]
-    label = Plain(label)
-    if type(label) ~= "string" or label == "" then
-        label = self.L(STAT_LABELS[stat] or "STAT_AGILITY")
-    end
-    return label
-end
-
-function LJ:PlayerStat()
-    local _, classFile = self:ClassName()
-    local index = currentSpec()
-    local cacheKey = index and (tostring(classFile) .. ":" .. tostring(index)) or nil
-    local stat
-    if cacheKey and statCache.key == cacheKey then
-        stat = statCache.stat
-    else
-        local exact
-        stat = specStat(index)
-        exact = stat ~= nil
-        if not stat then
-            stat = highestUnitStat()
-            exact = stat ~= nil
-        end
-        if not stat then
-            stat = classFile and CLASS_STAT[classFile] or nil
-        end
-        if not stat then stat = "agility" end
-        -- Nur eindeutig erkannte Werte cachen: Der Klassen-Fallback bleibt
-        -- ungecacht, damit später geladene UnitStat-Werte noch greifen.
-        if cacheKey and exact then
-            statCache.key, statCache.stat = cacheKey, stat
-        end
-    end
-    local keys = STAT_KEYS[stat]
-    return stat, self:StatLabel(stat), keys
-end
-
-local STAT_SHORT = {
-    agility = "STAT_SHORT_AGILITY",
-    strength = "STAT_SHORT_STRENGTH",
-    intellect = "STAT_SHORT_INTELLECT",
-}
-
-function LJ:StatShort(stat)
-    stat = stat or self:PlayerStat()
-    return self.L(STAT_SHORT[stat] or "STAT_SHORT_AGILITY")
-end
-
 -- ---------------------------------------------------------------- Items
 function LJ:ItemID(link)
     link = Plain(link)
@@ -881,40 +702,6 @@ function LJ:ItemInfoInstant(linkOrID)
     return info
 end
 
-function LJ:ItemStats(link)
-    link = Plain(link)
-    if type(link) ~= "string" then return nil, false end
-    local fn = C_Item and C_Item.GetItemStats
-    if type(fn) ~= "function" then return nil, false end
-    local ok, stats = pcall(fn, link)
-    if not ok then return nil, false end
-    if type(stats) == "table" then
-        local checked, first = pcall(next, stats)
-        if not checked then return nil, false end
-        if first ~= nil then return stats, true end
-        return nil, true
-    end
-    return nil, stats == nil
-end
-
-local function itemDataCached(id)
-    local fn = C_Item and C_Item.IsItemDataCachedByID
-    if type(fn) ~= "function" or not id then return nil end
-    local ok, cached = pcall(fn, id)
-    cached = ok and Plain(cached) or nil
-    if type(cached) == "boolean" then return cached end
-    return nil
-end
-
-local function statValue(stats, keys)
-    if type(stats) ~= "table" or type(keys) ~= "table" then return nil end
-    for i = 1, #keys do
-        local v = tonumber(Plain(stats[keys[i]]))
-        if v and v > 0 then return v end
-    end
-    return 0
-end
-
 function LJ:ItemQuality(link, knownQuality)
     local quality = tonumber(knownQuality)
     if quality then return quality end
@@ -927,14 +714,8 @@ function LJ:ItemQuality(link, knownQuality)
     return color and colors[color:lower()] or nil
 end
 
--- Returns a table:
---   known      true when enough data is available to classify the item
---   loot       true when the item is non-quest loot
---   quest      true for quest items
---   agi        true / false / nil für den Primärstat des Spielers
---              (historischer Feldname; beim Schurken = Beweglichkeit),
---              nil solange die Itemdaten noch nicht geladen sind
-function LJ:ClassifyItem(link, statKey)
+-- Classifies a link as loot or quest; primary stats are no longer tracked.
+function LJ:ClassifyItem(link)
     link = Plain(link)
     if type(link) ~= "string" then return nil end
     local id = self:ItemID(link)
@@ -943,26 +724,7 @@ function LJ:ClassifyItem(link, statKey)
     local classID = instant and instant.classID or info.classID
     local itemType = instant and instant.itemType or nil
     local isQuest = (classID == 12) or (type(itemType) == "string" and itemType == "Quest")
-    local stats, statsChecked = self:ItemStats(link)
-    local stat, _, keys
-    if statKey and STAT_KEYS[statKey] then
-        stat, keys = statKey, STAT_KEYS[statKey]
-    else
-        stat, _, keys = self:PlayerStat()
-    end
-    local agi, statState
-    if isQuest or (classID and classID ~= 2 and classID ~= 4) then
-        agi, statState = false, "not-applicable"
-    elseif stats then
-        local v = statValue(stats, keys)
-        agi = (v ~= nil and v > 0) or false
-        statState = agi and "present" or "absent"
-    elseif (classID == 2 or classID == 4) and statsChecked and itemDataCached(id) == true then
-        agi, statState = false, "absent"
-    else
-        statState = "pending"
-    end
-    local known = isQuest or (classID ~= nil) or (stats ~= nil)
+    local known = isQuest or (classID ~= nil)
     local loot = known and not isQuest
     return {
         id = id,
@@ -975,10 +737,6 @@ function LJ:ClassifyItem(link, statKey)
         quest = isQuest,
         known = known,
         loot = loot,
-        agi = agi,
-        statState = statState,
-        stats = stats,
-        stat = stat,
     }
 end
 
@@ -1014,9 +772,9 @@ function LJ:NoteItemDebug(link, source)
     local info = self:ClassifyItem(link)
     local text = tostring(link)
     if info then
-        text = string.format("%s [%s] source=%s quest=%s known=%s agi=%s",
+        text = string.format("%s [%s] source=%s quest=%s known=%s",
             tostring(info.name or "?"), tostring(info.id or "?"), tostring(source),
-            tostring(info.quest), tostring(info.known), tostring(info.agi))
+            tostring(info.quest), tostring(info.known))
     end
     table.insert(self.debugItems, 1, text)
     while #self.debugItems > 8 do table.remove(self.debugItems) end

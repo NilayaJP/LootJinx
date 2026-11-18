@@ -15,7 +15,7 @@ local frame
 local refreshQueued = false
 local pulse = 0
 local statusPill, closeButton
-local hero, needCard, recentCard
+local needCard, recentCard
 local compactLatest
 local miniNoWin, miniNoLoot, miniSince
 local recentRows = {}
@@ -154,82 +154,10 @@ local function createHeader()
     end)
 end
 
-local function createHero()
-    hero = W:Card(frame)
-    hero:SetPoint("TOPLEFT", 16, -68)
-    hero:SetSize(608, 116)
-
-    local art = W:Panel(hero, "BACKGROUND")
-    art:SetSize(38, 38)
-    art:SetPoint("TOPLEFT", 14, -8)
-    art:SetFrameLevel(hero:GetFrameLevel() + 2)
-    local artTexture = art:CreateTexture(nil, "ARTWORK")
-    artTexture:SetPoint("TOPLEFT", 2, -2)
-    artTexture:SetPoint("BOTTOMRIGHT", -2, 2)
-    artTexture:SetTexture(MEDIA .. "CurseChest")
-
-    hero.title = W:Font(hero, 9, C.accent, "OUTLINE")
-    hero.title:SetPoint("TOPLEFT", 62, -10)
-    hero.title:SetText(LJ.L("CARD_CURSE"))
-
-    hero.value = W:Font(hero, 27, C.text, "OUTLINE")
-    hero.value:SetPoint("TOPLEFT", 62, -23)
-    hero.value:SetText("0")
-
-    hero.context = W:Font(hero, 11, C.muted, "")
-    hero.context:SetPoint("LEFT", hero.value, "RIGHT", 12, -2)
-    hero.context:SetText(LJ.L("CARD_CURSE_OF_RUNS", 0))
-
-    hero.sub = W:Font(hero, 10, C.muted, "")
-    hero.sub:SetPoint("TOPLEFT", 63, -58)
-    hero.sub:SetText(LJ.L("CARD_CURSE_EMPTY"))
-
-    hero.pct = W:Font(hero, 9, C.dim, "")
-    hero.pct:SetPoint("TOPLEFT", 63, -102)
-
-    hero.bar = W:Bar(hero, 5, C.accent, C.red)
-    hero.bar:SetPoint("TOPLEFT", 62, -96)
-    hero.bar:SetWidth(372)
-
-    local divider = W:Divider(hero, true)
-    divider:SetPoint("TOPLEFT", 440, -18)
-    divider:SetHeight(62)
-
-    hero.streakLabel = W:Font(hero, 8, C.muted, "")
-    hero.streakLabel:SetPoint("TOPLEFT", 454, -18)
-    hero.streakLabel:SetWidth(60)
-    hero.streakLabel:SetJustifyH("CENTER")
-    hero.streakLabel:SetText(LJ.L("STREAK"))
-
-    hero.streakValue = W:Font(hero, 22, C.text, "OUTLINE")
-    hero.streakValue:SetPoint("TOPLEFT", 454, -30)
-    hero.streakValue:SetWidth(60)
-    hero.streakValue:SetJustifyH("CENTER")
-    hero.streakValue:SetText("0")
-
-    hero.recordLabel = W:Font(hero, 8, C.muted, "")
-    hero.recordLabel:SetPoint("TOPLEFT", 526, -18)
-    hero.recordLabel:SetWidth(60)
-    hero.recordLabel:SetJustifyH("CENTER")
-    hero.recordLabel:SetText(LJ.L("RECORD"))
-
-    hero.recordValue = W:Font(hero, 22, C.gold, "OUTLINE")
-    hero.recordValue:SetPoint("TOPLEFT", 526, -30)
-    hero.recordValue:SetWidth(60)
-    hero.recordValue:SetJustifyH("CENTER")
-    hero.recordValue:SetText("0")
-
-    W:Tooltip(hero, LJ.L("TT_CURSE_TITLE"), {
-        LJ.L("TT_CURSE_1", select(2, LJ:PlayerStat())),
-        LJ.L("TT_CURSE_2"),
-        LJ.L("TT_CURSE_3"),
-    })
-end
-
 local function createNeedCard()
     needCard = W:Card(frame)
-    needCard:SetPoint("TOPLEFT", 16, -194)
-    needCard:SetSize(608, 108)
+    needCard:SetPoint("TOPLEFT", 16, -68)
+    needCard:SetSize(608, 116)
 
     local art = W:Panel(needCard, "BACKGROUND")
     art:SetSize(38, 38)
@@ -244,33 +172,28 @@ local function createNeedCard()
     needCard.title:SetPoint("TOPLEFT", 62, -10)
     needCard.title:SetText(LJ.L("CARD_NEED"))
 
-    needCard.note = W:Font(needCard, 8, C.dim, "")
-    needCard.note:SetPoint("BOTTOMRIGHT", -14, 10)
-    needCard.note:SetJustifyH("RIGHT")
-    needCard.note:SetText(LJ.L("CARD_NEED_SUB"))
-
-    needCard.value = W:Font(needCard, 28, C.text, "OUTLINE")
-    needCard.value:SetPoint("TOPLEFT", 62, -21)
+    needCard.value = W:Font(needCard, 27, C.text, "OUTLINE")
+    needCard.value:SetPoint("TOPLEFT", 62, -23)
     needCard.value:SetText("0")
 
+    needCard.context = W:Font(needCard, 11, C.muted, "")
+    needCard.context:SetPoint("LEFT", needCard.value, "RIGHT", 12, -2)
+    needCard.context:SetText(LJ.L("CARD_OF_RUNS", 0))
+
     needCard.sub = W:Font(needCard, 10, C.muted, "")
-    needCard.sub:SetPoint("TOPLEFT", 118, -28)
+    needCard.sub:SetPoint("TOPLEFT", 63, -58)
     needCard.sub:SetText(LJ.L("CARD_NEED_NO_DATA"))
 
-    needCard.sub2 = W:Font(needCard, 9, C.dim, "")
-    needCard.sub2:SetPoint("TOPLEFT", 118, -46)
-    needCard.sub2:SetText("")
-
     needCard.pct = W:Font(needCard, 9, C.dim, "")
-    needCard.pct:SetPoint("TOPLEFT", 63, -94)
+    needCard.pct:SetPoint("TOPLEFT", 63, -102)
 
     needCard.bar = W:Bar(needCard, 5, C.green, C.cyan)
-    needCard.bar:SetPoint("TOPLEFT", 62, -87)
+    needCard.bar:SetPoint("TOPLEFT", 62, -96)
     needCard.bar:SetWidth(372)
 
     local divider = W:Divider(needCard, true)
     divider:SetPoint("TOPLEFT", 440, -18)
-    divider:SetHeight(54)
+    divider:SetHeight(62)
 
     needCard.streakLabel = W:Font(needCard, 8, C.muted, "")
     needCard.streakLabel:SetPoint("TOPLEFT", 454, -18)
@@ -305,7 +228,7 @@ end
 
 local function createMini(parent, x, title, sub, tooltipTitle, tooltipLines, iconTexture)
     local card = W:Card(parent)
-    card:SetPoint("TOPLEFT", x, -312)
+    card:SetPoint("TOPLEFT", x, -194)
     card:SetSize(192, 108)
 
     if iconTexture then
@@ -387,8 +310,6 @@ function LJ:AppendRunBasisTooltip(run)
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(self.L("TT_BASIS_TITLE"), C.accent[1], C.accent[2], C.accent[3])
     line("TT_BASIS_STATUS", status)
-    line(basis.noStat == nil and "TT_BASIS_NO_STAT_UNKNOWN"
-        or basis.noStat and "TT_BASIS_NO_STAT_YES" or "TT_BASIS_NO_STAT_NO")
     line("TT_BASIS_NEED", basis.needLost, basis.needWon, basis.needPending)
     line(basis.noNeedWin and "TT_BASIS_NO_WIN_YES"
         or basis.needTotal > 0 and "TT_BASIS_NO_WIN_WON" or "TT_BASIS_NO_WIN_NONE")
@@ -412,11 +333,6 @@ local function runTooltip(row, run)
     GameTooltip:AddLine(" ")
     local yes = LJ.L("YES")
     local no = LJ.L("NO")
-    local statColor = not run.stat and C.muted or (run.agilityDropped and C.green or C.red)
-    local statText = not run.stat and LJ.L("HISTORY_STAT_UNKNOWN")
-        or (run.agilityDropped and yes or no)
-    GameTooltip:AddLine(LJ.L("TT_RUN_AGI", statText),
-        statColor[1], statColor[2], statColor[3], true)
     GameTooltip:AddLine(LJ.L("TT_RUN_LOOT", run.lootSeen and yes or no),
         run.lootSeen and C.green[1] or C.red[1],
         run.lootSeen and C.green[2] or C.red[2],
@@ -434,10 +350,6 @@ local function runTooltip(row, run)
             0.86, 0.87, 0.90, true)
     end
     if LJ.RecentRolls then LJ.RecentRolls:AddTooltip(run) end
-    if run.agilityLink then
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(run.agilityLink, 0.86, 0.87, 0.90)
-    end
     LJ:AppendRunBasisTooltip(run)
     if LJ.RunDetail then
         GameTooltip:AddLine(" ")
@@ -456,7 +368,7 @@ end
 
 local function createRecent()
     recentCard = W:Card(frame)
-    recentCard:SetPoint("TOPLEFT", 16, -430)
+    recentCard:SetPoint("TOPLEFT", 16, -312)
     recentCard:SetSize(608, 148)
 
     local title = W:Font(recentCard, 9, C.accent, "OUTLINE")
@@ -664,7 +576,7 @@ end
 local function createFrame()
     frame = CreateFrame("Frame", "LootJinxFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     UI.frame = frame
-    frame:SetSize(640, 628)
+    frame:SetSize(640, 510)
     frame:SetFrameStrata("DIALOG")
     frame:SetToplevel(true)
     frame:SetMovable(true)
@@ -695,7 +607,6 @@ local function createFrame()
     end
 
     safe("Header", createHeader)
-    safe("Hero", createHero)
     safe("NeedCard", createNeedCard)
     safe("Minis", createMinis)
     safe("Recent", createRecent)
@@ -830,11 +741,6 @@ local function refreshContent()
     local stats = {}
     section("Stats", function() stats = LJ.Stats.Compute(LJ.Tracker:GetRuns()) end)
     UI.stats = stats
-    local statLabel = ""
-    section("Stat", function()
-        local _, label = LJ:PlayerStat()
-        statLabel = label or ""
-    end)
 
     local active, live
     section("Status", function()
@@ -850,34 +756,19 @@ local function refreshContent()
     end
 
     local total = stats.totalDungeons or 0
-    local noAgi = stats.noAgiDungeons or 0
-    local pct = total > 0 and math.floor((noAgi / total) * 100 + 0.5) or 0
-    if hero then
-        setText(hero.value, noAgi)
-        setText(hero.context, LJ.L("CARD_CURSE_OF_RUNS", total))
-        setText(hero.sub, total > 0 and LJ.L("CARD_CURSE_SUB", statLabel) or LJ.L("CARD_CURSE_EMPTY"))
-        setText(hero.pct, LJ.L("CARD_CURSE_PCT", pct))
-        hero.bar:SetValue(total > 0 and (noAgi / total) or 0)
-        setText(hero.streakValue, stats.noAgiCurrent or 0)
-        setText(hero.recordValue, stats.noAgiMax or 0)
-    end
 
     if needCard then
-        if stats.needRolls > 0 then
-            setText(needCard.value, stats.needLost or 0)
-            setText(needCard.sub, LJ.L("CARD_NEED_TOTAL", stats.needRolls or 0))
-            local extra = LJ.L("CARD_NEED_WINS", stats.needWins or 0)
-            if (stats.needPending or 0) > 0 then
-                extra = extra .. " · " .. LJ.L("CARD_NEED_PENDING", stats.needPending)
-            end
-            setText(needCard.sub2, extra)
+        local rolls = stats.needRolls or 0
+        setText(needCard.value, rolls)
+        setText(needCard.context, LJ.L("CARD_OF_RUNS", total))
+        if rolls > 0 then
+            setText(needCard.sub, LJ.L("CARD_NEED_BREAKDOWN",
+                stats.needWins or 0, stats.needLost or 0, stats.needPending or 0))
             local rate = math.floor((stats.winRate or 0) + 0.5)
             setText(needCard.pct, LJ.L("CARD_NEED_WINRATE", rate))
             needCard.bar:SetValue((stats.winRate or 0) / 100)
         else
-            setText(needCard.value, "0")
             setText(needCard.sub, LJ.L("CARD_NEED_NO_DATA"))
-            setText(needCard.sub2, "")
             setText(needCard.pct, LJ.L("NO_DATA"))
             needCard.bar:SetValue(0)
         end
@@ -905,8 +796,7 @@ local function refreshContent()
     end
 
     if frame.footer then
-        setText(frame.footer, LJ.L("FOOTER_CLASS", select(1, LJ:ClassName()), statLabel)
-            .. " · " .. LJ.L("FOOTER_HINT"))
+        setText(frame.footer, LJ.L("FOOTER_CLASS", select(1, LJ:ClassName()), LJ.L("FOOTER_HINT")))
     end
 
     local runs = {}
@@ -944,10 +834,9 @@ local function refreshContent()
                     row.bar:SetColorTexture(C.green[1], C.green[2], C.green[3], 1)
                 else
                     local marker = LJ:RunStatusMarker(run)
-                    row.name:SetText(colored(run.agilityDropped and C.text or C.muted,
+                    row.name:SetText(colored(C.text,
                         marker and (W:Truncate(name, 25) .. " · " .. marker) or name))
-                    local c = not run.stat and C.muted or (run.agilityDropped and C.green or C.red)
-                    row.bar:SetColorTexture(c[1], c[2], c[3], 0.85)
+                    row.bar:SetColorTexture(C.muted[1], C.muted[2], C.muted[3], 0.85)
                 end
                 setText(row.date, dateLabel(run))
                 local totalNeeds, wins = 0, 0
@@ -955,22 +844,17 @@ local function refreshContent()
                     totalNeeds = totalNeeds + 1
                     if n.result == "won" then wins = wins + 1 end
                 end
-                local badgeColor = not run.stat and C.muted
-                    or (run.agilityDropped and C.green or C.red)
-                local badgeText = not run.stat and LJ.L("BADGE_STAT_UNKNOWN")
-                    or (run.agilityDropped and LJ.L("BADGE_STAT", LJ:StatShort(run.stat))
-                        or LJ.L("BADGE_NO_STAT", LJ:StatShort(run.stat)))
-                local badges = colored(badgeColor, badgeText)
+                local badges = ""
                 if totalNeeds > 0 then
-                    badges = badges .. " · " .. colored(wins > 0 and C.green or C.red,
+                    badges = colored(wins > 0 and C.green or C.red,
                         LJ.L("BADGE_NEED", wins, totalNeeds))
                 end
                 if not run.lootSeen then
-                    badges = badges .. " · " .. colored(C.muted, LJ.L("BADGE_EMPTY"))
+                    badges = badges .. (badges ~= "" and " · " or "") .. colored(C.muted, LJ.L("BADGE_EMPTY"))
                 end
                 local rolls = LJ.RecentRolls:Summary(run)
                 if rolls then
-                    badges = badges .. " · " .. rolls
+                    badges = badges .. (badges ~= "" and " · " or "") .. rolls
                 end
                 setText(row.badges, badges)
             end
@@ -1081,7 +965,7 @@ end
 function UI:ApplyDisplayOptions()
     if not frame or not LJ.DB then return end
     local compact = LJ.DB.compact == true
-    frame:SetHeight(compact and 476 or 628)
+    frame:SetHeight(compact and 358 or 510)
     if recentCard then recentCard:SetShown(not compact) end
     if compactLatest then compactLatest:SetShown(compact and compactLatest.run ~= nil) end
     if frame.footer then frame.footer:SetShown(not compact or not compactLatest or compactLatest.run == nil) end

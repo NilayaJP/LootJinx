@@ -110,12 +110,6 @@ local function boolText(value)
     return value == true and "true" or "false"
 end
 
-local function flagText(value)
-    if value == true then return "true" end
-    if value == false then return "false" end
-    return "?"
-end
-
 local function append(lines, text)
     lines[#lines + 1] = text
 end
@@ -132,7 +126,6 @@ function D:Reset()
     self.startedAt = now()
     self.classified = 0
     self.unknownData = 0
-    self.unknownStat = 0
     self.quests = 0
     self.nonLoot = 0
     self.duplicates = 0
@@ -171,8 +164,6 @@ local function sameDecision(left, id, info, source)
     return left.known == (info.known == true)
         and left.loot == (info.loot == true)
         and left.quest == (info.quest == true)
-        and left.agi == info.agi
-        and left.statState == info.statState
         and left.classID == tonumber(info.classID)
 end
 
@@ -190,9 +181,6 @@ function D:NoteItem(id, info, source)
         elseif info.known == true and info.loot ~= true then
             self.nonLoot = (self.nonLoot or 0) + 1
         end
-        if info.loot == true and info.agi == nil then
-            self.unknownStat = (self.unknownStat or 0) + 1
-        end
     end
 
     local last = self.items[#self.items]
@@ -208,17 +196,14 @@ function D:NoteItem(id, info, source)
         known = info and info.known == true or false,
         loot = info and info.loot == true or false,
         quest = info and info.quest == true or false,
-        agi = info and info.agi,
-        statState = info and info.statState or nil,
-        classID = info and tonumber(info.classID) or nil,
+        classID = tonumber(info and info.classID),
     }
     while #self.items > MAX_ITEMS do table.remove(self.items, 1) end
     if LJ.DebugLog then
         LJ.DebugLog:Add("item", string.format(
-            "id=%s source=%s known=%s loot=%s quest=%s agi=%s statState=%s classID=%s",
+            "id=%s source=%s known=%s loot=%s quest=%s classID=%s",
             idText(id), source, boolText(info and info.known), boolText(info and info.loot),
-            boolText(info and info.quest), tostring(info and info.agi),
-            tostring(info and info.statState), idText(info and info.classID)))
+            boolText(info and info.quest), idText(info and info.classID)))
     end
 end
 
@@ -235,11 +220,6 @@ local function addCharacter(lines)
         local ok, value, file = pcall(LJ.ClassName, LJ)
         if ok then class, classFile = value, file end
     end
-    local stat, statLabel = "?", nil
-    if LJ.PlayerStat then
-        local ok, value, label = pcall(LJ.PlayerStat, LJ)
-        if ok then stat, statLabel = value, label end
-    end
     local layout = "?"
     if LJ.UI and LJ.UI.GetLayout then
         local ok, value = pcall(LJ.UI.GetLayout, LJ.UI)
@@ -252,8 +232,7 @@ local function addCharacter(lines)
     end
 
     section(lines, "DIAG_SECTION_CHARACTER")
-    append(lines, "class=" .. tostring(classFile or class)
-        .. " stat=" .. tostring(stat) .. " (" .. tostring(statLabel or "?") .. ")")
+    append(lines, "class=" .. tostring(classFile or class))
     append(lines, "layout=" .. layout
         .. " ui=" .. boolText(LJ.UI ~= nil)
         .. " db=" .. boolText(LJ.dbReady == true)
@@ -290,13 +269,7 @@ local function addCopyState(lines, state)
             .. " lastSeen=" .. ago(run.lastSeen)
             .. " outside=" .. (run.outsideAt and ago(run.outsideAt) or "-"))
         append(lines, "items=" .. tostring(run.itemsSeen or 0)
-            .. " statItems=" .. tostring(run.agiItemsSeen or 0)
-            .. " lootSeen=" .. boolText(run.lootSeen)
-            .. " statLoot=" .. boolText(run.agilityDropped))
-        local history = type(run.statHistory) == "table" and table.concat(run.statHistory, ">") or "-"
-        append(lines, "stat=" .. tostring(run.stat or "-")
-            .. " history=" .. history
-            .. " mixed=" .. boolText(run.statMixed))
+            .. " lootSeen=" .. boolText(run.lootSeen))
         append(lines, "bosses=" .. tostring(run.bosses or 0)
             .. " drops=" .. tostring(run.drops or 0)
             .. " rolls=" .. tostring(run.rolls or 0)
@@ -419,8 +392,6 @@ local function addItems(lines, self)
             .. " known=" .. boolText(item.known)
             .. " loot=" .. boolText(item.loot)
             .. " quest=" .. boolText(item.quest)
-            .. " agi=" .. flagText(item.agi)
-            .. " statState=" .. tostring(item.statState or "-")
             .. " class=" .. tostring(item.classID or "-"))
     end
 end
@@ -431,8 +402,6 @@ local function addSignals(lines, self, state)
     section(lines, "DIAG_SECTION_SIGNALS")
     append(lines, "classified=" .. tostring(self.classified or 0)
         .. " unknownData=" .. tostring(self.unknownData or 0)
-        .. " unknownStat=" .. tostring(self.unknownStat or 0)
-        .. " quest=" .. tostring(self.quests or 0)
         .. " nonLoot=" .. tostring(self.nonLoot or 0)
         .. " duplicates=" .. tostring(self.duplicates or 0))
 

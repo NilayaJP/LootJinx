@@ -96,7 +96,7 @@ local function metric(parent, title, texture)
         streak = streak, record = record }
 end
 local function mini(parent, x, title, texture)
-    local f = card(parent, x, -312, 192, 108)
+    local f = card(parent, x, -194, 192, 108)
     icon(f, texture, 150, -8, 30)
     f.title = heading(f, 10, title)
     f.title:SetPoint("TOPLEFT", 12, -10)
@@ -111,7 +111,7 @@ local function mini(parent, x, title, texture)
     return f
 end
 local function makeRecent(f)
-    local recent = card(f, 16, -430, 608, 148)
+    local recent = card(f, 16, -312, 608, 148)
     J.recentPanel = recent
     local title = heading(recent, 13, LJ.L("RECENT"))
     title:SetPoint("TOPLEFT", 14, -8)
@@ -202,7 +202,7 @@ function J:Create()
     local f = CreateFrame("Frame", "LootJinxJournalFrame", UIParent,
         BackdropTemplateMixin and "BackdropTemplate" or nil)
     self.frame = f
-    f:SetSize(640, 628)
+    f:SetSize(640, 510)
     f:SetFrameStrata("DIALOG")
     f:SetFrameLevel(70)
     f:SetToplevel(true)
@@ -242,20 +242,14 @@ function J:Create()
     drag:SetScript("OnDragStart", function() if not LJ.DB.locked then f:StartMoving() end end)
     drag:SetScript("OnDragStop", function() f:StopMovingOrSizing(); savePosition() end)
 
-    self.hero = card(f, 16, -68, 608, 116)
-    local hero = metric(self.hero, LJ.L("CARD_CURSE"), "CurseChest")
-    hero.sub:ClearAllPoints()
-    hero.sub:SetPoint("LEFT", hero.value, "RIGHT", 12, -2)
-    self.hero.metric = hero
-    self.needCard = card(f, 16, -194, 608, 108)
+    self.needCard = card(f, 16, -68, 608, 116)
     local need = metric(self.needCard, LJ.L("CARD_NEED"), "NeedRolls")
+    need.sub:ClearAllPoints()
+    need.sub:SetPoint("LEFT", need.value, "RIGHT", 12, -2)
     self.needCard.metric = need
     self.miniCards[1] = mini(f, 16, LJ.L("MINI_NO_WIN"), "NoNeedWin")
     self.miniCards[2] = mini(f, 224, LJ.L("MINI_NO_LOOT"), "NoLoot")
     self.miniCards[3] = mini(f, 432, LJ.L("MINI_SINCE"), "SinceNeedWin")
-    W:Tooltip(self.hero, LJ.L("TT_CURSE_TITLE"), {
-        LJ.L("TT_CURSE_1", select(2, LJ:PlayerStat())), LJ.L("TT_CURSE_2"), LJ.L("TT_CURSE_3"),
-    })
     W:Tooltip(self.needCard, LJ.L("TT_NEED_TITLE"), {
         LJ.L("TT_NEED_1"), LJ.L("TT_NEED_2"), LJ.L("TT_NEED_3"),
     })
@@ -269,7 +263,6 @@ function J:Create()
         LJ.L("TT_SINCE_1"), LJ.L("TT_SINCE_2"), LJ.L("TT_SINCE_3"),
     })
     makeRecent(f)
-    self.fields.curseCurrent, self.fields.curseRecord = hero.streak, hero.record
     self.fields.needLostCurrent = need.streak
     self.fields.noNeedWinCurrent = self.miniCards[1].value
     self.fields.noLootCurrent = self.miniCards[2].value
@@ -354,19 +347,11 @@ function J:Refresh()
     self.compactLatest:SetShown(LJ.DB.compact == true and latest ~= nil)
     self.footer:SetShown(LJ.DB.compact ~= true or latest == nil)
     self.fields.status:SetText(active and live and LJ.L("STATUS_LIVE") or LJ.L("STATUS_READY"))
-    local hero, need = self.hero.metric, self.needCard.metric
-    hero.value:SetText(tostring(stats.noAgiDungeons or 0))
-    hero.sub:SetText(LJ.L("CARD_CURSE_OF_RUNS", stats.totalDungeons or 0))
-    hero.extra:SetText((stats.totalDungeons or 0) > 0
-        and LJ.L("CARD_CURSE_SUB", select(2, LJ:PlayerStat()) or "")
-        or LJ.L("CARD_CURSE_EMPTY"))
-    hero.streak:SetText(LJ.L("JOURNAL_CURRENT_VALUE", stats.noAgiCurrent or 0))
-    hero.record:SetText(LJ.L("JOURNAL_RECORD_VALUE", stats.noAgiMax or 0))
-    need.value:SetText(tostring(stats.needLost or 0))
-    need.sub:SetText(LJ.L("JOURNAL_NEED_TOTAL", stats.needRolls or 0,
-        stats.needWins or 0, stats.needLost or 0))
-    need.extra:SetText(LJ.L("JOURNAL_NEED_EXTRA", stats.needPending or 0,
-        math.floor((stats.winRate or 0) + 0.5), stats.lostNeedMax or 0))
+    local need = self.needCard.metric
+    need.value:SetText(tostring(stats.needRolls or 0))
+    need.sub:SetText(LJ.L("CARD_OF_RUNS", stats.totalDungeons or 0))
+    need.extra:SetText(LJ.L("CARD_NEED_BREAKDOWN", stats.needWins or 0,
+        stats.needLost or 0, stats.needPending or 0))
     need.streak:SetText(LJ.L("JOURNAL_CURRENT_VALUE", stats.lostNeedCurrent or 0))
     need.record:SetText(LJ.L("JOURNAL_RECORD_VALUE", stats.lostNeedMax or 0))
     local values = {
@@ -396,18 +381,14 @@ function J:Refresh()
                 totalNeeds = totalNeeds + 1
                 if n.result == "won" then wins = wins + 1 end
             end
-            local statShort = run.stat and LJ:StatShort(run.stat) or nil
-            local statBadge = not statShort and LJ.L("BADGE_STAT_UNKNOWN")
-                or (run.agilityDropped and LJ.L("BADGE_STAT", statShort)
-                    or LJ.L("BADGE_NO_STAT", statShort))
-            local badges = statBadge
-            if totalNeeds > 0 then badges = badges .. " · " .. LJ.L("BADGE_NEED", wins, totalNeeds) end
-            if run.legacy then badges = badges .. " · " .. LJ.L("JOURNAL_LEGACY") end
+            local badges = ""
+            if totalNeeds > 0 then badges = LJ.L("BADGE_NEED", wins, totalNeeds) end
+            if run.legacy then badges = badges .. (badges ~= "" and " · " or "") .. LJ.L("JOURNAL_LEGACY") end
             local marker = LJ:RunStatusMarker(run)
             local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), marker and 24 or 36)
             row.name:SetText(marker and (name .. " · " .. marker) or name)
             local rolls = LJ.RecentRolls:Summary(run)
-            if rolls then badges = badges .. " · " .. rolls end
+            if rolls then badges = badges .. (badges ~= "" and " · " or "") .. rolls end
             row.badges:SetText(badges)
             row.date:SetText(LJ:FormatTime(run.started, "DATE_LONG"))
         end
@@ -444,7 +425,7 @@ end
 function J:ApplyDisplayOptions()
     if not self.frame or not LJ.DB then return end
     local compact = LJ.DB.compact == true
-    self.frame:SetHeight(compact and 476 or 628)
+    self.frame:SetHeight(compact and 358 or 510)
     self.recentPanel:SetShown(not compact)
     self.compactLatest:SetShown(compact and self.compactLatest.run ~= nil)
     self.footer:SetShown(not compact or self.compactLatest.run == nil)

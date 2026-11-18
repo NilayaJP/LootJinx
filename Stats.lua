@@ -33,10 +33,6 @@ function Stats.Compute(runs)
     local out = {
         totalDungeons = 0,
         completedDungeons = 0,
-        agilityDungeons = 0,
-        noAgiDungeons = 0,
-        noAgiCurrent = 0,
-        noAgiMax = 0,
         lootDungeons = 0,
         noLootDungeons = 0,
         noLootCurrent = 0,
@@ -60,7 +56,6 @@ function Stats.Compute(runs)
         lastNeedWinNeed = nil,
         lastNeedLoss = nil,
         lastRun = nil,
-        lastAgilityRun = nil,
     }
 
     local seenNeed = false
@@ -69,20 +64,6 @@ function Stats.Compute(runs)
             out.totalDungeons = out.totalDungeons + 1
             out.lastRun = run
             if run.closed == true then out.completedDungeons = out.completedDungeons + 1 end
-
-            -- Dungeons ohne Primärstat-Drop (Feldname "agi" ist historisch).
-            -- Ein beobachteter Drop zählt zuerst, auch wenn der Stat-Kontext
-            -- fehlt. Runs ganz ohne Stat-Kontext (Legacy/Import) sind neutral:
-            -- sie unterbrechen die Serie weder noch verlängern sie sie.
-            if run.agilityDropped == true then
-                out.agilityDungeons = out.agilityDungeons + 1
-                out.noAgiCurrent = 0
-                out.lastAgilityRun = run
-            elseif run.stat then
-                out.noAgiDungeons = out.noAgiDungeons + 1
-                out.noAgiCurrent = out.noAgiCurrent + 1
-                out.noAgiMax = max(out.noAgiMax, out.noAgiCurrent)
-            end
 
             -- Dungeons ohne beobachteten Loot
             if run.lootSeen == true then
@@ -152,10 +133,7 @@ end
 
 function Stats.RunBasis(runs, run)
     if type(run) ~= "table" then return nil end
-    local noStat
-    if run.stat then noStat = run.agilityDropped ~= true end
     local basis = {
-        noStat = noStat,
         noLoot = run.lootSeen ~= true,
         needLost = 0,
         needPending = 0,

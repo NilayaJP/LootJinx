@@ -7,7 +7,6 @@ local R = {}
 LJ.Records = R
 
 local RECORDS = {
-    { key = "noAgiMax", label = "RECORD_NAME_CURSE" },
     { key = "lostNeedMax", label = "RECORD_NAME_NEED_LOSS" },
     { key = "noNeedWinMax", label = "RECORD_NAME_NO_WIN" },
     { key = "noLootMax", label = "RECORD_NAME_NO_LOOT" },
@@ -34,7 +33,6 @@ function R:Snapshot(runs)
     local all = LJ.Stats.Compute(runs)
     local closed = LJ.Stats.Compute(settledRuns(runs))
     return {
-        noAgiMax = closed.noAgiMax or 0,
         lostNeedMax = all.lostNeedMax or 0,
         noNeedWinMax = closed.noNeedWinMax or 0,
         noLootMax = closed.noLootMax or 0,

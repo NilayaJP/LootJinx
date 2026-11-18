@@ -106,15 +106,6 @@ end
 
 local function runBadges(run)
     local parts = {}
-    if not run.stat then
-        parts[#parts + 1] = hex(LJ.COLORS.muted) .. LJ.L("BADGE_STAT_UNKNOWN") .. "|r"
-    elseif run.agilityDropped then
-        parts[#parts + 1] = hex(LJ.COLORS.green)
-            .. LJ.L("BADGE_STAT", LJ:StatShort(run.stat)) .. "|r"
-    else
-        parts[#parts + 1] = hex(LJ.COLORS.red)
-            .. LJ.L("BADGE_NO_STAT", LJ:StatShort(run.stat)) .. "|r"
-    end
     local total = #(run.needs or {})
     if total > 0 then
         local wins = needStats(run)
@@ -310,12 +301,6 @@ local function comparisonState(run)
     return "HISTORY_COMPARE_OPEN"
 end
 
-local function compareStatColor(key)
-    if key == "HISTORY_COMPARE_STAT_YES" then return LJ.COLORS.green end
-    if key == "HISTORY_COMPARE_STAT_NO" then return LJ.COLORS.red end
-    return LJ.COLORS.muted
-end
-
 local function compareNeedColor(won, lost)
     if won > 0 then return LJ.COLORS.green end
     if lost > 0 then return LJ.COLORS.red end
@@ -337,8 +322,6 @@ local function comparisonRun(run)
     end
     return {
         started = tonumber(run.started) or 0,
-        stat = run.stat and (run.agilityDropped and "HISTORY_COMPARE_STAT_YES"
-            or "HISTORY_COMPARE_STAT_NO") or "HISTORY_COMPARE_STAT_UNKNOWN",
         won = won, lost = lost, pending = pending,
         state = comparisonState(run),
     }
@@ -386,7 +369,6 @@ function H:Summarize(runs)
     local stats = LJ.Stats.Compute(runs)
     return {
         runs = stats.totalDungeons or 0,
-        statRuns = stats.agilityDungeons or 0,
         noLoot = stats.noLootDungeons or 0,
         needWins = stats.needWins or 0,
         needLost = stats.needLost or 0,
@@ -716,15 +698,14 @@ function H:Create()
             LJ.L(i == 1 and "HISTORY_COMPARE_A" or "HISTORY_COMPARE_B")) }
         column.title:SetPoint("TOPLEFT", 12, -12)
         self.compareColTitles[i] = column.title
-        for _, field in ipairs({ "date", "stat", "need", "state" }) do
+        for _, field in ipairs({ "date", "need", "state" }) do
             column[field] = label(card, 10, "")
             column[field]:SetWidth(226)
             column[field]:SetWordWrap(true)
         end
         column.date:SetPoint("TOPLEFT", 12, -42)
-        column.stat:SetPoint("TOPLEFT", 12, -80)
-        column.need:SetPoint("TOPLEFT", 12, -118)
-        column.state:SetPoint("TOPLEFT", 12, -156)
+        column.need:SetPoint("TOPLEFT", 12, -80)
+        column.state:SetPoint("TOPLEFT", 12, -118)
         self.compareValues[i] = column
     end
     self.comparePanel:Hide()
@@ -797,8 +778,6 @@ function H:ShowComparison(first, second)
         local when = LJ:FormatTime(run.started, "DATE_TIME")
         column.date:SetText(LJ.L("HISTORY_COMPARE_DATE", when))
         column.date:SetTextColor(rgba(LJ.COLORS.muted))
-        column.stat:SetText(LJ.L(run.stat))
-        column.stat:SetTextColor(rgba(compareStatColor(run.stat)))
         column.need:SetText(LJ.L("HISTORY_COMPARE_NEED", run.won, run.lost, run.pending))
         column.need:SetTextColor(rgba(compareNeedColor(run.won, run.lost)))
         column.state:SetText(LJ.L(run.state))
@@ -862,8 +841,7 @@ function H:Refresh()
     local summary = self:Summarize(matches)
     self.summaryTitle:SetText(LJ.L("HISTORY_SUMMARY_TITLE",
         W:Truncate(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"), 28)))
-    self.summaryLine1:SetText(LJ.L("HISTORY_SUMMARY_RUNS", summary.runs,
-        summary.statRuns, summary.noLoot))
+    self.summaryLine1:SetText(LJ.L("HISTORY_SUMMARY_RUNS", summary.runs, summary.noLoot))
     self.summaryLine2:SetText(LJ.L("HISTORY_SUMMARY_NEED", summary.needWins,
         summary.needLost, summary.needPending))
     local pages = math.max(1, math.ceil(#matches / PAGE_SIZE))

@@ -129,21 +129,6 @@ local function formatDate(run)
     return LJ:FormatTime(t, "DATE_TIME")
 end
 
-local function statContext(run)
-    local stat = run and run.stat
-    if not stat then return LJ.L("DETAIL_STAT_UNKNOWN"), C.muted end
-    local history = type(run.statHistory) == "table" and run.statHistory or nil
-    if history and #history > 1 then
-        local labels = {}
-        for i = 1, #history do
-            labels[#labels + 1] = LJ.StatLabel and LJ:StatLabel(history[i]) or history[i]
-        end
-        return LJ.L("DETAIL_STAT_MIXED", table.concat(labels, " → ")), C.orange
-    end
-    local label = LJ.StatLabel and LJ:StatLabel(stat) or stat
-    return LJ.L("DETAIL_STAT", label), C.muted
-end
-
 local function sortedNeeds(run)
     local list = {}
     for i = 1, #(run.needs or {}) do
@@ -397,9 +382,6 @@ local function buildTimelineLines(run)
                 add(boss.at, LJ.L("DETAIL_TIMELINE_BOSS",
                     W:Truncate(boss.name or LJ.L("DETAIL_UNKNOWN_BOSS"), 36)))
             end
-        end
-        if tonumber(run.agilityAt) and tonumber(run.agilityAt) > (tonumber(run.started) or 0) then
-            add(run.agilityAt, LJ.L("DETAIL_TIMELINE_STAT"))
         end
         for _, need in ipairs(run.needs or {}) do
             if (need.result == "won" or need.result == "lost") and tonumber(need.resolvedAt)
@@ -1101,8 +1083,7 @@ function M:Refresh()
     if run.closedReason == "manual" then
         status = LJ.L("RUN_FINISH_MANUAL")
     end
-    local statText, statColor = statContext(run)
-    subtitle:SetText(formatDate(run) .. " · " .. status .. " · " .. colored(statColor, statText))
+    subtitle:SetText(formatDate(run) .. " · " .. status)
     if finishButton then finishButton:SetShown(active == run) end
 
     local bossCount = #(run.bosses or {})

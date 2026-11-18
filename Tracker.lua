@@ -21,7 +21,6 @@ local repairScheduled = false
 local reclassifyScheduled = false
 local started = false
 local firstCheck = true
-local lastPrimaryStat
 local recentGreed = {}
 local rollLinks = {}
 local rollLinkAt = {}
@@ -171,8 +170,7 @@ end
 
 local function emptyVisit(run)
     if type(run) ~= "table" or run.legacy or run.detailVersion == nil then return false end
-    if run.lootSeen == true or run.agilityDropped == true
-        or (tonumber(run.itemsSeen) or 0) > 0 or (tonumber(run.agiItemsSeen) or 0) > 0 then return false end
+    if run.lootSeen == true or (tonumber(run.itemsSeen) or 0) > 0 then return false end
     for _, field in ipairs({ "bosses", "drops", "needs", "greeds", "rolls", "pending" }) do
         if type(run[field]) == "table" and next(run[field]) then return false end
     end
@@ -299,77 +297,11 @@ function T:FinishActiveManually(runID)
     return true
 end
 
-local function markAgility(run, link, info)
-    if not info or not info.quality or info.quality < 3 then return false end
-    if run.agilityDropped then return false end
-    run.agilityDropped = true
-    run.agiItemsSeen = (run.agiItemsSeen or 0) + 1
-    run.agilityLink = run.agilityLink or link
-    run.agilityAt = run.agilityAt or now()
-    if info and info.name then run.agilityName = info.name end
-    return true
-end
-
--- Markiert einen Main-Stat-Gewinn NUR, wenn der Spieler das Item tatsächlich
--- erhalten hat (Need-Sieg, direkter Loot, Encounter-Loot, "Du gewinnst"-Chat).
--- Bloß beobachtete Drops (Gier, Pass, fremder Gewinn) zählen NICHT.
-local function markAgilityByLink(run, link)
-    if not run or not link or run.agilityDropped or not run.stat then return false end
-    local info = LJ:ClassifyItem(link, run.stat)
-    if not info or info.agi ~= true then return false end
-    return markAgility(run, link, info)
-end
-
-function T:ReconcileStatDrops()
-    local data = db()
-    if not data then return end
-    local changed = false
-    for _, run in ipairs(data.runs or {}) do
-        if run.stat and run.agilityDropped and run.agilityLink
-            and LJ:ItemQuality(run.agilityLink, LJ:ItemInfo(run.agilityLink).quality) == 2 then
-            local links, checked, unresolved, replacement = {}, {}, false, nil
-            for link in pairs(run.seenLinks or {}) do links[#links + 1] = link end
-            for _, drop in ipairs(run.drops or {}) do
-                if type(drop.link) == "string" then links[#links + 1] = drop.link end
-            end
-            for _, link in ipairs(links) do
-                if not checked[link] then
-                    checked[link] = true
-                    local info = LJ:ClassifyItem(link, run.stat)
-                    if not info or info.quality == nil then
-                        unresolved = true
-                        LJ:LoadItem(link)
-                    elseif info.quality >= 3 and info.agi == true then
-                        replacement = { link = link, name = info.name }
-                        break
-                    elseif info.quality >= 3 and info.agi == nil then
-                        unresolved = true
-                        LJ:LoadItem(link, info.id)
-                    end
-                end
-            end
-            if replacement then
-                run.agilityLink = replacement.link
-                run.agilityName = replacement.name
-                run.agilityAt = nil
-                changed = true
-            elseif not unresolved and #links > 0 then
-                run.agilityDropped = false
-                run.agiItemsSeen = 0
-                run.agilityLink, run.agilityName, run.agilityAt = nil, nil, nil
-                changed = true
-            end
-        end
-    end
-    if changed then LJ:Changed() end
-end
-
 function T:StartRun(d, partial)
     exitGraceRun, exitGraceUntil = nil, nil
     transitionGuardRun = nil
     local data = db()
     if not data then return nil end
-    local stat = LJ:PlayerStat()
     local run = {
         id = tonumber(data.nextRunID) or 1,
         name = d.name,
@@ -380,9 +312,7 @@ function T:StartRun(d, partial)
         started = now(),
         lastSeen = now(),
         lootSeen = false,
-        agilityDropped = false,
         itemsSeen = 0,
-        agiItemsSeen = 0,
         needs = {},
         pending = {},
         seenLinks = {},
@@ -395,9 +325,6 @@ function T:StartRun(d, partial)
         legacy = false,
         partial = partial == true,
         closed = false,
-        stat = stat,
-        statHistory = stat and { stat } or nil,
-        statMixed = false,
     }
     data.nextRunID = run.id + 1
     data.runs[#data.runs + 1] = run
@@ -608,14 +535,13 @@ local function queuePending(run, link, id, info, source)
     run.pending[#run.pending + 1] = {
         link = link,
         id = id,
-        stat = run.stat,
         added = now(),
         countedLoot = info and info.loot == true or false,
         source = source,
     }
     while #run.pending > 80 do table.remove(run.pending, 1) end
     diag("item-pending", id, source)
-    LJ:LoadItem(link, id)
+    if type(LJ.LoadItem) == "function" then LJ:LoadItem(link, id) end
     if not reclassifyScheduled then
         reclassifyScheduled = true
         after(2, function()
@@ -639,12 +565,12 @@ function T:RecordItem(link, source)
     end
     run.seenLinks[link] = true
 
-    local info = LJ:ClassifyItem(link, run.stat)
+    local info = LJ:ClassifyItem(link)
     diagItem(id, info, source)
     if LJ.debugMode then LJ:NoteItemDebug(link, source) end
-    if not info then
+    if not info or info.known == false then
         diag("item-defer", id, source)
-        queuePending(run, link, id, nil, source)
+        queuePending(run, link, id, info, source)
         return false
     end
     if info.quest then
@@ -660,23 +586,14 @@ function T:RecordItem(link, source)
         changed = true
         diag("item-counted", id, source)
     end
-    if info.agi == nil then
-        diag("item-stat-pending", id, source)
-        queuePending(run, link, id, info, source)
-    elseif info.agi == true then
-        diag("item-stat", id, source)
-    end
     if changed then LJ:Changed() end
     return changed
 end
 
 local function finalizePending(entry, info)
-    if info.quest then return "drop", false, false end
-    if not info.loot then return "keep", false, false end
-    if info.agi == true and info.quality == nil then return "keep", true, false end
-    if info.agi == true then return "agi", true, true end
-    if info.agi == false then return "done", true, false end
-    return "keep", true, false
+    if info.quest then return "drop", false end
+    if not info.loot then return "keep", false end
+    return "done", true
 end
 
 function T:ReclassifyPending(itemID)
@@ -685,24 +602,13 @@ function T:ReclassifyPending(itemID)
     local changed = false
     for _, run in ipairs(data.runs) do
         local pending = run.pending
-        -- Runs ohne überlieferten Stat-Kontext werden nicht mit der aktuellen
-        -- Spezialisierung nachklassifiziert.
         if type(pending) == "table" and #pending > 0 then
             local keep = {}
             for i = 1, #pending do
                 local p = pending[i]
-                local stat = p.stat or run.stat
-                local info = stat and LJ:ClassifyItem(p.link, stat) or nil
-                if not stat then
-                    -- Alte Runs ohne Stat-Kontext: nur eindeutig statfreie
-                    -- Items bereinigen, niemals Gear mit dem heutigen Stat.
-                    local candidate = LJ:ClassifyItem(p.link)
-                    if candidate and candidate.statState == "not-applicable" then
-                        info = candidate
-                    end
-                end
+                local info = LJ:ClassifyItem(p.link)
                 if info and (not itemID or p.id == itemID or info.id == itemID) then
-                    local action, counted, agi = finalizePending(p, info)
+                    local action, counted = finalizePending(p, info)
                     diagItem(p.id or info.id, info, "reclassify")
                     if counted and not p.countedLoot then
                         p.countedLoot = true
@@ -711,9 +617,7 @@ function T:ReclassifyPending(itemID)
                         changed = true
                         diag("pending-counted", p.id or info.id)
                     end
-                    if action == "agi" then
-                        diag("pending-stat", p.id or info.id)
-                    elseif action == "keep" then
+                    if action == "keep" then
                         keep[#keep + 1] = p
                     else
                         diag("pending-" .. tostring(action), p.id or info.id)
@@ -727,7 +631,6 @@ function T:ReclassifyPending(itemID)
         end
     end
     if changed then LJ:Changed() end
-    self:ReconcileStatDrops()
 end
 
 function T:RefreshPendingItemData()
@@ -747,41 +650,11 @@ function T:RefreshPendingItemData()
 end
 
 function T:FinalizeRunItems(run)
-    -- Main-Stat wird nur noch bei einem tatsächlichen Gewinn markiert
-    -- (markAgilityByLink), nicht mehr beim Finalisieren beobachteter Items.
     if not run then return end
     local pending = run.pending
     if type(pending) == "table" and #pending > 0 then
         diag("pending-finalized", run.id, "n=" .. tostring(#pending))
     end
-end
-
--- Ein Spezialisierungswechsel aktualisiert nur den laufenden Run. Abgeschlossene
--- Runs behalten ihren gespeicherten Stat-Kontext; ihre Klassifikation wird nicht
--- rückwirkend mit der neuen Spezialisierung neu berechnet.
-function T:CheckPrimaryStatChanged()
-    local stat = LJ:PlayerStat()
-    if not lastPrimaryStat then
-        lastPrimaryStat = stat
-        return false
-    end
-    if lastPrimaryStat == stat then return false end
-    local previous = lastPrimaryStat
-    lastPrimaryStat = stat
-    diag("stat-change", nil, tostring(previous) .. "->" .. tostring(stat))
-
-    local run = activeRun()
-    if run and run.stat then
-        run.statHistory = run.statHistory or { run.stat }
-        if run.statHistory[#run.statHistory] ~= stat then
-            run.statHistory[#run.statHistory + 1] = stat
-        end
-        run.stat = stat
-        run.statMixed = #run.statHistory > 1
-        diag("run-stat-change", run.id, tostring(previous) .. "->" .. tostring(stat))
-        LJ:Changed()
-    end
-    return true
 end
 
 -- ---------------------------------------------------------------- Need-Rolls
@@ -822,9 +695,6 @@ function T:ResolveNeed(need, result, reason, run)
     need.result = result
     need.resolvedAt = now()
     need.reason = reason or "event"
-    if result == "won" then
-        markAgilityByLink(run, need.link)
-    end
     diag("need-result", need.id, tostring(result) .. ":" .. tostring(need.reason))
     LJ:Changed()
     return true
@@ -915,7 +785,6 @@ function T:RepairLostNeeds()
                         n.result = "won"
                         n.resolvedAt = t
                         n.reason = "repair"
-                        markAgilityByLink(run, n.link)
                         changed = true
                     end
                 end
@@ -1104,11 +973,6 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
         if winner == "" then winner = nil end
     else
         winner = nil
-    end
-    -- Main-Stat nur bei tatsächlichem Gewinn markieren (Chat "Du gewinnst" /
-    -- "X gewinnt" mit dir als Sieger).
-    if winner and LJ:IsMe(winner) then
-        markAgilityByLink(run, link)
     end
     local bossID = boss and tonumber(boss.id) or 0
     if not bossID or bossID <= 0 then bossID = 0 end
@@ -1459,9 +1323,6 @@ function T:OnLootHistoryDrop(encounterID, lootListID)
     end
 
     if winnerName then
-        if LJ:IsMe(winnerName) then
-            markAgilityByLink(run, link)
-        end
         if drop then
             local changed = false
             if not drop.winner then
@@ -1569,7 +1430,6 @@ function T:OnEncounterLoot(...)
     end
     T:RecordItem(link, "encounter")
     noteDrop(run, link, nil, boss, "encounter")
-    markAgilityByLink(run, link)
 end
 
 function T:OnStartRoll(rollID)
@@ -1959,8 +1819,6 @@ local function onEvent(event, ...)
         else
             diag("item-data-failed", id, event)
         end
-    elseif event == "PLAYER_SPECIALIZATION_CHANGED" or event == "PLAYER_TALENT_UPDATE" then
-        after(1, function() T:CheckPrimaryStatChanged() end)
     elseif event == "BAG_UPDATE_DELAYED" then
         scheduleRepair()
     end
@@ -1977,7 +1835,6 @@ local function registerEvents()
         "LOOT_OPENED", "LOOT_READY", "LOOT_CLOSED",
         "CHAT_MSG_LOOT", "CHAT_MSG_SYSTEM", "GET_ITEM_INFO_RECEIVED", "ITEM_DATA_LOAD_RESULT",
         "BAG_UPDATE_DELAYED",
-        "PLAYER_SPECIALIZATION_CHANGED", "PLAYER_TALENT_UPDATE",
     }
     for i = 1, #events do pcall(eventFrame.RegisterEvent, eventFrame, events[i]) end
     eventFrame:SetScript("OnEvent", function(_, event, ...)
@@ -2003,7 +1860,6 @@ function T:Start()
     if started then return end
     started = true
     T.startedAt = now()
-    lastPrimaryStat = LJ:PlayerStat()
     registerEvents()
     hookRolls()
     diag("tracker-start", nil, "version=" .. tostring(LJ:AddOnVersion()))
@@ -2026,7 +1882,6 @@ function T:ResetAll()
     lastExitedRun, lastExitUntil = nil, nil
     transitionGuardRun = nil
     firstCheck = false
-    lastPrimaryStat = nil
     recentGreed = {}
     rollLinks = {}
     rollLinkAt = {}
@@ -2149,12 +2004,6 @@ function T:GetDiagnosticState()
             closedReason = run.closedReason,
             partial = run.partial == true,
             lootSeen = run.lootSeen == true,
-            agilityDropped = run.agilityDropped == true,
-            stat = run.stat,
-            statHistory = run.statHistory,
-            statMixed = run.statMixed == true,
-            itemsSeen = run.itemsSeen or 0,
-            agiItemsSeen = run.agiItemsSeen or 0,
             bosses = #(run.bosses or {}),
             bossEvents = run.bosses,
             drops = #(run.drops or {}),
@@ -2173,14 +2022,10 @@ function T:GetDiagnosticState()
 end
 
 function T:Debug()
-    local class, classFile = LJ:ClassName()
-    local stat, label = LJ:PlayerStat()
     local run = activeRun()
     LJ:Print(LJ.L("CHAT_DEBUG_HEADER"))
     LJ:Print(LJ.L("CHAT_DEBUG_INSIDE", tostring(inside), run and run.name or "–"))
     LJ:Print(LJ.L("CHAT_DEBUG_RUNS", #(T:GetRuns())))
-    LJ:Print(LJ.L("CHAT_DEBUG_STAT", tostring(class) .. " (" .. tostring(classFile) .. ")", tostring(label)))
-    LJ:Print("Stat-Key: " .. tostring(stat) .. " · Key: " .. tostring(run and run.key or "–"))
     local debugItems = LJ.debugItems or {}
     if #debugItems == 0 then
         LJ:Print(LJ.L("CHAT_DEBUG_NONE"))
