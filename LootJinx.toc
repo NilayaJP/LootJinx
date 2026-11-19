@@ -2,7 +2,7 @@
 ## Title: LootJinx
 ## Notes: Dein Dungeon-Pech im Blick: Need-Rolls, Loot-Serien und Rekorde.
 ## Author: Zenyx
-## Version: 1.6.8
+## Version: 1.6.9
 ## IconTexture: Interface\AddOns\LootJinx\Media\LootJinxIcon
 ## SavedVariables: LootJinxDB
 ## SavedVariablesPerCharacter: LootJinxCharDB
