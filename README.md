@@ -15,11 +15,11 @@ All trackers appear in both designs. Empty visits with no observed boss, item, o
 
 ## Review and share
 
-Browse recent runs and searchable history, filter or compare visits, and open run details to see observed bosses, drops, recipients, and roll values. Known boss and trash loot is grouped by source; unlisted or ambiguous gear stays visible under **Other Loot**. Older runs without detailed data remain in history.
+Browse recent runs and searchable history, filter or compare visits, and open run details to see observed bosses, drops, recipients, and roll values. Known boss and trash loot is grouped by source; unlisted or ambiguous gear stays visible under **Other Loot**. Older runs without detailed data remain in history. Clicking the No Need Win, No Loot, or Since Need Win card opens the history filtered to exactly those runs; a filter chip removes the focus again.
 
 Share a short statistics report in party or raid chat, with a selected same-faction player, or with a confirmed Battle.net friend. Settings include window scale, compact mode, record announcements, and design choice. Character runs are saved in `LootJinxCharDB`; display settings are saved account-wide in `LootJinxDB`.
 
-Version 1.6.8 removes primary-stat detection entirely: every Need roll counts regardless of item stats, and the former Dungeon Curse card is now a Need card showing wins, losses, and pending rolls. Older saved runs are migrated automatically when loaded.
+Version 1.6.8 removes primary-stat detection entirely: every Need roll counts regardless of item stats, and the former Dungeon Curse card is now a Need card showing wins, losses, and pending rolls. Older saved runs are migrated automatically when loaded. Run completion also accepts uniquely attributed boss loot and the Whitemane/Mograine pair as kill evidence, and a re-entry within five minutes continues the unfinished run instead of splitting it.
 
 ## Install
 

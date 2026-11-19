@@ -4,6 +4,7 @@ local LJ = ns or _G.LootJinx
 if not LJ then return end
 
 local H = { query = "", dungeon = nil, dungeonKey = nil, range = "all", status = "all", sort = "date",
+    focus = nil,
     page = 1, filterPage = 1,
     rows = {}, filterRows = {}, dateRows = {}, statusRows = {} }
 LJ.History = H
@@ -255,8 +256,40 @@ function H:ResolveDungeonKey(dungeon, runs, rememberedKey)
     return nil
 end
 
-function H:Filter(runs, query, dungeon, range, now, status, dungeonKey)
+-- Fokussierte Auswahl der drei Dashboard-Karten. "sinceNeedWin" entspricht
+-- der laufenden Serie in Stats.Compute; "noNeedWin" und "noLoot" den Summen.
+local function focusSet(runs, focus)
+    if not focus then return nil end
+    local set, seenNeed = {}, false
+    for _, run in ipairs(runs or {}) do
+        if type(run) == "table" then
+            local total, won = 0, 0
+            for _, need in ipairs(run.needs or {}) do
+                total = total + 1
+                if need.result == "won" then won = won + 1 end
+            end
+            if total > 0 then seenNeed = true end
+            if focus == "noNeedWin" then
+                if total > 0 and won == 0 then set[run] = true end
+            elseif focus == "noLoot" then
+                if run.lootSeen ~= true then set[run] = true end
+            elseif focus == "sinceNeedWin" then
+                if won > 0 then
+                    -- Ein Need-Win startet die Serie neu; nur Runs danach zaehlen.
+                    set = {}
+                elseif seenNeed then
+                    set[run] = true
+                end
+            end
+        end
+    end
+    return set
+end
+
+function H:Filter(runs, query, dungeon, range, now, status, dungeonKey, focus)
     local result, needle = {}, normalized(query)
+    focus = focus or self.focus
+    local focused = focusSet(runs, focus)
     range = range or "all"
     now = tonumber(now) or (LJ.Now and LJ.Now()) or 0
     local daysBack = ({ today = 0, week = 6, month = 29 })[range]
@@ -285,6 +318,7 @@ function H:Filter(runs, query, dungeon, range, now, status, dungeonKey)
                 or searchIDs[dungeonIdentity(run)]
                 or needTextMatches(run, needle))
             and (not daysBack or (cutoff and started and started >= cutoff and started <= now))
+            and (not focused or focused[run])
             and self:StatusMatches(run, status) then
             result[#result + 1] = run
         end
@@ -572,6 +606,16 @@ function H:Create()
     self.resetFilters = addButton(self.summaryPanel, LJ.L("HISTORY_RESET_FILTERS"), 88, 20)
     self.resetFilters:SetPoint("TOPRIGHT", -8, -4)
     self.resetFilters:SetScript("OnClick", function() H:ResetFilters() end)
+    self.focusButton = addButton(f, "", 210, 18)
+    self.focusButton:SetPoint("TOPRIGHT", -46, -36)
+    self.focusButton:SetScript("OnClick", function()
+        H.focus = nil
+        H.page = 1
+        H:ClearComparison()
+        H:Refresh()
+    end)
+    W:Tooltip(self.focusButton, LJ.L("HISTORY_RESET_FILTERS"))
+    self.focusButton:Hide()
     self.statusMenu = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
     self.statusMenu:SetSize(138, 106)
     self.statusMenu:SetPoint("TOPLEFT", self.statusButton, "BOTTOMLEFT", 0, -2)
@@ -758,6 +802,7 @@ end
 
 function H:ResetFilters()
     self.query, self.dungeon, self.dungeonKey, self.range, self.status = "", nil, nil, "all", "all"
+    self.focus = nil
     self.page, self.filterPage = 1, 1
     self:ClearComparison()
     if self.search then self.search:SetText("") end
@@ -850,6 +895,14 @@ function H:Refresh()
     self.dateButton.label:SetText(LJ.L("HISTORY_DATE_" .. string.upper(self.range)))
     self.statusButton.label:SetText(LJ.L("HISTORY_STATUS_" .. string.upper(self.status)))
     self.sortButton.label:SetText(LJ.L("HISTORY_SORT_BUTTON", LJ.L(SORT_LABELS[self.sort])))
+    local focusLabels = { noNeedWin = "MINI_NO_WIN", noLoot = "MINI_NO_LOOT", sinceNeedWin = "MINI_SINCE" }
+    if self.focusButton then
+        local focusKey = focusLabels[self.focus]
+        self.focusButton:SetShown(focusKey ~= nil)
+        if focusKey then
+            self.focusButton.label:SetText(LJ.L("HISTORY_FOCUS_CHIP", LJ.L(focusKey)))
+        end
+    end
     self.count:SetText(LJ.L("HISTORY_COUNT", #matches, preview.savedRuns))
     self.empty:SetShown(#matches == 0)
     self.pageText:SetText(self.page .. " / " .. pages)
@@ -917,9 +970,21 @@ function H:ConfirmCleanup()
     StaticPopup_Show("LOOTJINX_CLEANUP")
 end
 
-function H:Show()
+function H:Show(focus)
     if not self.frame then self:Create() end
     if not self.frame then return end
+    if focus then
+        self.focus = focus
+        self.query, self.dungeon, self.dungeonKey, self.range, self.status = "", nil, nil, "all", "all"
+        self.page, self.filterPage = 1, 1
+        self:ClearComparison()
+        if self.search then self.search:SetText("") end
+        if self.menu then self.menu:Hide() end
+        if self.dateMenu then self.dateMenu:Hide() end
+        if self.statusMenu then self.statusMenu:Hide() end
+    else
+        self.focus = nil
+    end
     self:Refresh()
     self.frame:Show()
 end

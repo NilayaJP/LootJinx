@@ -253,15 +253,28 @@ function J:Create()
     W:Tooltip(self.needCard, LJ.L("TT_NEED_TITLE"), {
         LJ.L("TT_NEED_1"), LJ.L("TT_NEED_2"), LJ.L("TT_NEED_3"),
     })
-    W:Tooltip(self.miniCards[1], LJ.L("TT_NO_WIN_TITLE"), {
+    local function miniTooltip(card, title, lines, focus)
+        local list = {}
+        for i = 1, #lines do list[i] = lines[i] end
+        list[#list + 1] = " "
+        list[#list + 1] = LJ.L("TT_MINI_HISTORY")
+        W:Tooltip(card, title, list)
+        -- Karten sind Frames, keine Buttons: OnClick waere im Client nicht
+        -- erlaubt, OnMouseUp funktioniert bei aktivierter Maus dagegen schon.
+        card:EnableMouse(true)
+        card:SetScript("OnMouseUp", function()
+            if LJ.History then LJ.History:Show(focus) end
+        end)
+    end
+    miniTooltip(self.miniCards[1], LJ.L("TT_NO_WIN_TITLE"), {
         LJ.L("TT_NO_WIN_1"), LJ.L("TT_NO_WIN_2"), LJ.L("TT_NO_WIN_3"),
-    })
-    W:Tooltip(self.miniCards[2], LJ.L("TT_NO_LOOT_TITLE"), {
+    }, "noNeedWin")
+    miniTooltip(self.miniCards[2], LJ.L("TT_NO_LOOT_TITLE"), {
         LJ.L("TT_NO_LOOT_1"), LJ.L("TT_NO_LOOT_2"),
-    })
-    W:Tooltip(self.miniCards[3], LJ.L("TT_SINCE_TITLE"), {
+    }, "noLoot")
+    miniTooltip(self.miniCards[3], LJ.L("TT_SINCE_TITLE"), {
         LJ.L("TT_SINCE_1"), LJ.L("TT_SINCE_2"), LJ.L("TT_SINCE_3"),
-    })
+    }, "sinceNeedWin")
     makeRecent(f)
     self.fields.needLostCurrent = need.streak
     self.fields.noNeedWinCurrent = self.miniCards[1].value

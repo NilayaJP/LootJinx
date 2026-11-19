@@ -14,6 +14,7 @@ local MAX_BOSSES = 64
 local MAX_TIMELINE_EVENTS = 24
 local LOGIN_STALE_OUTSIDE_SECONDS = 6 * 60 * 60
 local EXIT_SETTLE_SECONDS = 3
+local RESUME_SECONDS = 5 * 60
 
 local inside = false
 local blocked = false
@@ -264,6 +265,49 @@ local function sameInstance(run, d)
     return lower(run.name) == lower(d.name)
 end
 
+-- Kehrt der Spieler kurz nach dem Verlassen in dieselbe Instanz zurück, wird
+-- der zuletzt geschlossene Run fortgesetzt. Das verhindert geteilte Runs nach
+-- Wipe, Portal oder Reload innerhalb des Zeitfensters.
+local function resumableRun(d)
+    local data = db()
+    local run = data and data.runs[#data.runs]
+    if not run or run.closed ~= true or run.closedReason ~= "left" then return nil end
+    if not sameInstance(run, d) then return nil end
+    local ended = tonumber(run.ended) or tonumber(run.lastSeen)
+    if not ended or now() - ended > RESUME_SECONDS then return nil end
+    -- Ein Reentry in derselben Sekunde ist kein echter Wiedereintritt: dann
+    -- laeuft der Run noch im Settle-Fenster und wird ohnehin fortgesetzt.
+    if now() - ended <= 0 then return nil end
+    return run
+end
+
+local function resumeRun(run, d)
+    local data = db()
+    if not data then return nil end
+    run.closed = false
+    run.closedReason = nil
+    run.ended = nil
+    run.outsideAt = nil
+    run.lastSeen = now()
+    run.key = d.key
+    run.instanceID = d.instanceID or run.instanceID
+    run.difficulty = d.difficulty or run.difficulty
+    if d.name and d.name ~= "" then run.name = d.name end
+    data.activeID = run.id
+    inside = true
+    blocked = false
+    lootWindowOpen = false
+    seenLootSlots = {}
+    exitGraceRun, exitGraceUntil = nil, nil
+    lastExitedRun, lastExitUntil = nil, nil
+    transitionGuardRun = nil
+    run.reenterPending = run.zoneID ~= nil
+    timelineEvent(run, "return", now())
+    diag("run-resume", run.id, "name=" .. tostring(run.name))
+    LJ:Changed()
+    return run
+end
+
 function T:CloseActive(reason)
     local run = activeRun()
     if not run then return false end
@@ -430,6 +474,13 @@ function T:CheckZone()
             return
         end
         if run then T:CloseActive("switched-instance") end
+        local resumed = resumableRun(d)
+        if resumed then
+            resumeRun(resumed, d)
+            observeUnit("target")
+            observeUnit("mouseover")
+            return
+        end
         local candidate = T:StartRun(d, wasFirst)
         if candidate and lastExitedRun and lastExitUntil and now() < lastExitUntil then
             transitionGuardRun = candidate

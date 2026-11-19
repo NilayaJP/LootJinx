@@ -226,7 +226,7 @@ local function createNeedCard()
     })
 end
 
-local function createMini(parent, x, title, sub, tooltipTitle, tooltipLines, iconTexture)
+local function createMini(parent, x, title, sub, tooltipTitle, tooltipLines, iconTexture, focus)
     local card = W:Card(parent)
     card:SetPoint("TOPLEFT", x, -194)
     card:SetSize(192, 108)
@@ -261,20 +261,34 @@ local function createMini(parent, x, title, sub, tooltipTitle, tooltipLines, ico
     card.footer:SetWidth(168)
     card.footer:SetText("")
 
-    W:Tooltip(card, tooltipTitle, tooltipLines)
+    local lines = {}
+    for i = 1, #(tooltipLines or {}) do lines[i] = tooltipLines[i] end
+    if focus then
+        lines[#lines + 1] = " "
+        lines[#lines + 1] = LJ.L("TT_MINI_HISTORY")
+    end
+    W:Tooltip(card, tooltipTitle, lines)
+    if focus then
+        -- Karte ist ein Frame: OnMouseUp statt OnClick, damit kein
+        -- Button-Handler auf einem Frame registriert wird.
+        card:EnableMouse(true)
+        card:SetScript("OnMouseUp", function()
+            if LJ.History then LJ.History:Show(focus) end
+        end)
+    end
     return card
 end
 
 local function createMinis()
     miniNoWin = createMini(frame, 16, LJ.L("MINI_NO_WIN"), LJ.L("MINI_NO_WIN_SUB"),
         LJ.L("TT_NO_WIN_TITLE"), { LJ.L("TT_NO_WIN_1"), LJ.L("TT_NO_WIN_2"), LJ.L("TT_NO_WIN_3") },
-        MEDIA .. "NoNeedWin")
+        MEDIA .. "NoNeedWin", "noNeedWin")
     miniNoLoot = createMini(frame, 224, LJ.L("MINI_NO_LOOT"), LJ.L("MINI_NO_LOOT_SUB"),
         LJ.L("TT_NO_LOOT_TITLE"), { LJ.L("TT_NO_LOOT_1"), LJ.L("TT_NO_LOOT_2") },
-        MEDIA .. "NoLoot")
+        MEDIA .. "NoLoot", "noLoot")
     miniSince = createMini(frame, 432, LJ.L("MINI_SINCE"), LJ.L("MINI_SINCE_SUB"),
         LJ.L("TT_SINCE_TITLE"), { LJ.L("TT_SINCE_1"), LJ.L("TT_SINCE_2"), LJ.L("TT_SINCE_3") },
-        MEDIA .. "SinceNeedWin")
+        MEDIA .. "SinceNeedWin", "sinceNeedWin")
 end
 
 function LJ:RunStatusMarker(run)

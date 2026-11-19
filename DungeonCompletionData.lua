@@ -120,7 +120,7 @@ LJ.DungeonCompletionData = {
     },
     ["Scarlet Monastery: Cathedral"] = {
         { name = "High Inquisitor Fairbanks", aliases = { "High Inquisitor Fairbanks", "Fairbanks", "Hochinquisitor Fairbanks" }, npcID = 4542, deName = "Hochinquisitor Fairbanks" },
-        { name = "Scarlet Commander Mograine", aliases = { "Scarlet Commander Mograine", "Mograine", "Scharlachroter Kommandant Mograine", "Scarlet Commander Mograine & High Inquisitor Whitemane" }, npcID = 3976, deName = "Scharlachroter Kommandant Mograine" },
+        { name = "Scarlet Commander Mograine", aliases = { "Scarlet Commander Mograine", "Mograine", "Scharlachroter Kommandant Mograine", "Scarlet Commander Mograine & High Inquisitor Whitemane" }, npcID = 3976, deName = "Scharlachroter Kommandant Mograine", impliedBy = { "High Inquisitor Whitemane" } },
         { name = "High Inquisitor Whitemane", aliases = { "High Inquisitor Whitemane", "Whitemane", "Hochinquisitor Whitemane", "Scarlet Commander Mograine & High Inquisitor Whitemane" }, npcID = 3977, deName = "Hochinquisitor Whitemane" },
     },
     ["Razorfen Downs"] = {
