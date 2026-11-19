@@ -266,6 +266,24 @@ local function createMini(parent, x, title, sub, tooltipTitle, tooltipLines, ico
     if focus then
         lines[#lines + 1] = " "
         lines[#lines + 1] = LJ.L("TT_MINI_HISTORY")
+        -- Sichtbarer Hinweis, dass die Karte den passenden Verlauf oeffnet.
+        card.hint = W:Font(card, 8, C.accent, "OUTLINE")
+        card.hint:SetPoint("TOPRIGHT", -11, -40)
+        card.hint:SetJustifyH("RIGHT")
+        card.hint:SetText(LJ.L("MINI_HISTORY_LINK"))
+        card.hint:SetAlpha(0.7)
+        card:SetScript("OnEnter", function(self)
+            if self.SetBackdropBorderColor then
+                self:SetBackdropBorderColor(C.accent[1], C.accent[2], C.accent[3], 0.85)
+            end
+            if self.hint then self.hint:SetAlpha(1) end
+        end)
+        card:SetScript("OnLeave", function(self)
+            if self.SetBackdropBorderColor then
+                self:SetBackdropBorderColor(C.border[1], C.border[2], C.border[3], C.border[4] or 1)
+            end
+            if self.hint then self.hint:SetAlpha(0.7) end
+        end)
     end
     W:Tooltip(card, tooltipTitle, lines)
     if focus then
@@ -289,6 +307,7 @@ local function createMinis()
     miniSince = createMini(frame, 432, LJ.L("MINI_SINCE"), LJ.L("MINI_SINCE_SUB"),
         LJ.L("TT_SINCE_TITLE"), { LJ.L("TT_SINCE_1"), LJ.L("TT_SINCE_2"), LJ.L("TT_SINCE_3") },
         MEDIA .. "SinceNeedWin", "sinceNeedWin")
+    UI.miniCards = { miniNoWin, miniNoLoot, miniSince }
 end
 
 function LJ:RunStatusMarker(run)

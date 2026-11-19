@@ -258,6 +258,19 @@ function J:Create()
         for i = 1, #lines do list[i] = lines[i] end
         list[#list + 1] = " "
         list[#list + 1] = LJ.L("TT_MINI_HISTORY")
+        -- Sichtbarer Hinweis, dass die Karte den passenden Verlauf oeffnet.
+        card.hint = font(card, 9, P.gold, LJ.L("MINI_HISTORY_LINK"))
+        card.hint:SetPoint("TOPRIGHT", -12, -40)
+        card.hint:SetJustifyH("RIGHT")
+        card.hint:SetAlpha(0.75)
+        card:SetScript("OnEnter", function(self)
+            if self.SetBackdropBorderColor then self:SetBackdropBorderColor(rgba(P.gold)) end
+            if self.hint then self.hint:SetAlpha(1) end
+        end)
+        card:SetScript("OnLeave", function(self)
+            if self.SetBackdropBorderColor then self:SetBackdropBorderColor(rgba(P.bronze)) end
+            if self.hint then self.hint:SetAlpha(0.75) end
+        end)
         W:Tooltip(card, title, list)
         -- Karten sind Frames, keine Buttons: OnClick waere im Client nicht
         -- erlaubt, OnMouseUp funktioniert bei aktivierter Maus dagegen schon.
