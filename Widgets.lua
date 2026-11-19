@@ -36,8 +36,8 @@ function W:Font(parent, size, color, flags)
     local fs = parent:CreateFontString(nil, "OVERLAY")
     fs:SetFont(FONT, size or 10, flags or "")
     if color then fs:SetTextColor(c4(color)) else fs:SetTextColor(c4(C.text)) end
-    fs:SetShadowColor(0, 0, 0, 0.85)
-    fs:SetShadowOffset(0, 1)
+    fs:SetShadowColor(0, 0, 0, 1.0)
+    fs:SetShadowOffset(1, -1)
     fs:SetJustifyH("LEFT")
     fs:SetJustifyV("MIDDLE")
     return fs
@@ -240,6 +240,105 @@ function W:FadeIn(frame, duration)
     if UIFrameFadeIn then
         pcall(UIFrameFadeIn, frame, duration or 0.15, 0.05, 1)
     end
+end
+
+function W:ResizeGrip(parent, onScaleChanged, onReset)
+    if not parent then return nil end
+    local grip = CreateFrame("Button", nil, parent)
+    grip:SetSize(16, 16)
+    grip:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -2, 2)
+    grip:SetFrameLevel((parent:GetFrameLevel() or 1) + 60)
+    if grip.SetNormalTexture then
+        grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    end
+    if grip.SetHighlightTexture then
+        grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight", "ADD")
+    end
+    if grip.SetPushedTexture then
+        grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    end
+    if grip.RegisterForClicks then
+        grip:RegisterForClicks("AnyUp")
+    end
+
+    grip:SetScript("OnMouseDown", function(self, button)
+        if button ~= "LeftButton" then return end
+
+        local left = parent.GetLeft and parent:GetLeft()
+        local top = parent.GetTop and parent:GetTop()
+        if left and top then
+            parent:ClearAllPoints()
+            parent:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+            self.pinLeft = left
+            self.pinTop = top
+        end
+
+        local uScale = (UIParent and UIParent:GetEffectiveScale()) or 1
+        local baseW = parent:GetWidth() or 640
+        local baseH = parent:GetHeight() or 510
+        if baseW <= 0 then baseW = 640 end
+        if baseH <= 0 then baseH = 510 end
+        self.baseW = baseW
+        self.baseH = baseH
+
+        local x, y = GetCursorPosition()
+        self.startX = x
+        self.startY = y
+        self.startScale = parent:GetScale() or 1
+        self.dragging = true
+    end)
+
+    grip:SetScript("OnUpdate", function(self)
+        if not self.dragging then return end
+        if IsMouseButtonDown and not IsMouseButtonDown("LeftButton") then
+            self.dragging = false
+            local finalScale = parent:GetScale() or 1
+            if onScaleChanged then onScaleChanged(finalScale) end
+            return
+        end
+        local x, y = GetCursorPosition()
+        local uScale = (UIParent and UIParent:GetEffectiveScale()) or 1
+        local dx = (x - self.startX) / uScale
+        local dy = (self.startY - y) / uScale
+        local relX = dx / (self.baseW or 640)
+        local relY = dy / (self.baseH or 510)
+        local deltaRel = (relX + relY) * 0.5
+        local scale = self.startScale + deltaRel
+        if scale < 0.40 then scale = 0.40 end
+        if scale > 3.00 then scale = 3.00 end
+        parent:SetScale(scale)
+        -- Do NOT call onScaleChanged here; applyPosition() must only run once at drag end.
+    end)
+
+    grip:SetScript("OnMouseUp", function(self, button)
+        if button == "RightButton" then
+            if onReset then
+                onReset()
+            elseif onScaleChanged then
+                onScaleChanged(1.0)
+            end
+            return
+        end
+        if self.dragging then
+            self.dragging = false
+            local finalScale = parent:GetScale() or 1
+            if onScaleChanged then onScaleChanged(finalScale) end
+        end
+    end)
+
+    grip:SetScript("OnEnter", function(self)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
+        GameTooltip:SetText(LJ.L("RESIZE_GRIP_TITLE"), c4(C.accent))
+        GameTooltip:AddLine(LJ.L("RESIZE_GRIP_TIP"), 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    grip:SetScript("OnLeave", function(self)
+        if not GameTooltip then return end
+        GameTooltip:Hide()
+    end)
+
+    return grip
 end
 
 return W

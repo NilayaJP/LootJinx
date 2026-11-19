@@ -13,14 +13,14 @@ LJ.COLORS = {
     borderHot   = { 0.470, 0.300, 0.560, 1.00 },
     accent      = { 0.800, 0.360, 0.920, 1.00 },
     accentDark  = { 0.420, 0.160, 0.520, 1.00 },
-    cyan        = { 0.300, 0.740, 0.960, 1.00 },
+    cyan        = { 0.350, 0.800, 1.000, 1.00 },
     gold        = { 1.000, 0.820, 0.300, 1.00 },
-    green       = { 0.360, 0.860, 0.520, 1.00 },
+    green       = { 0.400, 0.900, 0.550, 1.00 },
     red         = { 0.960, 0.360, 0.430, 1.00 },
     orange      = { 0.980, 0.580, 0.280, 1.00 },
-    text        = { 0.920, 0.930, 0.960, 1.00 },
-    muted       = { 0.590, 0.610, 0.680, 1.00 },
-    dim         = { 0.400, 0.420, 0.490, 1.00 },
+    text        = { 0.950, 0.960, 0.980, 1.00 },
+    muted       = { 0.720, 0.750, 0.820, 1.00 },
+    dim         = { 0.580, 0.610, 0.680, 1.00 },
     track       = { 0.120, 0.125, 0.155, 1.00 },
 }
 
@@ -91,7 +91,7 @@ function LJ:AddOnVersion()
         local ok, version = pcall(getter, "LootJinx", "Version")
         if ok and type(version) == "string" and version ~= "" then return version end
     end
-    return "1.6.9"
+    return "1.7.1"
 end
 
 local function normalizeBoss(b, fallbackAt)
@@ -495,19 +495,25 @@ function LJ:InitDB()
     end
     db.version = 1
     db.scale = tonumber(db.scale) or 1.0
-    if db.scale < 0.80 then db.scale = 0.80 end
-    if db.scale > 1.30 then db.scale = 1.30 end
+    if db.scale < 0.40 then db.scale = 0.40 end
+    if db.scale > 3.00 then db.scale = 3.00 end
     db.point = type(db.point) == "string" and db.point or "CENTER"
     db.x = tonumber(db.x) or 0
     db.y = tonumber(db.y) or -40
     db.seenWelcome = db.seenWelcome == true
     db.locked = db.locked == true
     db.showWelcome = db.showWelcome == true
-    db.showWatermark = db.showWatermark ~= false
     db.compact = db.compact == true
     db.announceRecords = db.announceRecords == true
     db.layoutPreview = db.layoutPreview == "journal" and "journal" or "classic"
     db.language = type(db.language) == "string" and db.language or "auto"
+    if db.leaderboardConsent ~= true and db.leaderboardConsent ~= false then
+        db.leaderboardConsent = nil
+    end
+    if db.leaderboardTestAck ~= true then
+        db.leaderboardTestAck = nil
+    end
+    if type(db.leaderboard) ~= "table" then db.leaderboard = {} end
     db.minimapAngle = tonumber(db.minimapAngle) or 225
     if db.minimapAngle ~= db.minimapAngle then db.minimapAngle = 225 end
     db.minimapAngle = db.minimapAngle % 360

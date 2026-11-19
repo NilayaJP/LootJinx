@@ -1082,8 +1082,9 @@ function M:Refresh()
     local run = currentRun
     title:SetText(W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 42))
     local active = LJ.Tracker and LJ.Tracker.GetActive and LJ.Tracker:GetActive()
-    local status = active == run and (LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("DETAIL_ENDED"))
-        or LJ.L(run.closedReason == "all-bosses-cleared" and "DETAIL_CLOSED" or "DETAIL_ENDED")
+    local status = run.paused and LJ.L("STATUS_IDLE")
+        or (active == run and (LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("DETAIL_ENDED"))
+        or LJ.L(run.closedReason == "all-bosses-cleared" and "DETAIL_CLOSED" or "DETAIL_ENDED"))
     if run.closedReason == "manual" then
         status = LJ.L("RUN_FINISH_MANUAL")
     end

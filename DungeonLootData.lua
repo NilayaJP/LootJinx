@@ -1,4 +1,4 @@
--- Curated item ID/source index from ForeverDungeonJournal 2.0.9 (WoW Forever 1.60.1).
+-- Curated item ID/source index from ForeverDungeonJournal 2.0.12 (WoW Forever 1.60.1).
 -- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, and tools/wowhead_forever_loot.tsv.
 -- Reference data only: observations and client events decide whether an item actually dropped.
 -- Regenerate with tools/build_dungeon_loot.lua after reviewing upstream data changes.

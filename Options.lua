@@ -9,12 +9,6 @@ local W = LJ.Widgets
 local C = LJ.COLORS
 local MEDIA = "Interface\\AddOns\\LootJinx\\Media\\"
 
--- Muss zu den Klammerungen in Core/UI/JournalUI passen.
-local SCALE_MIN, SCALE_MAX = 0.80, 1.30
-local function scalePercent(value)
-    return math.floor(value * 100 + 0.5)
-end
-
 -- SettingsPanel/OpenSettingsPanel sind geschützt: im Kampf loest der Aufruf
 -- ein ADDON_ACTION_BLOCKED aus. pcall verhindert nur den Lua-Fehler, nicht die
 -- Meldung des Clients, daher muessen diese Aufrufe vorher ausbleiben.
@@ -37,7 +31,7 @@ local function versionText()
 end
 
 local function applyOption(key)
-    if key == "compact" or key == "showWatermark" then
+    if key == "compact" then
         if LJ.UI and LJ.UI.ApplyDisplayOptions then LJ.UI:ApplyDisplayOptions() end
     end
 end
@@ -80,7 +74,7 @@ local function showReloadPopup()
     StaticPopup_Show("LOOTJINX_RELOAD")
 end
 
-local function createCheck(parent, key, labelText, hintText, y)
+local function createCheck(parent, key, labelText, hintText, y, onChange)
     local check = CreateFrame("CheckButton", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     check:SetSize(18, 18)
     check:SetPoint("TOPLEFT", 14, y)
@@ -126,6 +120,7 @@ local function createCheck(parent, key, labelText, hintText, y)
         LJ.DB[key] = checked
         self.check:SetShown(checked)
         applyOption(key)
+        if onChange then onChange(checked) end
     end)
 
     -- Die gesamte Zeile ist klickbar, nicht nur die kleine Checkbox.
@@ -154,7 +149,7 @@ end
 local function buildPanel()
     panel = CreateFrame("Frame", "LootJinxOptionsPanel")
     panel.name = LJ.L("OPTIONS_TAB")
-    panel:SetSize(600, 680)
+    panel:SetSize(600, 600)
     panel:SetScript("OnShow", function() O:Refresh() end)
     panel:SetScript("OnHide", function()
         if controls.layoutMenu then controls.layoutMenu:Hide() end
@@ -164,7 +159,7 @@ local function buildPanel()
 
     local header = W:Card(panel)
     header:SetPoint("TOPLEFT", 16, -16)
-    header:SetSize(568, 72)
+    header:SetSize(568, 64)
 
     local iconFrame = W:Panel(header, "BACKGROUND")
     iconFrame:SetSize(38, 38)
@@ -188,89 +183,43 @@ local function buildPanel()
     version:SetText(versionText())
 
     local window = W:Card(panel)
-    window:SetPoint("TOPLEFT", 16, -100)
-    window:SetSize(568, 112)
+    window:SetPoint("TOPLEFT", 16, -88)
+    window:SetSize(568, 64)
 
     local windowTitle = W:Font(window, 9, C.accent, "OUTLINE")
     windowTitle:SetPoint("TOPLEFT", 14, -10)
     windowTitle:SetText(LJ.L("OPT_WINDOW"))
 
-    local scaleLabel = W:Font(window, 10, C.text, "")
-    scaleLabel:SetPoint("TOPLEFT", 14, -28)
-    scaleLabel:SetText(LJ.L("OPT_SCALE"))
-
-    local scaleValue = W:Font(window, 12, C.accent, "OUTLINE")
-    scaleValue:SetPoint("TOPLEFT", 330, -40)
-
-    local scale = CreateFrame("Slider", nil, window, "OptionsSliderTemplate")
-    scale:SetPoint("TOPLEFT", 14, -48)
-    scale:SetWidth(300)
-    scale:SetMinMaxValues(SCALE_MIN, SCALE_MAX)
-    scale:SetValueStep(0.05)
-    scale:SetObeyStepOnDrag(true)
-    if scale.Text then scale.Text:SetText("") end
-    if scale.Low then scale.Low:SetText(string.format("%d %%", scalePercent(SCALE_MIN))) end
-    if scale.High then scale.High:SetText(string.format("%d %%", scalePercent(SCALE_MAX))) end
-    scale:SetScript("OnValueChanged", function(self, value)
-        if controls.updating then return end
-        value = tonumber(value) or 1
-        value = math.floor(value * 20 + 0.5) / 20
-        if LJ.UI and LJ.UI.ApplyScale then
-            LJ.UI:ApplyScale(value)
-        elseif LJ.DB then
-            LJ.DB.scale = value
-        end
-        if controls.scaleValue then
-            controls.scaleValue:SetText(string.format("%d %%", math.floor(value * 100 + 0.5)))
-        end
-    end)
-    controls.scale = scale
-    controls.scaleValue = scaleValue
+    controls.compact = createCheck(window, "compact", LJ.L("OPT_COMPACT"), LJ.L("OPT_COMPACT_HINT"), -28)
 
     local reset = W:Button(window, LJ.L("OPT_RESET_POS"), 150, 22)
-    reset:SetPoint("TOPRIGHT", -14, -24)
+    reset:SetPoint("TOPRIGHT", -14, -28)
     reset:SetScript("OnClick", function()
         if LJ.UI and LJ.UI.ResetPosition then LJ.UI:ResetPosition() end
     end)
     W:Tooltip(reset, LJ.L("OPT_RESET_POS"), { LJ.L("OPT_RESET_HINT") })
 
-    local windowHint = W:Font(window, 8, C.dim, "")
-    windowHint:SetPoint("TOPLEFT", 14, -88)
-    windowHint:SetWidth(520)
-    windowHint:SetText(LJ.L("OPT_SCALE_RANGE", scalePercent(SCALE_MIN), scalePercent(SCALE_MAX)))
-
     local behavior = W:Card(panel)
-    behavior:SetPoint("TOPLEFT", 16, -224)
-    behavior:SetSize(568, 132)
+    behavior:SetPoint("TOPLEFT", 16, -160)
+    behavior:SetSize(568, 114)
 
     local behaviorTitle = W:Font(behavior, 9, C.accent, "OUTLINE")
     behaviorTitle:SetPoint("TOPLEFT", 14, -10)
     behaviorTitle:SetText(LJ.L("OPT_BEHAVIOR"))
 
-    controls.lock = createCheck(behavior, "locked", LJ.L("OPT_LOCK"), LJ.L("OPT_LOCK_HINT"), -30)
-    controls.welcome = createCheck(behavior, "showWelcome", LJ.L("OPT_WELCOME"), LJ.L("OPT_WELCOME_HINT"), -66)
-    controls.records = createCheck(behavior, "announceRecords", LJ.L("OPT_RECORDS"), LJ.L("OPT_RECORDS_HINT"), -102)
-
-    local appearance = W:Card(panel)
-    appearance:SetPoint("TOPLEFT", 16, -368)
-    appearance:SetSize(568, 96)
-
-    local appearanceTitle = W:Font(appearance, 9, C.accent, "OUTLINE")
-    appearanceTitle:SetPoint("TOPLEFT", 14, -10)
-    appearanceTitle:SetText(LJ.L("OPT_APPEARANCE"))
-
-    controls.watermark = createCheck(appearance, "showWatermark", LJ.L("OPT_WATERMARK"), LJ.L("OPT_WATERMARK_HINT"), -30)
-    controls.compact = createCheck(appearance, "compact", LJ.L("OPT_COMPACT"), LJ.L("OPT_COMPACT_HINT"), -66)
+    controls.lock = createCheck(behavior, "locked", LJ.L("OPT_LOCK"), LJ.L("OPT_LOCK_HINT"), -26)
+    controls.welcome = createCheck(behavior, "showWelcome", LJ.L("OPT_WELCOME"), LJ.L("OPT_WELCOME_HINT"), -54)
+    controls.records = createCheck(behavior, "announceRecords", LJ.L("OPT_RECORDS"), LJ.L("OPT_RECORDS_HINT"), -82)
 
     local layoutCard = W:Card(panel)
-    layoutCard:SetPoint("TOPLEFT", 16, -476)
-    layoutCard:SetSize(568, 76)
+    layoutCard:SetPoint("TOPLEFT", 16, -282)
+    layoutCard:SetSize(568, 68)
     local layoutTitle = W:Font(layoutCard, 9, C.accent, "OUTLINE")
-    layoutTitle:SetPoint("TOPLEFT", 14, -10)
+    layoutTitle:SetPoint("TOPLEFT", 14, -8)
     layoutTitle:SetText(LJ.L("OPT_LAYOUT"))
 
-    local dropdown = W:Button(layoutCard, "", 322, 25)
-    dropdown:SetPoint("TOPLEFT", 14, -31)
+    local dropdown = W:Button(layoutCard, "", 322, 24)
+    dropdown:SetPoint("TOPLEFT", 14, -26)
     local arrow = W:Font(dropdown, 12, C.text, "")
     arrow:SetPoint("RIGHT", -10, 0)
     arrow:SetText("v")
@@ -295,19 +244,19 @@ local function buildPanel()
     controls.layoutDropdown, controls.layoutMenu = dropdown, menu
     controls.layoutClassic, controls.layoutJournal = classic, journal
     local layoutHint = W:Font(layoutCard, 8, C.dim, "")
-    layoutHint:SetPoint("TOPLEFT", 14, -61)
+    layoutHint:SetPoint("TOPLEFT", 14, -52)
     layoutHint:SetWidth(530)
     layoutHint:SetText(LJ.L("OPT_LAYOUT_HINT"))
 
     local languageCard = W:Card(panel)
-    languageCard:SetPoint("TOPLEFT", 16, -564)
-    languageCard:SetSize(568, 76)
+    languageCard:SetPoint("TOPLEFT", 16, -358)
+    languageCard:SetSize(568, 68)
     local languageTitle = W:Font(languageCard, 9, C.accent, "OUTLINE")
-    languageTitle:SetPoint("TOPLEFT", 14, -10)
+    languageTitle:SetPoint("TOPLEFT", 14, -8)
     languageTitle:SetText(LJ.L("OPT_LANGUAGE"))
 
-    local langDropdown = W:Button(languageCard, "", 322, 25)
-    langDropdown:SetPoint("TOPLEFT", 14, -31)
+    local langDropdown = W:Button(languageCard, "", 322, 24)
+    langDropdown:SetPoint("TOPLEFT", 14, -26)
     local langArrow = W:Font(langDropdown, 12, C.text, "")
     langArrow:SetPoint("RIGHT", -10, 0)
     langArrow:SetText("v")
@@ -332,12 +281,32 @@ local function buildPanel()
     controls.langDropdown, controls.langMenu = langDropdown, langMenu
     controls.langButtons = langButtons
     local languageHint = W:Font(languageCard, 8, C.dim, "")
-    languageHint:SetPoint("TOPLEFT", 14, -61)
+    languageHint:SetPoint("TOPLEFT", 14, -52)
     languageHint:SetWidth(530)
     languageHint:SetText(LJ.L("OPT_LANGUAGE_HINT"))
 
+    local leaderboard = W:Card(panel)
+    leaderboard:SetPoint("TOPLEFT", 16, -434)
+    leaderboard:SetSize(568, 76)
+    local leaderboardTitle = W:Font(leaderboard, 9, C.accent, "OUTLINE")
+    leaderboardTitle:SetPoint("TOPLEFT", 14, -8)
+    leaderboardTitle:SetText(LJ.L("LEADERBOARD_TITLE"))
+
+    controls.leaderboard = createCheck(leaderboard, "leaderboardConsent",
+        LJ.L("OPT_LEADERBOARD"), LJ.L("OPT_LEADERBOARD_HINT"), -26,
+        function(checked)
+            if LJ.Leaderboard then LJ.Leaderboard:SetConsent(checked) end
+        end)
+    W:Tooltip(controls.leaderboard, LJ.L("OPT_LEADERBOARD"),
+        { LJ.L("OPT_LEADERBOARD_TT") })
+
+    controls.leaderboardStatus = W:Font(leaderboard, 8, C.dim, "")
+    controls.leaderboardStatus:SetPoint("TOPLEFT", 40, -56)
+    controls.leaderboardStatus:SetWidth(510)
+    controls.leaderboardStatus:SetText("")
+
     local footer = W:Font(panel, 9, C.muted, "")
-    footer:SetPoint("TOPLEFT", 18, -654)
+    footer:SetPoint("TOPLEFT", 18, -520)
     footer:SetWidth(560)
     footer:SetText(LJ.L("OPT_FOOTER"))
 end
@@ -375,17 +344,16 @@ end
 
 function O:Refresh()
     if not panel or not LJ.DB then return end
-    controls.updating = true
-    if controls.scale then controls.scale:SetValue(LJ.DB.scale or 1) end
-    controls.updating = false
-    if controls.scaleValue then
-        controls.scaleValue:SetText(string.format("%d %%", math.floor((LJ.DB.scale or 1) * 100 + 0.5)))
-    end
     if controls.lock then setCheck(controls.lock, LJ.DB.locked) end
     if controls.welcome then setCheck(controls.welcome, LJ.DB.showWelcome) end
     if controls.records then setCheck(controls.records, LJ.DB.announceRecords) end
-    if controls.watermark then setCheck(controls.watermark, LJ.DB.showWatermark ~= false) end
     if controls.compact then setCheck(controls.compact, LJ.DB.compact) end
+    if controls.leaderboard then
+        setCheck(controls.leaderboard, LJ.DB.leaderboardConsent == true)
+    end
+    if controls.leaderboardStatus then
+        controls.leaderboardStatus:SetText(LJ.Leaderboard and LJ.Leaderboard:StatusText() or "")
+    end
     if controls.layoutDropdown then
         controls.layoutDropdown.label:SetText(LJ.L(LJ.DB.layoutPreview == "journal"
             and "OPT_LAYOUT_JOURNAL" or "OPT_LAYOUT_CLASSIC"))

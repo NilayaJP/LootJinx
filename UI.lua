@@ -168,11 +168,11 @@ local function createNeedCard()
     artTexture:SetPoint("BOTTOMRIGHT", -2, 2)
     artTexture:SetTexture(MEDIA .. "NeedRolls")
 
-    needCard.title = W:Font(needCard, 9, C.accent, "OUTLINE")
+    needCard.title = W:Font(needCard, 10, C.accent, "OUTLINE")
     needCard.title:SetPoint("TOPLEFT", 62, -10)
     needCard.title:SetText(LJ.L("CARD_NEED"))
 
-    needCard.value = W:Font(needCard, 27, C.text, "OUTLINE")
+    needCard.value = W:Font(needCard, 28, C.text, "OUTLINE")
     needCard.value:SetPoint("TOPLEFT", 62, -23)
     needCard.value:SetText("0")
 
@@ -180,22 +180,23 @@ local function createNeedCard()
     needCard.context:SetPoint("LEFT", needCard.value, "RIGHT", 12, -2)
     needCard.context:SetText(LJ.L("CARD_OF_RUNS", 0))
 
-    needCard.sub = W:Font(needCard, 10, C.muted, "")
-    needCard.sub:SetPoint("TOPLEFT", 63, -58)
+    needCard.sub = W:Font(needCard, 11, C.text, "")
+    needCard.sub:SetPoint("TOPLEFT", 63, -56)
     needCard.sub:SetText(LJ.L("CARD_NEED_NO_DATA"))
 
-    needCard.pct = W:Font(needCard, 9, C.dim, "")
-    needCard.pct:SetPoint("TOPLEFT", 63, -102)
-
-    needCard.bar = W:Bar(needCard, 5, C.green, C.cyan)
-    needCard.bar:SetPoint("TOPLEFT", 62, -96)
+    needCard.bar = W:Bar(needCard, 6, C.green, C.cyan)
+    needCard.bar:SetPoint("TOPLEFT", 62, -78)
     needCard.bar:SetWidth(372)
+
+    needCard.pct = W:Font(needCard, 11, C.cyan, "OUTLINE")
+    needCard.pct:SetPoint("TOPLEFT", 63, -89)
+    needCard.pct:SetText(LJ.L("NO_DATA"))
 
     local divider = W:Divider(needCard, true)
     divider:SetPoint("TOPLEFT", 440, -18)
     divider:SetHeight(62)
 
-    needCard.streakLabel = W:Font(needCard, 8, C.muted, "")
+    needCard.streakLabel = W:Font(needCard, 9, C.muted, "")
     needCard.streakLabel:SetPoint("TOPLEFT", 454, -18)
     needCard.streakLabel:SetWidth(60)
     needCard.streakLabel:SetJustifyH("CENTER")
@@ -207,7 +208,7 @@ local function createNeedCard()
     needCard.streakValue:SetJustifyH("CENTER")
     needCard.streakValue:SetText("0")
 
-    needCard.recordLabel = W:Font(needCard, 8, C.muted, "")
+    needCard.recordLabel = W:Font(needCard, 9, C.muted, "")
     needCard.recordLabel:SetPoint("TOPLEFT", 526, -18)
     needCard.recordLabel:SetWidth(60)
     needCard.recordLabel:SetJustifyH("CENTER")
@@ -242,7 +243,7 @@ local function createMini(parent, x, title, sub, tooltipTitle, tooltipLines, ico
         tex:SetTexture(iconTexture)
     end
 
-    card.title = W:Font(card, 8, C.accent, "OUTLINE")
+    card.title = W:Font(card, 9, C.accent, "OUTLINE")
     card.title:SetPoint("TOPLEFT", 12, -10)
     card.title:SetText(title)
 
@@ -250,13 +251,13 @@ local function createMini(parent, x, title, sub, tooltipTitle, tooltipLines, ico
     card.value:SetPoint("TOPLEFT", 12, -22)
     card.value:SetText("0")
 
-    card.sub = W:Font(card, 9, C.muted, "")
+    card.sub = W:Font(card, 10, C.muted, "")
     card.sub:SetPoint("TOPLEFT", 12, -53)
     card.sub:SetWidth(168)
     card.sub:SetJustifyV("TOP")
     card.sub:SetText(sub)
 
-    card.footer = W:Font(card, 9, C.muted, "")
+    card.footer = W:Font(card, 10, C.muted, "")
     card.footer:SetPoint("TOPLEFT", 12, -89)
     card.footer:SetWidth(168)
     card.footer:SetText("")
@@ -267,7 +268,7 @@ local function createMini(parent, x, title, sub, tooltipTitle, tooltipLines, ico
         lines[#lines + 1] = " "
         lines[#lines + 1] = LJ.L("TT_MINI_HISTORY")
         -- Sichtbarer Hinweis, dass die Karte den passenden Verlauf oeffnet.
-        card.hint = W:Font(card, 8, C.accent, "OUTLINE")
+        card.hint = W:Font(card, 9, C.accent, "OUTLINE")
         card.hint:SetPoint("TOPRIGHT", -11, -40)
         card.hint:SetJustifyH("RIGHT")
         card.hint:SetText(LJ.L("MINI_HISTORY_LINK"))
@@ -430,15 +431,15 @@ local function createRecent()
         row.bar = row:CreateTexture(nil, "ARTWORK")
         row.bar:SetSize(2, 14)
         row.bar:SetPoint("LEFT", 0, 0)
-        row.name = W:Font(row, 10, C.text, "")
+        row.name = W:Font(row, 11, C.text, "")
         row.name:SetPoint("LEFT", 10, 0)
         row.name:SetWidth(260)
         row.name:SetWordWrap(false)
-        row.badges = W:Font(row, 9, C.muted, "")
+        row.badges = W:Font(row, 10, C.muted, "")
         row.badges:SetPoint("LEFT", 274, 0)
         row.badges:SetWidth(220)
         row.badges:SetWordWrap(false)
-        row.date = W:Font(row, 9, C.dim, "")
+        row.date = W:Font(row, 10, C.muted, "")
         row.date:SetPoint("RIGHT", 0, 0)
         row.date:SetWidth(62)
         row.date:SetJustifyH("RIGHT")
@@ -475,17 +476,17 @@ local function createFooter()
 
     local footer = W:Font(frame, 9, C.muted, "")
     footer:SetPoint("BOTTOMLEFT", 16, 16)
-    footer:SetWidth(310)
+    footer:SetWidth(230)
     footer:SetWordWrap(false)
     frame.footer = footer
 
     compactLatest = CreateFrame("Button", nil, frame)
-    compactLatest:SetSize(310, 20)
+    compactLatest:SetSize(230, 20)
     compactLatest:SetPoint("BOTTOMLEFT", 16, 14)
     compactLatest:RegisterForClicks("LeftButtonUp")
     compactLatest.label = W:Font(compactLatest, 10, C.text, "")
     compactLatest.label:SetPoint("LEFT", 0, 0)
-    compactLatest.label:SetWidth(310)
+    compactLatest.label:SetWidth(230)
     compactLatest.label:SetWordWrap(false)
     compactLatest:SetScript("OnEnter", function(self)
         self.label:SetTextColor(C.accent[1], C.accent[2], C.accent[3])
@@ -500,12 +501,22 @@ local function createFooter()
     UI.compactLatest = compactLatest
 
     local history = W:Button(frame, LJ.L("HISTORY"), 72, 20)
-    history:SetPoint("BOTTOMRIGHT", -228, 14)
+    history:SetPoint("BOTTOMRIGHT", -236, 14)
     history:SetScript("OnClick", function() if LJ.History then LJ.History:Show() end end)
     UI.historyButton = history
 
+    local leaderboard = W:Button(frame, LJ.L("LEADERBOARD_BUTTON"), 72, 20)
+    leaderboard:SetPoint("BOTTOMRIGHT", -312, 14)
+    leaderboard:SetScript("OnClick", function()
+        if LJ.LeaderboardUI then LJ.LeaderboardUI:Show("classic") end
+    end)
+    W:Tooltip(leaderboard, LJ.L("LEADERBOARD_TITLE"), {
+        LJ.L("LEADERBOARD_EMPTY_HINT"),
+    })
+    UI.leaderboardButton = leaderboard
+
     local report = W:Button(frame, LJ.L("REPORT"), 72, 20)
-    report:SetPoint("BOTTOMRIGHT", -148, 14)
+    report:SetPoint("BOTTOMRIGHT", -156, 14)
     local reportIcon = report:CreateTexture(nil, "ARTWORK")
     reportIcon:SetSize(14, 14)
     reportIcon:SetPoint("LEFT", 3, 0)
@@ -514,14 +525,20 @@ local function createFooter()
     W:Tooltip(report, LJ.L("REPORT_TITLE"), { LJ.L("TT_REPORT_1") })
 
     local help = W:Button(frame, LJ.L("HELP"), 58, 20)
-    help:SetPoint("BOTTOMRIGHT", -82, 14)
+    help:SetPoint("BOTTOMRIGHT", -90, 14)
     help:SetScript("OnClick", function() LJ:PrintHelp() end)
     W:Tooltip(help, LJ.L("HELP"), { LJ.L("CHAT_HELP_2"), LJ.L("CHAT_HELP_3"), LJ.L("CHAT_HELP_4") })
 
     local reset = W:Button(frame, LJ.L("RESET"), 58, 20)
-    reset:SetPoint("BOTTOMRIGHT", -16, 14)
+    reset:SetPoint("BOTTOMRIGHT", -24, 14)
     reset:SetScript("OnClick", function() UI:ConfirmReset() end)
     W:Tooltip(reset, LJ.L("RESET"), { LJ.L("RESET_POPUP_TEXT") })
+
+    UI.resizeGrip = W:ResizeGrip(frame, function(scale)
+        UI:ApplyScale(scale)
+    end, function()
+        UI:ApplyScale(1.0)
+    end)
 end
 
 -- Teilen-Dialog: Partychat oder Whisper an einen eingegebenen Namen.
@@ -622,14 +639,6 @@ local function createFrame()
     top:SetPoint("TOPRIGHT", -1, -1)
     top:SetHeight(2)
     W:SetGradient(top, true, C.accent, C.cyan)
-
-    local watermark = frame:CreateTexture(nil, "BACKGROUND")
-    watermark:SetPoint("BOTTOMRIGHT", -18, 44)
-    watermark:SetSize(110, 110)
-    watermark:SetTexture(MEDIA .. "LootJinxIcon")
-    watermark:SetBlendMode("ADD")
-    watermark:SetAlpha(0.08)
-    frame.watermark = watermark
 
     local function safe(label, fn)
         local ok, err = pcall(fn)
@@ -985,8 +994,8 @@ end
 function UI:ApplyScale(scale)
     if not LJ.DB then return end
     scale = tonumber(scale) or LJ.DB.scale or 1
-    if scale < 0.80 then scale = 0.80 end
-    if scale > 1.30 then scale = 1.30 end
+    if scale < 0.40 then scale = 0.40 end
+    if scale > 3.00 then scale = 3.00 end
     LJ.DB.scale = scale
     applyScale()
     applyPosition()
@@ -1002,7 +1011,6 @@ function UI:ApplyDisplayOptions()
     if recentCard then recentCard:SetShown(not compact) end
     if compactLatest then compactLatest:SetShown(compact and compactLatest.run ~= nil) end
     if frame.footer then frame.footer:SetShown(not compact or not compactLatest or compactLatest.run == nil) end
-    if frame.watermark then frame.watermark:SetShown(LJ.DB.showWatermark ~= false) end
     if LJ.Options and LJ.Options.Refresh then pcall(LJ.Options.Refresh, LJ.Options) end
 end
 
@@ -1022,6 +1030,7 @@ function LJ:PrintHelp()
     LJ:Print(LJ.L("CHAT_HELP_4"))
     LJ:Print(LJ.L("CHAT_HELP_5"))
     LJ:Print(LJ.L("CHAT_HELP_6"))
+    LJ:Print("/lj leaderboard - " .. LJ.L("CHAT_BOARD"))
 end
 
 function LJ:HandleCommand(msg)
@@ -1034,6 +1043,12 @@ function LJ:HandleCommand(msg)
         if LJ.UI then LJ.UI:ConfirmReset() end
     elseif cmd == "help" then
         LJ:PrintHelp()
+    elseif cmd == "leaderboard" then
+        if LJ.LeaderboardUI then
+            LJ.LeaderboardUI:Show()
+        else
+            LJ:Print(LJ.L("LEADERBOARD_STATUS_UNAVAILABLE"))
+        end
     elseif cmd == "options" or cmd == "settings" then
         if LJ.Options then
             LJ.Options:Open()
@@ -1057,7 +1072,7 @@ function LJ:HandleCommand(msg)
         end
     elseif cmd == "scale" then
         local value = tonumber(rest)
-        if value and value >= 0.80 and value <= 1.30 then
+        if value and value >= 0.40 and value <= 3.00 then
             if LJ.UI then LJ.UI:ApplyScale(value) end
             LJ:Print(LJ.L("CHAT_SCALE_SET", value))
         else

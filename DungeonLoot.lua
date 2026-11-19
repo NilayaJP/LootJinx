@@ -57,6 +57,18 @@ local function indexData()
             end
         end
     end
+    for _, val in pairs(BY_INSTANCE) do
+        if type(val) == "string" then
+            byLowerName[val:lower()] = val
+        elseif type(val) == "table" then
+            for _, sub in ipairs(val) do
+                byLowerName[sub:lower()] = sub
+            end
+        end
+    end
+    for dungeonName in pairs(LJ.DungeonCompletionData or {}) do
+        byLowerName[dungeonName:lower()] = dungeonName
+    end
 end
 
 local function candidates(run)
