@@ -15,6 +15,10 @@ local MAX_TIMELINE_EVENTS = 24
 local LOGIN_STALE_OUTSIDE_SECONDS = 6 * 60 * 60
 local EXIT_SETTLE_SECONDS = 3
 local RESUME_SECONDS = 5 * 60
+-- Ein Loot-Fenster kann fuer dieselbe Leiche mehrfach geoeffnet werden. Solche
+-- Wiederholungen sind kein neuer Drop, sondern zeigen das bereits gelootete
+-- (oder liegengelassene) Item erneut an.
+local LOOT_WINDOW_ECHO_SECONDS = 5 * 60
 
 local inside = false
 local blocked = false
@@ -1051,8 +1055,16 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
         local sources = d.sources or { [d.source or "unknown"] = true }
         local age = at - (d.at or 0)
         local mergeAge = (source == "roll" or sources.roll) and 180 or 30
-        if d.id == id and age >= 0 and age <= mergeAge
-            and (not sources[source] or (rollID and d.rollID == rollID)
+        -- Dasselbe Loot-Fenster erneut geoeffnet (oder eine Leiche mit bereits
+        -- bekanntem Empfaenger erneut angesehen): das Item wurde schon erfasst
+        -- und darf keinen zweiten Eintrag mit unbekanntem Empfaenger erzeugen.
+        local windowAge = at - (tonumber(d.lastWindowAt) or tonumber(d.at) or 0)
+        local echo = source == "loot-window" and not rollID
+            and (sources["loot-window"] == true or d.winner ~= nil)
+            and windowAge >= 0 and windowAge <= LOOT_WINDOW_ECHO_SECONDS
+        local within = echo or (age >= 0 and age <= mergeAge)
+        if d.id == id and within
+            and (echo or not sources[source] or (rollID and d.rollID == rollID)
                 or (repeatedWindowMatch and d.rollID))
             and (not rollID or not d.rollID or d.rollID == rollID) then
             local sameWinner = not d.winner or not winner
@@ -1062,6 +1074,10 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
                 local changed = false
                 d.sources = sources
                 sources[source] = true
+                if source == "loot-window" and d.lastWindowAt ~= at then
+                    d.lastWindowAt = at
+                    changed = true
+                end
                 if winner and not d.winner then
                     d.winner = winner
                     d.winnerSource = source
@@ -1408,7 +1424,14 @@ end
 function T:NoteSeenDrop(link, source, rollID)
     local run = activeRun()
     if not run then return false end
-    return noteDrop(run, link, nil, nil, source or "seen", nil, nil, nil, nil, rollID)
+    source = source or "seen"
+    -- Quest items are neither loot nor counted. A window sighting without a
+    -- recipient would only add a nameless drop line to the run details.
+    if source == "loot-window" and not rollID then
+        local ok, info = pcall(LJ.ClassifyItem, LJ, link)
+        if ok and info and info.quest then return false end
+    end
+    return noteDrop(run, link, nil, nil, source, nil, nil, nil, nil, rollID)
 end
 
 function T:OnBossEvent(event, ...)

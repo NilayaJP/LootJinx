@@ -415,6 +415,15 @@ end
 local function buildLines(run)
     local lines = {}
     addCompletionLines(lines, run)
+    -- Need-Ergebnisse direkt oben zeigen; einzelne Drops verlinken ihre Need
+    -- weiterhin zusaetzlich in der Boss-Liste.
+    local needs = sortedNeeds(run)
+    if #needs > 0 then
+        lines[#lines + 1] = { kind = "section", name = LJ.L("DETAIL_NEED_SECTION") }
+        for i = 1, #needs do
+            lines[#lines + 1] = { kind = "need", need = needs[i] }
+        end
+    end
     local bosses = run.bosses or {}
     local byBoss = {}
     local trash = {}
@@ -495,12 +504,7 @@ local function buildLines(run)
             end
         end
         local needs = sortedNeeds(run)
-        if #needs > 0 then
-            lines[#lines + 1] = { kind = "section", name = LJ.L("DETAIL_NEED_SECTION") }
-            for i = 1, #needs do
-                lines[#lines + 1] = { kind = "need", need = needs[i] }
-            end
-        else
+        if #needs == 0 then
             lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_NO_NEEDS"), muted = true }
         end
     end

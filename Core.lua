@@ -132,6 +132,7 @@ local function normalizeDrop(d, fallbackAt)
         passed = d.passed == true,
         source = type(d.source) == "string" and d.source or nil,
         sources = type(d.sources) == "table" and d.sources or nil,
+        lastWindowAt = tonumber(d.lastWindowAt),
     }
 end
 
@@ -413,6 +414,39 @@ local function normalizeRun(run, fallbackID)
                 table.remove(cleanDrops, i)
             end
         end
+    end
+    -- Ein erneut geoeffnetes Loot-Fenster meldet dieselbe Leiche noch einmal.
+    -- Aeltere Versionen legten jede Wiederholung als eigenen Drop ohne
+    -- Empfaenger ab; solche Echos werden in den bereits belegten Drop gefaltet.
+    local windowEchoSeconds = 5 * 60
+    local lastWindowDrop = {}
+    local isEcho = {}
+    for i = 1, #cleanDrops do
+        local drop = cleanDrops[i]
+        local anchor = lastWindowDrop[drop.id]
+        local sighting = drop.source == "loot-window" and not drop.winner
+            and not drop.rollID and not drop.lootHistoryKey
+        if sighting and anchor and anchor.winner then
+            local at = tonumber(drop.at) or 0
+            local reference = tonumber(anchor.lastWindowAt) or tonumber(anchor.at) or 0
+            if at >= reference and at - reference <= windowEchoSeconds then
+                anchor.sources = anchor.sources or { [anchor.source or "unknown"] = true }
+                for source in pairs(drop.sources or {}) do anchor.sources[source] = true end
+                anchor.lastWindowAt = at
+                anchor.bossID = anchor.bossID or drop.bossID
+                anchor.bossName = anchor.bossName or drop.bossName
+                anchor.link = anchor.link or drop.link
+                anchor.passed = anchor.passed or drop.passed
+                isEcho[i] = true
+            else
+                lastWindowDrop[drop.id] = drop
+            end
+        else
+            lastWindowDrop[drop.id] = drop
+        end
+    end
+    for i = #cleanDrops, 1, -1 do
+        if isEcho[i] then table.remove(cleanDrops, i) end
     end
     -- Older versions trimmed the earliest drops in long runs. Loot History's
     -- keyed rolls and a link observed in that run can restore the missing item
