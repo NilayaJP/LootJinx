@@ -889,6 +889,10 @@ function T:OnNeedRoll(rollID, link)
             LJ:Changed()
             return
         end
+        -- Ohne Item-Link und ohne Roll-ID gibt es nichts, was sich spaeter
+        -- aufloesen liesse; der Eintrag bliebe dauerhaft "offen".
+        diag("need-chat-unlinked-skip", nil, "open=0")
+        return
     end
 
     if link then T:RecordItem(link, "need-roll") end
