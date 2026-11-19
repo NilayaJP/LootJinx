@@ -15,6 +15,13 @@ local function scalePercent(value)
     return math.floor(value * 100 + 0.5)
 end
 
+-- SettingsPanel/OpenSettingsPanel sind geschützt: im Kampf loest der Aufruf
+-- ein ADDON_ACTION_BLOCKED aus. pcall verhindert nur den Lua-Fehler, nicht die
+-- Meldung des Clients, daher muessen diese Aufrufe vorher ausbleiben.
+local function inCombat()
+    return type(InCombatLockdown) == "function" and InCombatLockdown() == true
+end
+
 local panel
 local registered = false
 local controls = {}
@@ -43,8 +50,10 @@ local function languageName(code)
 end
 
 local function closeOptionsPanel()
-    if SettingsPanel and SettingsPanel:IsShown() then SettingsPanel:Hide() end
-    if InterfaceOptionsFrame and InterfaceOptionsFrame:IsShown() then InterfaceOptionsFrame:Hide() end
+    if not inCombat() then
+        if SettingsPanel and SettingsPanel:IsShown() then SettingsPanel:Hide() end
+        if InterfaceOptionsFrame and InterfaceOptionsFrame:IsShown() then InterfaceOptionsFrame:Hide() end
+    end
     if panel and panel:IsShown() then panel:Hide() end
 end
 
@@ -408,6 +417,11 @@ function O:RefreshLanguage()
 end
 
 function O:Open()
+    if inCombat() then
+        -- Im Kampf geschützt: nicht aufrufen, sondern verständlich ablehnen.
+        LJ:Print(LJ.L("OPTIONS_COMBAT_LOCKED"))
+        return false
+    end
     if not panel then self:Create() end
     if not panel then
         LJ:Print(LJ.L("OPTIONS_UNAVAILABLE"))
