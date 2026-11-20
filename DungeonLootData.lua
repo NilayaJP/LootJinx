@@ -1,5 +1,6 @@
 -- Curated item ID/source index from ForeverDungeonJournal 2.1.0 (WoW Forever 1.60.1).
--- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, and tools/wowhead_forever_loot.tsv.
+-- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, tools/wowhead_forever_loot.tsv,
+-- and reviewed tools/foreverdb_loot_reviewed.tsv (Data from ForeverDB.net — https://foreverdb.net).
 -- Reference data only: observations and client events decide whether an item actually dropped.
 -- Regenerate with tools/build_dungeon_loot.lua after reviewing upstream data changes.
 local ADDON, ns = ...
@@ -29,11 +30,11 @@ LJ.DungeonLootData = {
         { "Trash Drops", true, { 286981, 286977, 286978, 286979, 286980 } },
     },
     ["The Deadmines"] = {
-        { "Rhahk'Zor", false, { 872, 5187, 273289, 251362, 251364, 253906, 251363 } },
+        { "Rhahk'Zor", false, { 872, 5187, 273289, 251362, 251364, 253906, 251363, 1930 } },
         { "Miner Johnson", false, { 5443, 5444 } },
         { "Sneed's Shredder", false, { 1937, 2169, 285292 } },
-        { "Sneed", false, { 5194, 5195, 273293, 273092, 251360, 251364, 253902, 251361 } },
-        { "Gilnid", false, { 1156, 5199, 273297, 252777, 252778, 252780, 252782, 253904, 253906, 273086, 251340, 251341, 251342, 251343, 251344, 252771, 252772, 252773, 252774, 252775, 252776, 253908 } },
+        { "Sneed", false, { 5194, 5195, 273293, 273092, 251360, 251364, 253902, 251361, 1945 } },
+        { "Gilnid", false, { 1156, 5199, 273297, 252777, 252778, 252780, 252782, 253904, 253906, 273086, 251340, 251341, 251342, 251343, 251344, 252771, 252772, 252773, 252774, 252775, 252776, 253908, 1944 } },
         { "Mr. Smite", false, { 7230, 5192, 5196, 284715, 251362, 252779, 252780, 252781, 252782 } },
         { "Captain Greenskin", false, { 5201, 10403, 5200 } },
         { "Edwin VanCleef", false, { 5193, 5202, 10399, 5191, 2874, 252799, 252800, 252801, 252803, 253938, 253948, 251345, 251346, 251347, 251348, 251349, 251383, 252792, 252793, 252794, 252795, 252796, 252797, 253940, 253942, 253944, 253946 } },

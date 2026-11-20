@@ -24,6 +24,11 @@ assert(load("local _, FDJ = ...\n" .. drownedLoot, "@QuestUpdates.lua:drownedloo
 local wowheadAdded, wowheadConflicts, wowheadSeen = assert(loadfile("tools/apply_wowhead_forever_loot.lua"))()(source)
 print(string.format("Wowhead Forever: %d reviewed references, %d added, %d conflicts", wowheadSeen, wowheadAdded, #wowheadConflicts))
 for _, conflict in ipairs(wowheadConflicts) do print("  conflict: " .. conflict) end
+local foreverAdded, foreverPresent, foreverConflicts, foreverSeen =
+    assert(loadfile("tools/apply_foreverdb_loot.lua"))()(source)
+print(string.format("ForeverDB.net: %d reviewed references, %d added, %d already present, %d conflicts",
+    foreverSeen, foreverAdded, foreverPresent, #foreverConflicts))
+for _, conflict in ipairs(foreverConflicts) do print("  conflict: " .. conflict) end
 assert(type(source.DB) == "table" and type(source.ORDER) == "table", "invalid source data")
 
 local function bossFlags()

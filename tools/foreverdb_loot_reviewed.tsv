@@ -1,0 +1,11 @@
+# Reviewed ForeverDB.net observations accepted into the LootJinx catalog.
+# Every row was checked by hand against tools/foreverdb_loot.tsv. Only items that
+# ForeverDB.net attributes to exactly one boss are accepted; world drops, quest
+# items, trade goods, keys, lockboxes and greens seen on several bosses are not.
+# Existing ForeverDungeonJournal sources always win: a row that contradicts them
+# is reported as a conflict and never overwrites the catalog.
+# Credit: Data from ForeverDB.net — https://foreverdb.net
+# Format: dungeon<TAB>boss<TAB>itemID<TAB>item name<TAB>observed drops<TAB>observed kills<TAB>page URL
+The Deadmines	Rhahk'Zor	1930	Stonemason Cloak	5	27	https://foreverdb.net/dungeon/36-deadmines
+The Deadmines	Gilnid	1944	Metalworking Gloves	4	27	https://foreverdb.net/dungeon/36-deadmines
+The Deadmines	Sneed	1945	Woodworking Gloves	3	27	https://foreverdb.net/dungeon/36-deadmines
