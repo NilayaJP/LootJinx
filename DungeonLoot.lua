@@ -93,6 +93,35 @@ function Catalog:Candidates(run)
     return candidates(run)
 end
 
+local displayKeys
+local function displayKey(name)
+    if not displayKeys then
+        displayKeys = {}
+        local function index(label, key)
+            label = label:gsub("’", "'"):lower()
+            local previous = displayKeys[label]
+            if previous == nil then displayKeys[label] = key
+            elseif previous ~= key then displayKeys[label] = false end
+        end
+        for key, translations in pairs(LJ.DungeonNames) do
+            index(key, key)
+            for _, label in pairs(translations) do index(label, key) end
+        end
+        index("The Temple of Atal'Hakkar", "Sunken Temple")
+        index("Temple of Atal'Hakkar", "Sunken Temple")
+    end
+    return displayKeys[(name:gsub("’", "'"):lower())]
+end
+
+function Catalog:DisplayName(run, language)
+    local name = type(run) == "table" and run.name
+    local possible = self:Candidates(run)
+    local key = possible and #possible == 1 and possible[1]
+        or (type(name) == "string" and displayKey(name))
+    local translations = LJ.DungeonNames[key]
+    if translations then return language == "en" and key or translations[language] end
+end
+
 function Catalog:Source(run, itemID)
     indexData()
     itemID = tonumber(itemID)

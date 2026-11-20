@@ -128,7 +128,7 @@ local function sortMatches(result, mode)
     if mode == "dateAsc" then
         cmp = function(a, b) return (tonumber(a.started) or 0) < (tonumber(b.started) or 0) end
     elseif mode == "name" then
-        cmp = function(a, b) return normalized(a.name) < normalized(b.name) end
+        cmp = function(a, b) return normalized(LJ:DungeonName(a)) < normalized(LJ:DungeonName(b)) end
     elseif mode == "wins" then
         cmp = function(a, b)
             local aw, al = needStats(a)
@@ -247,7 +247,7 @@ function H:ResolveDungeonKey(dungeon, runs, rememberedKey)
     local base = dungeon:gsub("%s+%b()%s*$", "")
     local found, ambiguous
     for _, option in ipairs(options) do
-        if option.name == base then
+        if option.name == base or option.displayName == base then
             if found == nil then
                 found = option.key
             elseif found ~= option.key then
@@ -302,12 +302,17 @@ function H:Filter(runs, query, dungeon, range, now, status, dungeonKey, focus)
     now = tonumber(now) or (LJ.Now and LJ.Now()) or 0
     local daysBack = ({ today = 0, week = 6, month = 29 })[range]
     local cutoff = daysBack and localDayStart(now, daysBack) or nil
-    local searchIDs = {}
+    local searchIDs, nameMatches = {}, {}
     if needle ~= "" then
         for _, candidate in ipairs(runs or {}) do
-            if type(candidate) == "table" and normalized(candidate.name):find(needle, 1, true) then
-                local key = dungeonIdentity(candidate)
-                if key then searchIDs[key] = true end
+            if type(candidate) == "table" then
+                local recordedMatch = normalized(candidate.name):find(needle, 1, true)
+                if recordedMatch then
+                    local key = dungeonIdentity(candidate)
+                    if key then searchIDs[key] = true end
+                end
+                nameMatches[candidate] = recordedMatch
+                    or normalized(LJ:DungeonName(candidate)):find(needle, 1, true)
             end
         end
     end
@@ -318,11 +323,10 @@ function H:Filter(runs, query, dungeon, range, now, status, dungeonKey, focus)
     local knownIDs = knownDungeonIDs(runs)
     for i = #(runs or {}), 1, -1 do
         local run = runs[i]
-        local name = type(run) == "table" and tostring(run.name or "") or ""
         local started = type(run) == "table" and tonumber(run.started) or nil
         if type(run) == "table" and (not dungeon or (selectedKey
             and filterKey(run, knownIDs) == selectedKey))
-            and (needle == "" or normalized(name):find(needle, 1, true)
+            and (needle == "" or nameMatches[run]
                 or searchIDs[dungeonIdentity(run)]
                 or needTextMatches(run, needle))
             and (not daysBack or (cutoff and started and started >= cutoff and started <= now))
@@ -385,15 +389,16 @@ function H:DungeonOptions(runs)
         local key = type(run) == "table" and filterKey(run, knownIDs) or nil
         if type(name) == "string" and name ~= "" and not seen[key] then
             seen[key] = true
-            nameCounts[name] = (nameCounts[name] or 0) + 1
-            options[#options + 1] = { run = run, name = name, key = key }
+            local displayName = LJ:DungeonName(run)
+            nameCounts[displayName] = (nameCounts[displayName] or 0) + 1
+            options[#options + 1] = { run = run, name = name, key = key, displayName = displayName }
         end
     end
     for _, option in ipairs(options) do
         local id = tonumber(option.run.instanceID)
-        option.label = nameCounts[option.name] > 1
-            and (option.name .. " (" .. (id and tostring(id) or LJ.L("HISTORY_LEGACY")) .. ")")
-            or option.name
+        option.label = nameCounts[option.displayName] > 1
+            and (option.displayName .. " (" .. (id and tostring(id) or LJ.L("HISTORY_LEGACY")) .. ")")
+            or option.displayName
     end
     table.sort(options, function(a, b) return normalized(a.label) < normalized(b.label) end)
     return options
@@ -545,6 +550,8 @@ function H:Create()
     self.search:SetPoint("TOPLEFT", 16, -64)
     self.search:SetAutoFocus(false)
     self.search:SetFontObject("GameFontNormal")
+    local _, searchFontSize, searchFontFlags = self.search:GetFont()
+    W:SetTextFont(self.search, searchFontSize or 12, searchFontFlags, false)
     self.search:SetTextInsets(8, 8, 0, 0)
     self.search:SetText("")
     self.search:SetScript("OnTextChanged", function(edit)
@@ -828,7 +835,7 @@ function H:ShowComparison(first, second)
     local data = self:ComparisonData(first, second)
     if not data or not self.comparePanel then return false end
     self.compareTitle:SetText(LJ.L("HISTORY_COMPARE_TITLE",
-        W:Truncate(data.name or LJ.L("UNKNOWN_DUNGEON"), 37)))
+        W:Truncate(LJ:DungeonName(first), 37)))
     self:ApplyTheme()
     for i, run in ipairs({ data.first, data.second }) do
         local column = self.compareValues[i]
@@ -939,7 +946,7 @@ function H:Refresh()
             else
                 row.status:Hide()
             end
-            local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 22)
+            local name = W:Truncate(LJ:DungeonName(run), 22)
             if key then
                 local sc = STATUS_COLORS[key] or LJ.COLORS.muted
                 name = name .. " · " .. hex(sc) .. LJ.L(key) .. "|r"

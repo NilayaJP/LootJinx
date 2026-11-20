@@ -46,8 +46,8 @@ local function font(parent, size, color, flagsOrText)
     return f
 end
 local function heading(parent, size, text)
-    local f = font(parent, size, P.gold, text)
-    if f.SetFont then pcall(f.SetFont, f, "Fonts\\MORPHEUS.TTF", size, "") end
+    local f = W:Font(parent, size, P.gold, nil, "Fonts\\MORPHEUS.TTF")
+    f:SetText(text)
     return f
 end
 local function button(parent, label, width, height)
@@ -186,7 +186,7 @@ local function makeReport(f)
     backdrop(edit, P.inset)
     edit:SetAutoFocus(false)
     edit:SetMaxLetters(64)
-    edit:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", 10, "")
+    W:SetTextFont(edit, 10)
     edit:SetTextInsets(8, 8, 0, 0)
     J.shareTarget = edit
     J.fields.shareError = font(popup, 9, P.red, "")
@@ -450,7 +450,7 @@ function J:Refresh()
             if totalNeeds > 0 then badges = LJ.L("BADGE_NEED", wins, totalNeeds) end
             if run.legacy then badges = badges .. (badges ~= "" and " · " or "") .. LJ.L("JOURNAL_LEGACY") end
             local marker = LJ:RunStatusMarker(run)
-            local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), marker and 24 or 36)
+            local name = W:Truncate(LJ:DungeonName(run), marker and 24 or 36)
             row.name:SetText(marker and (name .. " · " .. marker) or name)
             local rolls = LJ.RecentRolls:Summary(run)
             if rolls then badges = badges .. (badges ~= "" and " · " or "") .. rolls end

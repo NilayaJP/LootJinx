@@ -23,7 +23,6 @@ local JOURNAL = {
     dim = { 0.545, 0.460, 0.380, 1 },
 }
 local C = CLASSIC
-local FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local UNKNOWN_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
@@ -825,7 +824,7 @@ function M:Create()
 
     closeButton = W:Button(f, "×", 22, 22)
     closeButton:SetPoint("TOPRIGHT", -14, -14)
-    closeButton.label:SetFont(FONT, 15, "")
+    W:SetTextFont(closeButton.label, 15)
     closeButton.label:SetPoint("CENTER", 0, 1)
     closeButton:SetScript("OnClick", function() M:Hide() end)
     W:Tooltip(closeButton, LJ.L("CLOSE"), { LJ.L("CLOSE") })
@@ -1038,9 +1037,9 @@ function M:ApplyTheme(theme)
     eyebrow:SetTextColor(C.accent[1], C.accent[2], C.accent[3], 1)
     title:SetTextColor(C.text[1], C.text[2], C.text[3], 1)
     if theme == "journal" then
-        pcall(title.SetFont, title, "Fonts\\MORPHEUS.TTF", 19, "")
+        W:SetTextFont(title, 19, "", "Fonts\\MORPHEUS.TTF")
     else
-        title:SetFont(FONT, 17, "OUTLINE")
+        W:SetTextFont(title, 17, "OUTLINE")
     end
     subtitle:SetTextColor(C.muted[1], C.muted[2], C.muted[3], 1)
     summary:SetTextColor(C.text[1], C.text[2], C.text[3], 1)
@@ -1110,7 +1109,7 @@ end
 function M:Refresh()
     if not frame or not currentRun then return end
     local run = currentRun
-    title:SetText(W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 42))
+    title:SetText(W:Truncate(LJ:DungeonName(run), 42))
     local active = LJ.Tracker and LJ.Tracker.GetActive and LJ.Tracker:GetActive()
     local status = run.paused and LJ.L("STATUS_IDLE")
         or (active == run and (LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("DETAIL_ENDED"))

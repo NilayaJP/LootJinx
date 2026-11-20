@@ -8,7 +8,6 @@ LJ.UI = UI
 local W = LJ.Widgets
 local C = LJ.COLORS
 local WHITE = "Interface\\Buttons\\WHITE8X8"
-local FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 local MEDIA = "Interface\\AddOns\\LootJinx\\Media\\"
 
 local frame
@@ -133,7 +132,7 @@ local function createHeader()
     closeButton = W:Button(frame, "×", 22, 22)
     closeButton:SetPoint("TOPRIGHT", -14, -14)
     closeButton:SetFrameLevel(frame:GetFrameLevel() + 5)
-    closeButton.label:SetFont(FONT, 15, "")
+    W:SetTextFont(closeButton.label, 15)
     closeButton.label:SetPoint("CENTER", 0, 1)
     closeButton:SetScript("OnClick", function() frame:Hide() end)
     W:Tooltip(closeButton, LJ.L("CLOSE"), { LJ.L("CLOSE") })
@@ -318,7 +317,7 @@ function LJ:RunStatusMarker(run)
 end
 
 function LJ:CompactLatestText(run)
-    local name = W:Truncate(run.name or self.L("UNKNOWN_DUNGEON"), 22)
+    local name = W:Truncate(self:DungeonName(run), 22)
     local status = self:RunStatusMarker(run) or self.L("DETAIL_CLOSED")
     return self.L("COMPACT_LATEST", name, status)
 end
@@ -361,7 +360,7 @@ end
 local function runTooltip(row, run)
     if not GameTooltip then return end
     GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-    GameTooltip:AddLine(LJ.Widgets:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 44),
+    GameTooltip:AddLine(LJ.Widgets:Truncate(LJ:DungeonName(run), 44),
         C.accent[1], C.accent[2], C.accent[3], true)
     GameTooltip:AddLine(dateLabel(run), C.muted[1], C.muted[2], C.muted[3])
     GameTooltip:AddLine(" ")
@@ -552,7 +551,7 @@ local function createReportPopup()
 
     local close = W:Button(reportPopup, "×", 20, 20)
     close:SetPoint("TOPRIGHT", -10, -8)
-    close.label:SetFont(FONT, 14, "")
+    W:SetTextFont(close.label, 14)
     close.label:SetPoint("CENTER", 0, 1)
     close:SetScript("OnClick", function() reportPopup:Hide() end)
 
@@ -579,7 +578,7 @@ local function createReportPopup()
     end
     reportEdit:SetAutoFocus(false)
     reportEdit:SetMaxLetters(64)
-    reportEdit:SetFont(FONT, 10, "")
+    W:SetTextFont(reportEdit, 10)
     reportEdit:SetTextColor(C.text[1], C.text[2], C.text[3])
     reportEdit:SetTextInsets(8, 8, 0, 0)
     reportEdit:SetScript("OnEscapePressed", function(self)
@@ -781,7 +780,7 @@ local function refreshContent()
     end)
     if statusPill then
         if live and active then
-            statusPill:SetState(LJ.L("STATUS_LIVE") .. " · " .. W:Truncate(active.name, 18), C.green, C.green)
+            statusPill:SetState(LJ.L("STATUS_LIVE") .. " · " .. W:Truncate(LJ:DungeonName(active), 18), C.green, C.green)
         else
             statusPill:SetState(LJ.L("STATUS_READY"), C.muted, C.dim)
         end
@@ -858,7 +857,7 @@ local function refreshContent()
                 row.run = run
                 row.clickable = run.legacy ~= true
                 row:Show()
-                local name = W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 36)
+                local name = W:Truncate(LJ:DungeonName(run), 36)
                 if active == run then
                     local status = LJ:RunStatusMarker(run)
                         or (live and LJ.L("LIVE") or LJ.L("STATUS_READY"))

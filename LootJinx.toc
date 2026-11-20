@@ -1,6 +1,17 @@
 ## Interface: 16001
 ## Title: LootJinx
-## Notes: Dein Dungeon-Pech im Blick: Need-Rolls, Loot-Serien und Rekorde.
+## Notes: Track Need rolls, loot streaks, and dungeon records.
+## Notes-deDE: Dein Dungeon-Pech im Blick: Need-Rolls, Loot-Serien und Rekorde.
+## Notes-esES: Registra las tiradas de necesidad, las rachas de botín y los récords de mazmorras.
+## Notes-esMX: Registra las tiradas de necesidad, las rachas de botín y los récords de mazmorras.
+## Notes-frFR: Suivez vos jets de besoin, vos séries de butin et vos records de donjon.
+## Notes-itIT: Tieni traccia dei tiri di bisogno, delle serie di bottino e dei record nei sotterranei.
+## Notes-ptBR: Acompanhe rolagens de necessidade, sequências de saque e recordes de masmorras.
+## Notes-ptPT: Acompanha os lançamentos de necessidade, as séries de saque e os recordes de masmorras.
+## Notes-ruRU: Отслеживает броски «Нужно», серии добычи и рекорды в подземельях.
+## Notes-koKR: 입찰 주사위 결과, 전리품을 얻지 못한 연속 횟수, 던전 기록을 추적합니다.
+## Notes-zhCN: 追踪需求掷骰、连续拾取和地下城纪录。
+## Notes-zhTW: 追蹤需求擲骰、連續拾取和地城紀錄。
 ## Author: Zenyx
 ## Version: 1.7.2
 ## IconTexture: Interface\AddOns\LootJinx\Media\LootJinxIcon
