@@ -1,4 +1,4 @@
--- Curated item ID/source index from ForeverDungeonJournal 2.0.12 (WoW Forever 1.60.1).
+-- Curated item ID/source index from ForeverDungeonJournal 2.1.0 (WoW Forever 1.60.1).
 -- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, and tools/wowhead_forever_loot.tsv.
 -- Reference data only: observations and client events decide whether an item actually dropped.
 -- Regenerate with tools/build_dungeon_loot.lua after reviewing upstream data changes.
@@ -76,12 +76,6 @@ LJ.DungeonLootData = {
         { "Aku'mai", false, { 6911, 6910, 6909, 251376, 251377, 251378, 252821, 252824, 253980, 253984, 251379, 252820, 252822, 253982, 251375, 252823, 253986, 251350, 251351, 251352, 251353, 251354, 252814, 252815, 252816, 252817, 252818, 252819, 253976, 253978, 252512, 252455, 252456, 252514, 252515 } },
         { "Trash Drops", true, { 1454, 1481, 3413, 2567, 3414, 3415, 2271, 3417, 1491, 1486, 3416, 2034 } },
     },
-    ["Excavation Site: Wetlands"] = {
-        { "Saltspine", false, { 273024, 273022, 273023 } },
-        { "Shadetooth", false, { 273025, 273026, 273027, 273106 } },
-        { "Relic Guardian", false, { 273028, 273029, 273030, 270866, 273097 } },
-        { "Trash Drops", true, { 286982, 286983, 286984, 286985, 286986, 287068 } },
-    },
     ["The Stockade"] = {
         { "Targorr the Dread", false, { 273805, 273804, 273806, 251380, 251382, 253942, 251345, 251346, 251347, 251348, 251349, 252792, 252793, 252794, 252795, 252796, 252797, 253938, 253940, 253944, 253946, 253948 } },
         { "Kam Deepfury", false, { 2280, 273807, 273808, 251379, 252825, 252815, 251350, 251351, 251352, 251353, 251354, 252814, 252816, 252817, 252818, 252819, 253976, 253978, 253980, 253982, 253984, 253986, 252512, 252513, 252455, 252515 } },
@@ -90,6 +84,12 @@ LJ.DungeonLootData = {
         { "Bazil Thredd", false, { 273827, 273824, 273825, 273829, 252824, 253976, 253986, 251350, 251351, 251352, 251353, 251354, 252814, 252815, 252816, 252817, 252818, 252819, 253978, 253980, 253982, 253984, 252455, 252456, 252515 } },
         { "Bruegal Ironknuckle", false, { 3228, 2941, 2942, 251350, 251351, 251352, 251353, 251354, 252814, 252816, 252817, 252818, 252819, 253976, 253978, 253980, 253984, 253986 } },
         { "Trash Drops", true, { 274092, 1076 } },
+    },
+    ["Excavation Site: Wetlands"] = {
+        { "Saltspine", false, { 273024, 273022, 273023 } },
+        { "Shadetooth", false, { 273025, 273026, 273027, 273106 } },
+        { "Relic Guardian", false, { 273028, 273029, 273030, 270866, 273097 } },
+        { "Trash Drops", true, { 286982, 286983, 286984, 286985, 286986, 287068 } },
     },
     ["City of Dalaran"] = {
         { "Atrexis the Grave Knight", false, { 273032, 273036, 273033 } },
@@ -393,9 +393,9 @@ LJ.DungeonLootData = {
         { "Cinder", false, { 280029, 280028 } },
         { "Bolt", false, { 280031, 280032 } },
         { "Snowtalon", false, { 280026, 280027 } },
-        { "Vitrix", false, { 280031, 280028, 280032 } },
+        { "Vitrix", false, { 280032, 280026, 280031, 280029, 280027, 280028 } },
         { "Izha'Rel and Tor'Rel", false, { 280014, 280013, 280012 } },
         { "Nanaya", false, { 280023, 280025, 273128, 280024, 273116 } },
-        { "Trash Drops", true, { 287037, 287044, 287045 } },
+        { "Trash Drops", true, { 287037, 287044, 287045, 252938 } },
     },
 }
