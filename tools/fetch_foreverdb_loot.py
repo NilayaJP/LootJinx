@@ -9,9 +9,7 @@ tool never changes DungeonLootData.lua. ForeverDB pages are parsed instead of
 the key-protected API, so a layout change aborts the run without touching the
 previous snapshot.
 
-Credit: I will credit ForeverDB.net, with a visible link to
-https://foreverdb.net, wherever I show the data. I agree to the other rules
-below too.
+Credit: Data from ForeverDB.net — https://foreverdb.net
 """
 import html
 import os

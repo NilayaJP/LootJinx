@@ -4,9 +4,7 @@
 -- This tool never writes DungeonLootData.lua. Catalog changes still go through
 -- tools/review_dungeon_sources.lua and tools/build_dungeon_loot.lua.
 --
--- Credit: I will credit ForeverDB.net, with a visible link to
--- https://foreverdb.net, wherever I show the data. I agree to the other rules
--- below too.
+-- Credit: Data from ForeverDB.net — https://foreverdb.net
 
 local TSV = "tools/foreverdb_loot.tsv"
 local UNMAPPED = "tools/foreverdb_loot_unmapped.tsv"

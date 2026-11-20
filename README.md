@@ -50,7 +50,9 @@ Version 1.7.1 introduces smooth corner drag-resizing (40% to 300%) with right-cl
 
 The loot catalog is curated from ForeverDungeonJournal and reviewed against Wowhead Forever and [ForeverDB.net](https://foreverdb.net). ForeverDB is a build-time review source only: it is never loaded by the addon and never changes the catalog automatically.
 
-> I will credit ForeverDB.net, with a visible link to https://foreverdb.net, wherever I show the data. I agree to the other rules below too.
+Data from [ForeverDB.net](https://foreverdb.net).
+
+ForeverDB's free tier requires this credit wherever the data is shown; on the paid plan ($5.99 a month) it is optional.
 
 ## Detection limits
 
