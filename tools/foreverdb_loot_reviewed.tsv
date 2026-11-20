@@ -1,11 +1,12 @@
 # Reviewed ForeverDB.net observations accepted into the LootJinx catalog.
-# Every row was checked by hand against tools/foreverdb_loot.tsv. Only items that
-# ForeverDB.net attributes to exactly one boss are accepted; world drops, quest
-# items, trade goods, keys, lockboxes and greens seen on several bosses are not.
+# Check the item page for a direct NPC source before using dungeon-page
+# observations. Fight-level observations can include drops from nearby trash.
+# Exclude world drops without a direct dungeon source, quest items, trade goods,
+# keys, lockboxes and gear with ambiguous sources.
 # Existing ForeverDungeonJournal sources always win: a row that contradicts them
 # is reported as a conflict and never overwrites the catalog.
 # Credit: Data from ForeverDB.net — https://foreverdb.net
-# Format: dungeon<TAB>boss<TAB>itemID<TAB>item name<TAB>observed drops<TAB>observed kills<TAB>page URL
-The Deadmines	Rhahk'Zor	1930	Stonemason Cloak	5	27	https://foreverdb.net/dungeon/36-deadmines
-The Deadmines	Gilnid	1944	Metalworking Gloves	4	27	https://foreverdb.net/dungeon/36-deadmines
-The Deadmines	Sneed	1945	Woodworking Gloves	3	27	https://foreverdb.net/dungeon/36-deadmines
+# Format: dungeon<TAB>source group<TAB>itemID<TAB>item name<TAB>observed drops<TAB>observed kills<TAB>source URL
+The Deadmines	Trash Drops	1930	Stonemason Cloak			https://foreverdb.net/item/1930
+The Deadmines	Trash Drops	1944	Metalworking Gloves			https://foreverdb.net/item/1944
+The Deadmines	Trash Drops	1945	Woodworking Gloves			https://foreverdb.net/item/1945

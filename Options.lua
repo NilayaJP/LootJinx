@@ -51,30 +51,46 @@ local function closeOptionsPanel()
     if panel and panel:IsShown() then panel:Hide() end
 end
 
-local function showReloadPopup()
-    if not StaticPopupDialogs or not StaticPopup_Show then return end
+local function selectLanguage(code)
+    if not LJ.DB then return end
+    if LJ:LanguageFor(code) == LJ.lang then
+        LJ.DB.language = code
+        O:Refresh()
+        return
+    end
+    if inCombat() then
+        LJ:Print(LJ.L("OPT_LANGUAGE_COMBAT_LOCKED"))
+        return
+    end
+
+    local reload = (C_UI and C_UI.Reload) or ReloadUI
+    if type(reload) ~= "function" or type(StaticPopupDialogs) ~= "table"
+        or type(StaticPopup_Show) ~= "function" then return end
+
     StaticPopupDialogs["LOOTJINX_RELOAD"] = {
-        text = "A UI reload is required to apply the new language.",
-        button1 = "Accept",
-        button2 = "Decline",
-        OnAccept = function()
-            if C_UI and C_UI.Reload then
-                C_UI.Reload()
-            elseif ReloadUI then
-                ReloadUI()
+        text = LJ.L("OPT_LANGUAGE_RELOAD_CONFIRM", languageName(code)),
+        button1 = LJ.L("OPT_LANGUAGE_RELOAD"),
+        button2 = LJ.L("OPT_LANGUAGE_RELOAD_CANCEL"),
+        OnAccept = function(_, selectedCode)
+            if inCombat() then
+                LJ:Print(LJ.L("OPT_LANGUAGE_COMBAT_LOCKED"))
+                return
             end
+            if not LJ.DB or not selectedCode then return end
+            closeOptionsPanel()
+            LJ.DB.language = selectedCode
+            reload()
         end,
-        OnCancel = function() end,
         timeout = 0,
         whileDead = true,
         hideOnEscape = true,
         preferredIndex = 3,
         exclusive = 1,
     }
-    StaticPopup_Show("LOOTJINX_RELOAD")
+    StaticPopup_Show("LOOTJINX_RELOAD", nil, nil, code)
 end
 
-local function createCheck(parent, key, labelText, hintText, y, onChange)
+local function createCheck(parent, key, labelText, hintText, y)
     local check = CreateFrame("CheckButton", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     check:SetSize(18, 18)
     check:SetPoint("TOPLEFT", 14, y)
@@ -120,7 +136,6 @@ local function createCheck(parent, key, labelText, hintText, y, onChange)
         LJ.DB[key] = checked
         self.check:SetShown(checked)
         applyOption(key)
-        if onChange then onChange(checked) end
     end)
 
     -- Die gesamte Zeile ist klickbar, nicht nur die kleine Checkbox.
@@ -149,7 +164,7 @@ end
 local function buildPanel()
     panel = CreateFrame("Frame", "LootJinxOptionsPanel")
     panel.name = LJ.L("OPTIONS_TAB")
-    panel:SetSize(600, 600)
+    panel:SetSize(600, 524)
     panel:SetScript("OnShow", function() O:Refresh() end)
     panel:SetScript("OnHide", function()
         if controls.layoutMenu then controls.layoutMenu:Hide() end
@@ -271,8 +286,7 @@ local function buildPanel()
         b.code = loc.code
         b:SetScript("OnClick", function(self)
             langMenu:Hide()
-            LJ.DB.language = self.code
-            O:RefreshLanguage()
+            selectLanguage(self.code)
         end)
         langButtons[i] = b
     end
@@ -285,28 +299,8 @@ local function buildPanel()
     languageHint:SetWidth(530)
     languageHint:SetText(LJ.L("OPT_LANGUAGE_HINT"))
 
-    local leaderboard = W:Card(panel)
-    leaderboard:SetPoint("TOPLEFT", 16, -434)
-    leaderboard:SetSize(568, 76)
-    local leaderboardTitle = W:Font(leaderboard, 9, C.accent, "OUTLINE")
-    leaderboardTitle:SetPoint("TOPLEFT", 14, -8)
-    leaderboardTitle:SetText(LJ.L("LEADERBOARD_TITLE"))
-
-    controls.leaderboard = createCheck(leaderboard, "leaderboardConsent",
-        LJ.L("OPT_LEADERBOARD"), LJ.L("OPT_LEADERBOARD_HINT"), -26,
-        function(checked)
-            if LJ.Leaderboard then LJ.Leaderboard:SetConsent(checked) end
-        end)
-    W:Tooltip(controls.leaderboard, LJ.L("OPT_LEADERBOARD"),
-        { LJ.L("OPT_LEADERBOARD_TT") })
-
-    controls.leaderboardStatus = W:Font(leaderboard, 8, C.dim, "")
-    controls.leaderboardStatus:SetPoint("TOPLEFT", 40, -56)
-    controls.leaderboardStatus:SetWidth(510)
-    controls.leaderboardStatus:SetText("")
-
     local footer = W:Font(panel, 9, C.muted, "")
-    footer:SetPoint("TOPLEFT", 18, -520)
+    footer:SetPoint("TOPLEFT", 18, -444)
     footer:SetWidth(560)
     footer:SetText(LJ.L("OPT_FOOTER"))
 end
@@ -348,12 +342,6 @@ function O:Refresh()
     if controls.welcome then setCheck(controls.welcome, LJ.DB.showWelcome) end
     if controls.records then setCheck(controls.records, LJ.DB.announceRecords) end
     if controls.compact then setCheck(controls.compact, LJ.DB.compact) end
-    if controls.leaderboard then
-        setCheck(controls.leaderboard, LJ.DB.leaderboardConsent == true)
-    end
-    if controls.leaderboardStatus then
-        controls.leaderboardStatus:SetText(LJ.Leaderboard and LJ.Leaderboard:StatusText() or "")
-    end
     if controls.layoutDropdown then
         controls.layoutDropdown.label:SetText(LJ.L(LJ.DB.layoutPreview == "journal"
             and "OPT_LAYOUT_JOURNAL" or "OPT_LAYOUT_CLASSIC"))
@@ -361,27 +349,6 @@ function O:Refresh()
     if controls.langDropdown then
         controls.langDropdown.label:SetText(languageName(LJ.DB.language or "auto"))
     end
-end
-
-function O:RefreshLanguage()
-    if not LJ.DB then return end
-    local code = LJ.DB.language or "auto"
-    local before = LJ.lang
-    if LJ.SetLanguage then LJ:SetLanguage(code) end
-    if controls.langDropdown and controls.langDropdown.label then
-        controls.langDropdown.label:SetText(languageName(code))
-    end
-    -- "auto" kann auf die bereits aktive Sprache auflösen; dann reicht ein
-    -- Neuzeichnen der Optionen und es ist kein UI-Reload nötig.
-    if LJ.lang == before then
-        O:Refresh()
-        return
-    end
-    -- Reload() darf nur als Reaktion auf ein Hardware-Event (Klick) erfolgen, nicht
-    -- aus einem Timer. Daher Fenster schließen und ein Bestätigungspopup zeigen;
-    -- dessen Accept-Button ruft C_UI.Reload() im Klick-Kontext auf.
-    closeOptionsPanel()
-    showReloadPopup()
 end
 
 function O:Open()

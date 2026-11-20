@@ -4,14 +4,14 @@ Run from the repository root:
 
     python tools/fetch_foreverdb_loot.py <ForeverDungeonJournal/Data/Dungeons.lua>
 
-The TSV files are build-time review data. The addon never loads them, and this
-tool never changes DungeonLootData.lua. ForeverDB pages are parsed instead of
-the key-protected API, so a layout change aborts the run without touching the
-previous snapshot.
+The API supplies the dungeon index. The public dungeon pages supply boss-item
+links and observed drop counts, which the dungeon API does not expose.
+The TSV files are build-time review data for the existing catalog workflow.
 
 Credit: Data from ForeverDB.net — https://foreverdb.net
 """
 import html
+import json
 import os
 import re
 import subprocess
@@ -23,7 +23,8 @@ import urllib.request
 from pathlib import Path
 
 BASE = "https://foreverdb.net"
-INDEX = BASE + "/dungeons"
+API_DUNGEONS = "https://api.foreverdb.net/api/v1/dungeons"
+ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 OUT = Path("tools/foreverdb_loot.tsv")
 UNMAPPED_OUT = Path("tools/foreverdb_loot_unmapped.tsv")
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) LootJinx-source-review/1.0"
@@ -57,17 +58,70 @@ ITEM_ROW = re.compile(
 DROP_RATE = re.compile(r"dropped in (\d+) of (\d+) kills", re.I)
 
 
-def fetch(url):
+def api_key():
+    key = os.environ.get("FOREVERDB_API_KEY")
+    if not key and ENV_FILE.is_file():
+        for line in ENV_FILE.read_text(encoding="utf-8-sig").splitlines():
+            match = re.fullmatch(r"\s*(?:export\s+)?FOREVERDB_API_KEY\s*=\s*(.*?)\s*", line)
+            if match:
+                key = match[1].strip("'\"")
+                break
+    if not key or not re.fullmatch(r"[!-~]+", key):
+        raise RuntimeError("set FOREVERDB_API_KEY in .env or the environment")
+    return key
+
+
+def fetch(url, key=None):
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    last = None
+    if key:
+        request.add_unredirected_header("X-api-key", key)
     for attempt in range(3):
         try:
             with urllib.request.urlopen(request, timeout=25) as response:
-                return response.read().decode("utf-8", "replace")
-        except (urllib.error.URLError, TimeoutError) as error:
-            last = error
-            time.sleep(1.5 * (attempt + 1))
-    raise RuntimeError(f"cannot fetch {url}: {last}")
+                return response.read()
+        except urllib.error.HTTPError as error:
+            retry_after = error.headers.get("Retry-After", "")
+            if error.code == 429 and retry_after.isdecimal():
+                delay = int(retry_after)
+            else:
+                delay = 2 * (attempt + 1)
+            if error.code not in (429, 500, 502, 503, 504) or attempt == 2 or delay > 60:
+                raise RuntimeError(f"cannot fetch {url}: HTTP {error.code}") from None
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == 2:
+                raise RuntimeError(f"cannot connect to {url}") from None
+            delay = 2 * (attempt + 1)
+        time.sleep(delay)
+
+
+def list_dungeons(key):
+    dungeons = {}
+    build, total = None, None
+    while True:
+        offset = len(dungeons)
+        try:
+            response = json.loads(fetch(f"{API_DUNGEONS}?limit=100&offset={offset}", key))
+            page, meta = response["data"], response["meta"]
+            page_build, page_total = meta["build"], meta["total"]
+            if (not isinstance(page, list) or not page or not isinstance(page_build, str)
+                    or type(page_total) is not int or meta["offset"] != offset):
+                raise ValueError
+            if offset and (page_build, page_total) != (build, total):
+                raise ValueError
+            build, total = page_build, page_total
+            for dungeon in page:
+                dungeon_id, name, url = dungeon["id"], dungeon["name"], dungeon["url"]
+                if (type(dungeon_id) is not int or dungeon_id in dungeons
+                        or not isinstance(name, str) or not name.strip()
+                        or not re.fullmatch(rf"{re.escape(BASE)}/dungeon/{dungeon_id}-[a-z0-9-]+", url)):
+                    raise ValueError
+                dungeons[dungeon_id] = dungeon
+            if len(dungeons) > total or bool(meta["next"]) != (len(dungeons) < total):
+                raise ValueError
+        except (KeyError, TypeError, ValueError):
+            raise RuntimeError("unexpected ForeverDB API dungeon index") from None
+        if len(dungeons) == total:
+            return build, list(dungeons.values())
 
 
 def text(raw):
@@ -170,13 +224,8 @@ def main():
         raise SystemExit("usage: python tools/fetch_foreverdb_loot.py "
                          "<ForeverDungeonJournal/Data/Dungeons.lua>")
     order, _, aliases = boss_index(sys.argv[1])
-    overview = fetch(INDEX)
-    slugs = []
-    for slug in re.findall(r'href="(/dungeon/\d+-[a-z0-9-]+)"', overview):
-        if slug not in slugs:
-            slugs.append(slug)
-    if not slugs:
-        raise SystemExit("no dungeon links found on " + INDEX)
+    build, instances = list_dungeons(api_key())
+    print(f"ForeverDB API: build {build}, {len(instances)} instances", flush=True)
 
     rows = {}
     unmapped = []
@@ -186,20 +235,18 @@ def main():
     covered_dungeons = set()
     no_rate = 0
 
-    for number, slug in enumerate(slugs, 1):
-        url = BASE + slug
+    for number, instance in enumerate(instances, 1):
+        page_name, url = instance["name"], instance["url"]
         try:
-            page = fetch(url)
+            page = fetch(url).decode("utf-8", "replace")
         except RuntimeError as error:
             failed.append(str(error))
             continue
-        heading = re.search(r"<h1\b[^>]*>(.*?)</h1>", page, re.I | re.S)
-        page_name = text(heading.group(1)) if heading else slug
         candidates = dungeon_candidates(page_name, order)
         bosses = page_bosses(page)
-        if bosses is None:
+        if not bosses:
             if candidates:
-                failed.append(f"{page_name}: no Bosses section ({url})")
+                failed.append(f"{page_name}: no boss entries parsed ({url})")
             else:
                 pages_without_dungeon.append((page_name, url, None))
             continue
@@ -234,8 +281,8 @@ def main():
                     no_rate += 1
                 rows.setdefault((dungeon, boss, item_id), (dungeon, boss, item_id, name,
                                                           drops, kills, url))
-        if number % 10 == 0 or number == len(slugs):
-            print(f"  fetched {number}/{len(slugs)} pages", flush=True)
+        if number % 10 == 0 or number == len(instances):
+            print(f"  fetched {number}/{len(instances)} pages", flush=True)
         time.sleep(DELAY_SECONDS)
 
     if failed:
@@ -269,7 +316,7 @@ def main():
     UNMAPPED_OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     dungeons = {row[0] for row in rows.values()}
-    print(f"ForeverDB: {len(slugs)} pages, {len(dungeons)} matched dungeons, "
+    print(f"ForeverDB: {len(instances)} pages, {len(dungeons)} matched dungeons, "
           f"{len(pages_without_dungeon)} pages without a DungeonJournal match")
     if pages_without_dungeon:
         print("  no DJ dungeon:", ", ".join(name for name, _, _ in pages_without_dungeon))
@@ -285,4 +332,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except RuntimeError as error:
+        raise SystemExit(str(error)) from None

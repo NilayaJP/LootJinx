@@ -23,7 +23,6 @@ end
 local function syncFrame()
     R.frame = view().frame
     R.historyButton = view().historyButton
-    R.leaderboardButton = view().leaderboardButton
     R.settingsButton = view().settingsButton
     R.resizeGrip = view().resizeGrip
 end
@@ -46,9 +45,6 @@ function R:SetLayout(id)
     LJ.DB.layoutPreview = id
     self:Create()
     if LJ.Diagnostics and LJ.Diagnostics.ApplyTheme then LJ.Diagnostics:ApplyTheme() end
-    if LJ.LeaderboardUI and LJ.LeaderboardUI.frame and LJ.LeaderboardUI.frame:IsShown() then
-        LJ.LeaderboardUI:ApplyTheme(id)
-    end
     if wasVisible then self:Show() end
     if LJ.Options and LJ.Options.Refresh then LJ.Options:Refresh() end
     return id

@@ -214,10 +214,17 @@ local function localDayStart(now, daysBack)
         day = day.day - daysBack, hour = 0, min = 0, sec = 0 }))
 end
 
+local function isBossClear(run)
+    if run.closedReason == "all-bosses-cleared" then return true end
+    if run.closed ~= true or run.closedReason ~= "left" or run.legacy == true then return false end
+    local progress = LJ.DungeonCompletion and LJ.DungeonCompletion:Progress(run)
+    return progress ~= nil and progress.state == "complete"
+end
+
 function H:StatusMatches(run, status)
     status = status or "all"
     if status == "all" then return true end
-    if status == "clear" then return run.closedReason == "all-bosses-cleared" end
+    if status == "clear" then return isBossClear(run) end
     if status == "manual" then return run.closedReason == "manual" end
     if status == "pending" then
         for _, need in ipairs(run.needs or {}) do
@@ -329,7 +336,7 @@ function H:Filter(runs, query, dungeon, range, now, status, dungeonKey, focus)
 end
 
 local function comparisonState(run)
-    if run.closedReason == "all-bosses-cleared" then return "HISTORY_COMPARE_CLEAR" end
+    if isBossClear(run) then return "HISTORY_COMPARE_CLEAR" end
     if run.closedReason == "manual" then return "HISTORY_COMPARE_MANUAL" end
     if run.partial then return "HISTORY_COMPARE_PARTIAL" end
     if run.closed then return "HISTORY_COMPARE_CLOSED" end
@@ -451,6 +458,7 @@ function H:ApplyTheme()
     for _, card in ipairs(self.compareCards or {}) do paint(card, p.card, p.border) end
     for _, f in ipairs(self.labels) do f:SetTextColor(rgba(p.text)) end
     for _, f in ipairs(self.mutedLabels) do f:SetTextColor(rgba(p.muted)) end
+    self.creditLink:SetTextColor(rgba(p.accent))
     self.title:SetTextColor(rgba(p.accent))
     self.summaryTitle:SetTextColor(rgba(p.accent))
     self.compareTitle:SetTextColor(rgba(p.accent))
@@ -491,6 +499,9 @@ function H:Create()
     self.count = label(f, 10, "")
     self.count:SetPoint("TOPLEFT", 16, -40)
     self.mutedLabels[#self.mutedLabels + 1] = self.count
+    self.creditLink = W:ForeverDBCredit(f, function() H:Hide() end)
+    self.creditLink:SetPoint("TOPRIGHT", -16, -39)
+    self.mutedLabels[#self.mutedLabels + 1] = self.creditLink.label
     local close = addButton(f, "×", 24, 24)
     close:SetPoint("TOPRIGHT", -14, -12)
     close:SetScript("OnClick", function() H:Hide() end)

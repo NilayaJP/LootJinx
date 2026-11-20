@@ -505,16 +505,6 @@ local function createFooter()
     history:SetScript("OnClick", function() if LJ.History then LJ.History:Show() end end)
     UI.historyButton = history
 
-    local leaderboard = W:Button(frame, LJ.L("LEADERBOARD_BUTTON"), 72, 20)
-    leaderboard:SetPoint("BOTTOMRIGHT", -312, 14)
-    leaderboard:SetScript("OnClick", function()
-        if LJ.LeaderboardUI then LJ.LeaderboardUI:Show("classic") end
-    end)
-    W:Tooltip(leaderboard, LJ.L("LEADERBOARD_TITLE"), {
-        LJ.L("LEADERBOARD_EMPTY_HINT"),
-    })
-    UI.leaderboardButton = leaderboard
-
     local report = W:Button(frame, LJ.L("REPORT"), 72, 20)
     report:SetPoint("BOTTOMRIGHT", -156, 14)
     local reportIcon = report:CreateTexture(nil, "ARTWORK")
@@ -1030,7 +1020,6 @@ function LJ:PrintHelp()
     LJ:Print(LJ.L("CHAT_HELP_4"))
     LJ:Print(LJ.L("CHAT_HELP_5"))
     LJ:Print(LJ.L("CHAT_HELP_6"))
-    LJ:Print("/lj leaderboard - " .. LJ.L("CHAT_BOARD"))
 end
 
 function LJ:HandleCommand(msg)
@@ -1043,12 +1032,6 @@ function LJ:HandleCommand(msg)
         if LJ.UI then LJ.UI:ConfirmReset() end
     elseif cmd == "help" then
         LJ:PrintHelp()
-    elseif cmd == "leaderboard" then
-        if LJ.LeaderboardUI then
-            LJ.LeaderboardUI:Show()
-        else
-            LJ:Print(LJ.L("LEADERBOARD_STATUS_UNAVAILABLE"))
-        end
     elseif cmd == "options" or cmd == "settings" then
         if LJ.Options then
             LJ.Options:Open()

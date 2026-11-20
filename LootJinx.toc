@@ -14,7 +14,6 @@ Localization.lua
 Core.lua
 Evidence.lua
 Stats.lua
-Leaderboard.lua
 Storage.lua
 Widgets.lua
 DungeonLootData.lua
@@ -29,7 +28,6 @@ RecentRolls.lua
 UI.lua
 RunDetail.lua
 History.lua
-LeaderboardUI.lua
 JournalUI.lua
 LayoutRouter.lua
 Minimap.lua

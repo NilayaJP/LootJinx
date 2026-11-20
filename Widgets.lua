@@ -227,11 +227,47 @@ function W:Tooltip(frame, title, lines)
     end)
 end
 
+function W:ForeverDBCredit(parent, onEscape)
+    local url = "https://foreverdb.net"
+    local link = CreateFrame("EditBox", nil, parent)
+    link:SetSize(120, 16)
+    link:SetAutoFocus(false)
+    link:SetFont(FONT, 10, "")
+    link:SetText(url)
+    link:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+    link:SetScript("OnTextChanged", function(self)
+        if self:GetText() ~= url then
+            self:SetText(url)
+            self:HighlightText()
+        end
+    end)
+    link:SetScript("OnEscapePressed", function(self)
+        self:ClearFocus()
+        onEscape()
+    end)
+    link:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    link:SetScript("OnHide", function(self) self:ClearFocus() end)
+    link.label = self:Font(parent, 10, C.muted)
+    link.label:SetPoint("RIGHT", link, "LEFT", -4, 0)
+    link.label:SetText(LJ.L("FOREVERDB_CREDIT"))
+    self:Tooltip(link, "ForeverDB.net", { LJ.L("FOREVERDB_COPY") })
+    return link
+end
+
 function W:Truncate(text, maxChars)
     text = tostring(text or "")
-    maxChars = tonumber(maxChars) or 40
+    maxChars = math.floor(tonumber(maxChars) or 40)
+    if maxChars < 1 then return "" end
     if #text <= maxChars then return text end
-    return text:sub(1, maxChars - 1) .. "…"
+
+    local count, ellipsisAt = 0, nil
+    -- UTF-8 continuation bytes do not start a new character.
+    for byteIndex in text:gmatch("()[^\128-\191]") do
+        count = count + 1
+        if count == maxChars then ellipsisAt = byteIndex end
+        if count > maxChars then return text:sub(1, ellipsisAt - 1) .. "…" end
+    end
+    return text
 end
 
 function W:FadeIn(frame, duration)

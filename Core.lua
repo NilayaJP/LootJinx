@@ -133,6 +133,7 @@ local function normalizeDrop(d, fallbackAt)
         source = type(d.source) == "string" and d.source or nil,
         sources = type(d.sources) == "table" and d.sources or nil,
         lastWindowAt = tonumber(d.lastWindowAt),
+        windowSlotObserved = d.windowSlotObserved == true or nil,
     }
 end
 
@@ -187,12 +188,18 @@ local function normalizeNeed(n, fallbackAt)
     n.reason = type(n.reason) == "string" and n.reason or nil
     n.roll = tonumber(n.roll)
     n.rollKind = (n.rollKind == "need" or n.rollKind == "greed") and n.rollKind or nil
+    n.lootHistoryKey = type(n.lootHistoryKey) == "string" and n.lootHistoryKey ~= ""
+        and n.lootHistoryKey or nil
     -- Ohne Item-Link, Item-ID oder Roll-ID laesst sich ein offener Need nie
     -- aufloesen; solche Alt-Eintraege wuerden dauerhaft als "offen" zaehlen.
     if n.result == nil and not n.id and not n.link and not n.roll and not n.rollID then
         return nil
     end
     return n
+end
+
+local function itemHistoryKey(id, key)
+    if key and key ~= "" then return id .. ":" .. key end
 end
 
 local function normalizeRun(run, fallbackID)
@@ -350,7 +357,7 @@ local function normalizeRun(run, fallbackID)
     -- Old runs can contain a second chat or loot-window observation of the
     -- same keyed roll. Only coalesce it when exactly one keyed drop fits.
     local function matchingObservation(keyed, duplicate)
-        return not duplicate.lootHistoryKey and not duplicate.rollID
+        return not duplicate.lootHistoryKey and not duplicate.rollID and not duplicate.windowSlotObserved
             and (duplicate.source == "chat" or duplicate.source == "chat-win"
                 or duplicate.source == "loot-window")
             and keyed.lootHistoryKey and keyed.rollID
@@ -377,7 +384,7 @@ local function normalizeRun(run, fallbackID)
     end
     for i = #cleanDrops, 1, -1 do
         local duplicate = cleanDrops[i]
-        if not duplicate.lootHistoryKey and not duplicate.rollID
+        if not duplicate.lootHistoryKey and not duplicate.rollID and not duplicate.windowSlotObserved
             and (duplicate.source == "chat" or duplicate.source == "chat-win"
                 or duplicate.source == "loot-window") then
             local match, count = nil, 0
@@ -412,7 +419,7 @@ local function normalizeRun(run, fallbackID)
     for i = 1, #cleanDrops do
         local drop = cleanDrops[i]
         local anchor = lastWindowDrop[drop.id]
-        local sighting = drop.source == "loot-window" and not drop.winner
+        local sighting = drop.source == "loot-window" and not drop.winner and not drop.windowSlotObserved
             and not drop.rollID and not drop.lootHistoryKey
         if sighting and anchor and anchor.winner then
             local at = tonumber(drop.at) or 0
@@ -441,7 +448,8 @@ local function normalizeRun(run, fallbackID)
     -- without inventing a winner or a roll result.
     local keyedDrops, linksByID = {}, {}
     for _, drop in ipairs(cleanDrops) do
-        if drop.lootHistoryKey then keyedDrops[drop.lootHistoryKey] = true end
+        local identity = itemHistoryKey(drop.id, drop.lootHistoryKey)
+        if identity then keyedDrops[identity] = true end
     end
     for link in pairs(run.seenLinks or {}) do
         if type(link) == "string" then
@@ -453,9 +461,10 @@ local function normalizeRun(run, fallbackID)
     end
     for _, roll in ipairs(cleanRolls) do
         local key = roll.lootHistoryKey
-        local link = key and linksByID[roll.id]
+        local identity = itemHistoryKey(roll.id, key)
+        local link = identity and linksByID[roll.id]
         local alreadyObserved = false
-        if link and not keyedDrops[key] then
+        if link and not keyedDrops[identity] then
             local at = tonumber(roll.at) or 0
             local bossID = tonumber(key:match("^(%d+):"))
             for _, drop in ipairs(cleanDrops) do
@@ -466,7 +475,7 @@ local function normalizeRun(run, fallbackID)
                 end
             end
         end
-        if link and not keyedDrops[key] and not alreadyObserved then
+        if link and not keyedDrops[identity] and not alreadyObserved then
             local bossID = tonumber(key:match("^(%d+):"))
             local bossName
             for _, boss in ipairs(cleanBosses) do
@@ -481,11 +490,78 @@ local function normalizeRun(run, fallbackID)
                 source = "loot-history-recovered",
                 sources = { ["loot-history-recovered"] = true },
             }
-            keyedDrops[key] = true
+            keyedDrops[identity] = true
         end
     end
     return run
 end
+
+local function normalizedPlayerName(name)
+    name = Plain(name)
+    if type(name) ~= "string" or name == "" then return nil end
+    -- Earlier LootJinx versions stored a hyphen between the two name parts.
+    local normalized = name:lower():gsub("[%s%-]+", " "):match("^%s*(.-)%s*$")
+    return normalized ~= "" and normalized or nil
+end
+
+local function sameSavedRoll(need, drop)
+    if need.id ~= drop.id then return false end
+    if need.lootHistoryKey then return need.lootHistoryKey == drop.lootHistoryKey end
+    return need.rollID and need.rollID > 0 and need.rollID == drop.rollID
+end
+
+local function savedHistoryWinner(run, need)
+    local match
+    for _, drop in ipairs(run.drops) do
+        if sameSavedRoll(need, drop) then
+            if match then return nil end
+            match = drop
+        end
+    end
+    if not match or match.winnerSource ~= "lootHistory" or match.rollKind ~= "need"
+        or (need.rollID and match.rollID and need.rollID ~= match.rollID) then return nil end
+    -- Roll IDs can be reused, so a match without a history key also needs
+    -- nearby timestamps from the same run.
+    if not need.lootHistoryKey and (need.at <= 0 or match.at <= 0
+        or math.abs(need.at - match.at) > 5 * 60) then return nil end
+    for _, other in ipairs(run.needs) do
+        if other ~= need and sameSavedRoll(other, match) then return nil end
+    end
+    return normalizedPlayerName(match.winner)
+end
+
+local function repairSavedNeedOutcomes(runs)
+    local evidence = LJ.Evidence
+    local owner = normalizedPlayerName(LJ:PlayerName())
+    local unknown = normalizedPlayerName(_G.UNKNOWNOBJECT)
+    if not owner or owner == unknown or not evidence then return false end
+    local you = normalizedPlayerName(_G.YOU)
+    local ownerFirst = owner:match("^%S+")
+    for _, run in ipairs(runs) do
+        for _, need in ipairs(run.needs) do
+            if need.id and need.rollKind ~= "greed" and evidence:Classify(need) == "inferred" then
+                local winner = savedHistoryWinner(run, need)
+                if winner and winner ~= unknown then
+                    local result
+                    if winner == owner or winner == you then
+                        result = "won"
+                    -- A lone first name shared with the owner cannot establish a loss.
+                    elseif winner:match("^%S+") ~= ownerFirst
+                        or (winner:find(" ", 1, true) and owner:find(" ", 1, true)) then
+                        result = "lost"
+                    end
+                    if result and result ~= need.result then
+                        need.result = result
+                        need.reason = "loot-history"
+                    end
+                end
+            end
+        end
+    end
+    return true
+end
+
+local savedNeedRepairPending
 
 function LJ:InitDB()
     local db = _G.LootJinxDB
@@ -507,13 +583,6 @@ function LJ:InitDB()
     db.announceRecords = db.announceRecords == true
     db.layoutPreview = db.layoutPreview == "journal" and "journal" or "classic"
     db.language = type(db.language) == "string" and db.language or "auto"
-    if db.leaderboardConsent ~= true and db.leaderboardConsent ~= false then
-        db.leaderboardConsent = nil
-    end
-    if db.leaderboardTestAck ~= true then
-        db.leaderboardTestAck = nil
-    end
-    if type(db.leaderboard) ~= "table" then db.leaderboard = {} end
     db.minimapAngle = tonumber(db.minimapAngle) or 225
     if db.minimapAngle ~= db.minimapAngle then db.minimapAngle = 225 end
     db.minimapAngle = db.minimapAngle % 360
@@ -541,6 +610,7 @@ function LJ:InitDB()
         end
     end
     char.runs = cleanRuns
+    savedNeedRepairPending = not repairSavedNeedOutcomes(cleanRuns)
     if char.nextRunID <= maxID then char.nextRunID = maxID + 1 end
 
     char.activeID = tonumber(char.activeID)
@@ -562,6 +632,7 @@ function LJ:ResetChar()
     if not char then return end
     char.runs = {}
     char.activeID = nil
+    char.manualBlockedKey = nil
     char.nextRunID = 1
     self.debugItems = {}
     self:Changed()
@@ -575,43 +646,39 @@ function LJ:ClassName()
         type(classFile) == "string" and classFile or nil
 end
 
-function LJ:PlayerName()
-    local ok, name, realm = pcall(UnitName, "player")
-    name, realm = ok and Plain(name) or nil, ok and Plain(realm) or nil
-    if type(name) ~= "string" or name == "" then return nil end
-    if type(realm) == "string" and realm ~= "" and not name:find("-", 1, true) then
-        name = name .. "-" .. realm
+local function availableName(name)
+    return type(name) == "string" and name ~= "" and name ~= Plain(_G.UNKNOWNOBJECT)
+end
+
+function LJ:UnitCharacterName(unit)
+    if type(GetUnitName) == "function" then
+        local ok, fullName = pcall(GetUnitName, unit)
+        fullName = ok and Plain(fullName) or nil
+        if availableName(fullName) then return fullName end
+    end
+
+    local ok, name, surname = pcall(UnitName, unit)
+    if not ok or (type(issecretvalue) == "function" and issecretvalue(surname)) then return nil end
+    name = Plain(name)
+    if not availableName(name) then return nil end
+    -- Forever's UnitName uses the second result for a surname.
+    if type(surname) == "string" and surname ~= "" and not name:find(" ", 1, true) then
+        name = name .. " " .. surname
     end
     return name
 end
 
-local function nameOnly(name)
-    name = Plain(name)
-    if type(name) ~= "string" then return nil end
-    name = name:lower()
-    local dash = name:find("-", 1, true)
-    if dash then name = name:sub(1, dash - 1) end
-    return name
+function LJ:PlayerName()
+    return self:UnitCharacterName("player")
 end
 
 function LJ:SamePlayerName(a, b)
-    a, b = Plain(a), Plain(b)
-    if type(a) ~= "string" or type(b) ~= "string" then return false end
-    local function compact(name)
-        return name:lower():gsub("[%s%-]", "")
-    end
-    return compact(a) == compact(b)
+    a, b = normalizedPlayerName(a), normalizedPlayerName(b)
+    return a ~= nil and a == b
 end
 
 function LJ:IsMe(name)
-    if self:SamePlayerName(name, self:PlayerName()) then return true end
-    name = nameOnly(name)
-    if not name then return false end
-    local me = nameOnly(self:PlayerName())
-    if me and name == me then return true end
-    local you = Plain(_G.YOU)
-    if type(you) == "string" and name == you:lower() then return true end
-    return false
+    return self:SamePlayerName(name, _G.YOU) or self:SamePlayerName(name, self:PlayerName())
 end
 
 -- ---------------------------------------------------------------- Items
@@ -823,6 +890,9 @@ if loader then
             if LJ.Tracker then pcall(LJ.Tracker.Start, LJ.Tracker) end
             if LJ.SetupCommands then pcall(LJ.SetupCommands, LJ) end
         elseif event == "PLAYER_LOGIN" and LJ.dbReady then
+            if savedNeedRepairPending then
+                savedNeedRepairPending = not repairSavedNeedOutcomes(LJ.CharDB.runs)
+            end
             if LJ.UI then pcall(LJ.UI.Create, LJ.UI) end
             if LJ.Minimap then pcall(LJ.Minimap.Create, LJ.Minimap) end
             if LJ.Options then pcall(LJ.Options.Create, LJ.Options) end
