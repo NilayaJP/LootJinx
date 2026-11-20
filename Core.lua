@@ -638,10 +638,24 @@ function LJ:ResetChar()
     self:Changed()
 end
 
+-- Translate display names without changing the saved run or its identity.
+function LJ:DungeonName(run)
+    local name = type(run) == "table" and run.name
+    if self.DungeonNames and self.DungeonLoot and self.lang ~= self:LanguageFor("auto") then
+        local translated = self.DungeonLoot:DisplayName(run, self.lang)
+        if translated then return translated end
+    end
+    return type(name) == "string" and name ~= "" and name or self.L("UNKNOWN_DUNGEON")
+end
+
 -- ---------------------------------------------------------------- Charakter
 function LJ:ClassName()
     local ok, name, classFile = pcall(UnitClass, "player")
     name, classFile = ok and Plain(name) or nil, ok and Plain(classFile) or nil
+    if self.ClassNames and self.lang ~= self:LanguageFor("auto") then
+        local translations = self.ClassNames[classFile]
+        name = translations and translations[self.lang] or name
+    end
     return type(name) == "string" and name or self.L("UNKNOWN_CLASS"),
         type(classFile) == "string" and classFile or nil
 end

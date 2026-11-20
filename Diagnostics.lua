@@ -525,7 +525,7 @@ local function createWindow()
 
     local close = W:Button(frame, "×", 20, 20)
     close:SetPoint("TOPRIGHT", -12, -10)
-    close.label:SetFont(FONT, 14, "")
+    W:SetTextFont(close.label, 14)
     close.label:SetPoint("CENTER", 0, 1)
     close:SetScript("OnClick", function() frame:Hide() end)
 
@@ -543,7 +543,7 @@ local function createWindow()
     edit:SetMultiLine(true)
     edit:SetAutoFocus(false)
     edit:SetMaxLetters(20000)
-    edit:SetFont(FONT, 9, "")
+    W:SetTextFont(edit, 9)
     edit:SetTextInsets(10, 10, 10, 10)
     edit:EnableMouseWheel(true)
     edit:SetScript("OnEscapePressed", function(self)
@@ -553,7 +553,7 @@ local function createWindow()
     scroll:SetScrollChild(edit)
 
     local measure = frame:CreateFontString(nil, "OVERLAY")
-    measure:SetFont(FONT, 9, "")
+    W:SetTextFont(measure, 9)
     measure:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
     measure:SetAlpha(0)
 
@@ -692,7 +692,7 @@ function D:ApplyTheme(force)
         end
     end
     if self.title then
-        pcall(self.title.SetFont, self.title, p.titleFont, p.titleSize, p.titleFlags)
+        W:SetTextFont(self.title, p.titleSize, p.titleFlags, p.titleFont)
         self.title:SetTextColor(p.titleColor[1], p.titleColor[2], p.titleColor[3], 1)
     end
     if self.subtitle then

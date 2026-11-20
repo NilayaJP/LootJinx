@@ -9,6 +9,13 @@ LJ.Widgets = W
 local C = LJ.COLORS
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
+-- The selected addon language can use a different script from the client.
+local SCRIPT_FONTS = {
+    ko = "Fonts\\2002.TTF",
+    zhCN = "Fonts\\ARKai_T.ttf",
+    zhTW = "Fonts\\bLEI00D.ttf",
+    ru = "Fonts\\FRIZQT___CYR.TTF",
+}
 
 local function c4(c)
     return c[1], c[2], c[3], c[4] or 1
@@ -32,9 +39,24 @@ function W:SetGradient(tex, horizontal, c1, c2)
     tex:SetColorTexture(c4(c1))
 end
 
-function W:Font(parent, size, color, flags)
+local function tryFont(region, path, size, flags)
+    local ok, applied = pcall(region.SetFont, region, path, size, flags)
+    return ok and applied ~= false
+end
+
+function W:SetTextFont(region, size, flags, defaultFont)
+    size, flags = size or 10, flags or ""
+    local scriptFont = SCRIPT_FONTS[LJ.lang]
+    if scriptFont and tryFont(region, scriptFont, size, flags) then return end
+    -- A caller that already set a native font object can keep it as the fallback.
+    if defaultFont == false then return end
+    if defaultFont and defaultFont ~= FONT and tryFont(region, defaultFont, size, flags) then return end
+    region:SetFont(FONT, size, flags)
+end
+
+function W:Font(parent, size, color, flags, defaultFont)
     local fs = parent:CreateFontString(nil, "OVERLAY")
-    fs:SetFont(FONT, size or 10, flags or "")
+    self:SetTextFont(fs, size, flags, defaultFont)
     if color then fs:SetTextColor(c4(color)) else fs:SetTextColor(c4(C.text)) end
     fs:SetShadowColor(0, 0, 0, 1.0)
     fs:SetShadowOffset(1, -1)
@@ -232,7 +254,7 @@ function W:ForeverDBCredit(parent, onEscape)
     local link = CreateFrame("EditBox", nil, parent)
     link:SetSize(120, 16)
     link:SetAutoFocus(false)
-    link:SetFont(FONT, 10, "")
+    self:SetTextFont(link, 10)
     link:SetText(url)
     link:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
     link:SetScript("OnTextChanged", function(self)
