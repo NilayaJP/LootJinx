@@ -2,7 +2,7 @@
 
 LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: lost Need rolls, unlucky streaks, missing loot, and personal records. Tracking starts automatically in group and scenario instances. Available in all supported client languages, with **Classic** and **Dungeon Journal** designs.
 
-**Current version:** 1.7.1 · **Interface:** 16001 · **Dependencies:** None
+**Current version:** 1.7.2 · **Interface:** 16001 · **Dependencies:** None
 
 ## What it tracks
 
@@ -45,6 +45,12 @@ Version 1.7.1 introduces smooth corner drag-resizing (40% to 300%) with right-cl
 | `/lj resetpos` | Center the dashboard |
 | `/lj debug` | Open a copyable diagnostic snapshot |
 | `/lj help` | Show all commands |
+
+## Data sources and credits
+
+The loot catalog is curated from ForeverDungeonJournal and reviewed against Wowhead Forever and [ForeverDB.net](https://foreverdb.net). ForeverDB is a build-time review source only: it is never loaded by the addon and never changes the catalog automatically.
+
+> I will credit ForeverDB.net, with a visible link to https://foreverdb.net, wherever I show the data. I agree to the other rules below too.
 
 ## Detection limits
 

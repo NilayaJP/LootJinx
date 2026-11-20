@@ -2,3 +2,5 @@ docs/
 dist/
 tests/
 *.zip
+__pycache__/
+*.pyc
