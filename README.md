@@ -1,8 +1,8 @@
 # LootJinx
 
-LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: lost Need rolls, unlucky streaks, missing loot, and personal records. Tracking starts automatically in group and scenario instances. Available in all supported client languages, with **Classic** and **Dungeon Journal** designs.
+LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: lost Need rolls, unlucky streaks, missing loot, and personal records. Tracking starts automatically in dungeons, raids, and scenarios. Available in all supported client languages, with **Classic** and **Dungeon Journal** designs.
 
-**Current version:** 1.6.9 · **Interface:** 16001 · **Dependencies:** None
+**Current version:** 1.7.2 · **Interface:** 16001 · **Dependencies:** None
 
 ## What it tracks
 
@@ -17,9 +17,9 @@ All trackers appear in both designs. Empty visits with no observed boss, item, o
 
 Browse recent runs and searchable history, filter or compare visits, and open run details to see observed bosses, drops, recipients, and roll values. Known boss and trash loot is grouped by source; unlisted or ambiguous gear stays visible under **Other Loot**. Older runs without detailed data remain in history. Clicking the No Need Win, No Loot, or Since Need Win card opens the history filtered to exactly those runs; a filter chip removes the focus again.
 
-Share a short statistics report in party or raid chat, with a selected same-faction player, or with a confirmed Battle.net friend. Settings include window scale, compact mode, record announcements, and design choice. Character runs are saved in `LootJinxCharDB`; display settings are saved account-wide in `LootJinxDB`.
+Share a short statistics report in party or raid chat, with a selected same-faction player, or with a confirmed Battle.net friend. Settings include window scale, compact mode, record announcements, design, and language. The language defaults to your WoW client. Choose an override in LootJinx Options and confirm the reload to apply it. Character runs are saved in `LootJinxCharDB`; display settings are saved account-wide in `LootJinxDB`.
 
-Version 1.6.9 continues an unfinished run when you re-enter the same dungeon within five minutes, credits uniquely attributed boss loot and the Whitemane/Mograine pair as kill evidence, opens the matching history when you click one of the three tracker cards — each card now shows an "Open history" hint and highlights on hover — and lists every Need roll at the top of the run details. Reopened loot windows no longer add a second drop with an unknown recipient. Version 1.6.8 removed primary-stat detection entirely: every Need roll counts regardless of item stats, and the former Dungeon Curse card is now a Need card showing wins, losses, and pending rolls. Older saved runs are migrated automatically when loaded.
+Version 1.7.1 added smooth corner drag-resizing (40% to 300%) with right-click reset, improved legibility and contrast in both designs, and fixed raid and instance-copy detection. Version 1.6.9 continues an unfinished run when you re-enter the same dungeon within five minutes, credits uniquely attributed boss loot and the Whitemane/Mograine pair as kill evidence, opens the matching history when you click one of the three tracker cards, and lists every Need roll at the top of the run details. Reopened loot windows no longer add a second drop with an unknown recipient. Version 1.6.8 removed primary-stat detection entirely: every Need roll counts regardless of item stats, and the former Dungeon Curse card is now a Need card showing wins, losses, and pending rolls. Older saved runs are migrated automatically when loaded.
 
 ## Install
 
@@ -38,6 +38,14 @@ Version 1.6.9 continues an unfinished run when you re-enter the same dungeon wit
 | `/lj resetpos` | Center the dashboard |
 | `/lj debug` | Open a copyable diagnostic snapshot |
 | `/lj help` | Show all commands |
+
+## Data sources and credits
+
+The loot catalog is curated from ForeverDungeonJournal and reviewed against Wowhead Forever and [ForeverDB.net](https://foreverdb.net). The build-time importer uses the ForeverDB API for the instance list and the public dungeon pages for observed drops. Reviewed item sources are bundled with the addon.
+
+To refresh the review snapshot, set `FOREVERDB_API_KEY` in the repository's `.env` or in your environment, then run `python tools/fetch_foreverdb_loot.py <path-to-ForeverDungeonJournal/Data/Dungeons.lua>` and `lua tools/review_foreverdb_loot.lua` from the repository root. Check the item pages for direct NPC sources before accepting dungeon-page observations into the catalog.
+
+[Data from ForeverDB.net](https://foreverdb.net). History and run details display a copyable link to the source.
 
 ## Detection limits
 

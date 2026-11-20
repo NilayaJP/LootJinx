@@ -168,9 +168,16 @@ local function findNeed(run, drop, used)
     return found
 end
 
+local function observedNeedWinner(need, drop)
+    return need and drop and drop.rollKind == "need" and drop.winner and LJ:IsMe(drop.winner)
+        and ((need.rollID and need.rollID == drop.rollID)
+            or (need.lootHistoryKey and need.lootHistoryKey == drop.lootHistoryKey))
+end
+
 local function needStatusText(need, drop)
     local result = need and need.result
-    if not result and drop and drop.winner and LJ:IsMe(drop.winner) then result = "won" end
+    local observedSelfWinner = observedNeedWinner(need, drop)
+    if not result and observedSelfWinner then result = "won" end
     local status, color
     if result == "won" then
         status, color = LJ.L("DETAIL_NEED_WON"), C.green
@@ -180,8 +187,7 @@ local function needStatusText(need, drop)
         status, color = LJ.L("DETAIL_NEED_OPEN"), C.muted
     end
     local value = need and tonumber(need.roll) or nil
-    if not value and drop and drop.winner and LJ:IsMe(drop.winner)
-        and drop.rollKind == "need" then
+    if not value and observedSelfWinner then
         value = tonumber(drop.roll)
     end
     local text
@@ -191,7 +197,6 @@ local function needStatusText(need, drop)
         text = LJ.L("DETAIL_NEED_LINE_NO_ROLL", status)
     end
     if LJ.Evidence then
-        local observedSelfWinner = drop and drop.winner and LJ:IsMe(drop.winner)
         local level = LJ.Evidence:Classify(need, observedSelfWinner)
         text = text .. " · " .. LJ.L("EVIDENCE_" .. string.upper(level))
     end
@@ -212,19 +217,53 @@ local function itemText(link, id)
     return LJ.L("DETAIL_ITEM_UNKNOWN", tonumber(id) or 0), icon, C.muted
 end
 
+local function legacyRollNear(roll, item)
+    local at = tonumber(item.at) or 0
+    local rollAt = tonumber(roll.at) or 0
+    local window = item.lootHistoryKey and 30 or 300
+    return at == 0 or math.abs(rollAt - at) <= window
+end
+
+local function rollMatch(roll, item, peers)
+    if roll.id ~= item.id or not tonumber(roll.value) then return nil end
+    if roll.lootHistoryKey and item.lootHistoryKey and roll.lootHistoryKey ~= item.lootHistoryKey then
+        return nil
+    end
+    if roll.rollID and item.rollID and roll.rollID ~= item.rollID then return nil end
+    if (roll.lootHistoryKey and roll.lootHistoryKey == item.lootHistoryKey)
+        or (roll.rollID and roll.rollID == item.rollID) then
+        return "exact"
+    end
+    if roll.lootHistoryKey or roll.rollID or not legacyRollNear(roll, item) then return nil end
+    for _, other in ipairs(peers or {}) do
+        if other ~= item and other.id == item.id and legacyRollNear(roll, other) then return nil end
+    end
+    return "legacy"
+end
+
 local function dropRollText(run, drop)
     local value = tonumber(drop.roll)
     local kind = drop.rollKind
     if not value and drop.winner then
         local name = tostring(drop.winner):lower()
-        for i = #(run.rolls or {}), 1, -1 do
-            local roll = run.rolls[i]
-            if roll.id == drop.id and type(roll.name) == "string"
-                and roll.name:lower() == name then
-                value, kind = tonumber(roll.value), roll.kind
-                break
+        local matches = {}
+        for _, roll in ipairs(run.rolls or {}) do
+            if type(roll.name) == "string" and roll.name:lower() == name then
+                local match = rollMatch(roll, drop, run.drops)
+                if match then
+                    local previous = matches[match]
+                    if previous == nil then
+                        matches[match] = roll
+                    elseif previous and (tonumber(previous.value) ~= tonumber(roll.value)
+                        or previous.kind ~= roll.kind) then
+                        matches[match] = false
+                    end
+                end
             end
         end
+        local roll = matches.exact
+        if roll == nil then roll = matches.legacy end
+        if roll then value, kind = tonumber(roll.value), roll.kind end
     end
     if not value then return nil end
     if kind == "transmog" then return LJ.L("DETAIL_ROLL_TRANSMOG", value) end
@@ -545,20 +584,11 @@ local function paginate(lines)
     return out
 end
 
-local function itemRolls(run, id, at, historyKey)
+local function itemRolls(run, item, peers)
     local out = {}
-    if not run or not id then return out end
-    local center = tonumber(at) or 0
-    for i = 1, #(run.rolls or {}) do
-        local roll = run.rolls[i]
-        if roll.id == id then
-            local rollAt = tonumber(roll.at) or 0
-            local near = center == 0 or math.abs(rollAt - center) <= (historyKey and 30 or 300)
-            local matchingHistory = historyKey and roll.lootHistoryKey == historyKey
-            if matchingHistory or (near and (not historyKey or not roll.lootHistoryKey)) then
-                out[#out + 1] = roll
-            end
-        end
+    if not run or not item or not item.id then return out end
+    for _, roll in ipairs(run.rolls or {}) do
+        if rollMatch(roll, item, peers) then out[#out + 1] = roll end
     end
     table.sort(out, function(a, b)
         local av, bv = tonumber(a.value) or 0, tonumber(b.value) or 0
@@ -592,18 +622,14 @@ local function rowTooltip(row)
     end
     if need and LJ.Evidence then
         local drop = line.drop
-        local observedSelfWinner = drop and drop.winner and LJ:IsMe(drop.winner)
-        local level, reason = LJ.Evidence:Classify(need, observedSelfWinner)
+        local level, reason = LJ.Evidence:Classify(need, observedNeedWinner(need, drop))
         GameTooltip:AddLine(LJ.L("EVIDENCE_TOOLTIP", LJ.L("EVIDENCE_" .. string.upper(level))),
             0.92, 0.82, 0.61)
         GameTooltip:AddLine(LJ.L(reason), 0.76, 0.78, 0.83, true)
     end
-    local id = line.kind == "item" and line.drop and line.drop.id
-        or line.kind == "need" and line.need and line.need.id
-    local at = line.kind == "item" and line.drop and line.drop.at
-        or line.kind == "need" and line.need and line.need.at
-    local historyKey = line.kind == "item" and line.drop and line.drop.lootHistoryKey
-    local rolls = itemRolls(currentRun, id, at, historyKey)
+    local item = line.drop or line.need
+    local peers = currentRun and (line.drop and currentRun.drops or currentRun.needs)
+    local rolls = itemRolls(currentRun, item, peers)
     if #rolls > 0 then
         GameTooltip:AddLine(" ")
         GameTooltip:AddLine(LJ.L("DETAIL_ROLLS_SECTION"), 0.92, 0.82, 0.61)
@@ -896,6 +922,8 @@ function M:Create()
     hint = W:Font(f, 8, C.dim, "")
     hint:SetPoint("BOTTOMLEFT", 16, 28)
     hint:SetText(LJ.L("DETAIL_HINT"))
+    self.creditLink = W:ForeverDBCredit(f, function() M:Hide() end)
+    self.creditLink:SetPoint("BOTTOMRIGHT", -16, 31)
 
     pageText = W:Font(f, 9, C.muted, "")
     pageText:SetPoint("BOTTOMLEFT", 132, 10)
@@ -1017,6 +1045,8 @@ function M:ApplyTheme(theme)
     subtitle:SetTextColor(C.muted[1], C.muted[2], C.muted[3], 1)
     summary:SetTextColor(C.text[1], C.text[2], C.text[3], 1)
     hint:SetTextColor(C.dim[1], C.dim[2], C.dim[3], 1)
+    self.creditLink.label:SetTextColor(C.muted[1], C.muted[2], C.muted[3], 1)
+    self.creditLink:SetTextColor(C.accent[1], C.accent[2], C.accent[3], 1)
     pageText:SetTextColor(C.muted[1], C.muted[2], C.muted[3], 1)
     for i = 1, #rows do
         local row = rows[i]
@@ -1082,8 +1112,9 @@ function M:Refresh()
     local run = currentRun
     title:SetText(W:Truncate(run.name or LJ.L("UNKNOWN_DUNGEON"), 42))
     local active = LJ.Tracker and LJ.Tracker.GetActive and LJ.Tracker:GetActive()
-    local status = active == run and (LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("DETAIL_ENDED"))
-        or LJ.L(run.closedReason == "all-bosses-cleared" and "DETAIL_CLOSED" or "DETAIL_ENDED")
+    local status = run.paused and LJ.L("STATUS_IDLE")
+        or (active == run and (LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("DETAIL_ENDED"))
+        or LJ.L(run.closedReason == "all-bosses-cleared" and "DETAIL_CLOSED" or "DETAIL_ENDED"))
     if run.closedReason == "manual" then
         status = LJ.L("RUN_FINISH_MANUAL")
     end

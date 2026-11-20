@@ -24,6 +24,7 @@ local function syncFrame()
     R.frame = view().frame
     R.historyButton = view().historyButton
     R.settingsButton = view().settingsButton
+    R.resizeGrip = view().resizeGrip
 end
 
 function R:GetLayout()

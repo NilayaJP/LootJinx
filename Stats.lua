@@ -172,6 +172,7 @@ function Stats.RunStatusKey(run, active)
     if type(run) ~= "table" then return nil end
     if run.closedReason == "manual" then return "RUN_STATUS_MANUAL" end
     if run.partial then return "RUN_STATUS_PARTIAL" end
+    if run.paused then return "RUN_STATUS_PAUSED" end
     if active then return "RUN_STATUS_LIVE" end
     if not run.closed then return "RUN_STATUS_OPEN" end
     return nil

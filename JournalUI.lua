@@ -13,9 +13,9 @@ local P = {
     page = { 0.190, 0.145, 0.133, 0.98 },
     inset = { 0.114, 0.086, 0.082, 0.96 },
     bronze = { 0.545, 0.384, 0.267, 1 },
-    gold = { 0.918, 0.769, 0.494, 1 },
-    parchment = { 0.906, 0.835, 0.729, 1 },
-    muted = { 0.690, 0.608, 0.510, 1 },
+    gold = { 1.000, 0.820, 0.380, 1 },
+    parchment = { 0.960, 0.910, 0.830, 1 },
+    muted = { 0.820, 0.760, 0.670, 1 },
     red = { 0.900, 0.420, 0.340, 1 },
 }
 local function rgba(c) return c[1], c[2], c[3], c[4] or 1 end
@@ -33,9 +33,16 @@ local function card(parent, x, y, width, height)
     backdrop(f)
     return f
 end
-local function font(parent, size, color, text)
-    local f = W:Font(parent, size, color or P.parchment, "")
-    f:SetText(text or "")
+local function font(parent, size, color, flagsOrText)
+    local flags = ""
+    local text = ""
+    if flagsOrText == "OUTLINE" or flagsOrText == "THINOUTLINE" then
+        flags = flagsOrText
+    elseif type(flagsOrText) == "string" then
+        text = flagsOrText
+    end
+    local f = W:Font(parent, size, color or P.parchment, flags)
+    if text ~= "" then f:SetText(text) end
     return f
 end
 local function heading(parent, size, text)
@@ -82,30 +89,39 @@ local function metric(parent, title, texture)
     icon(parent, texture, 14, -9, 36)
     local label = heading(parent, 12, title)
     label:SetPoint("TOPLEFT", 62, -10)
-    local value = heading(parent, 27, "0")
-    value:SetPoint("TOPLEFT", 62, -29)
-    local sub = font(parent, 10, P.muted, "")
+    local value = heading(parent, 28, "0")
+    value:SetPoint("TOPLEFT", 62, -26)
+    local sub = font(parent, 11, P.muted, "")
     sub:SetPoint("TOPLEFT", 117, -35)
-    local extra = font(parent, 9, P.muted, "")
-    extra:SetPoint("TOPLEFT", 63, -68)
-    local streak = font(parent, 10, P.parchment, "")
+    local extra = font(parent, 11, P.parchment, "")
+    extra:SetPoint("TOPLEFT", 63, -56)
+
+    local bar = W:Bar(parent, 6, P.bronze, P.gold)
+    bar:SetPoint("TOPLEFT", 62, -78)
+    bar:SetWidth(372)
+
+    local pct = font(parent, 11, P.gold, "OUTLINE")
+    pct:SetPoint("TOPLEFT", 63, -89)
+    pct:SetText(LJ.L("NO_DATA"))
+
+    local streak = font(parent, 11, P.parchment, "")
     streak:SetPoint("TOPRIGHT", -108, -86)
-    local record = font(parent, 10, P.gold, "")
+    local record = font(parent, 11, P.gold, "")
     record:SetPoint("TOPRIGHT", -14, -86)
     return { title = label, value = value, sub = sub, extra = extra,
-        streak = streak, record = record }
+        bar = bar, pct = pct, streak = streak, record = record }
 end
 local function mini(parent, x, title, texture)
     local f = card(parent, x, -194, 192, 108)
     icon(f, texture, 150, -8, 30)
-    f.title = heading(f, 10, title)
+    f.title = heading(f, 11, title)
     f.title:SetPoint("TOPLEFT", 12, -10)
     f.value = heading(f, 26, "0")
     f.value:SetPoint("TOPLEFT", 12, -28)
-    f.sub = font(f, 9, P.muted, "")
-    f.sub:SetPoint("TOPLEFT", 12, -64)
+    f.sub = font(f, 10, P.parchment, "")
+    f.sub:SetPoint("TOPLEFT", 12, -62)
     f.sub:SetWidth(168)
-    f.footer = font(f, 9, P.gold, "")
+    f.footer = font(f, 10, P.gold, "")
     f.footer:SetPoint("TOPLEFT", 12, -87)
     f.footer:SetWidth(168)
     return f
@@ -115,21 +131,21 @@ local function makeRecent(f)
     J.recentPanel = recent
     local title = heading(recent, 13, LJ.L("RECENT"))
     title:SetPoint("TOPLEFT", 14, -8)
-    J.fields.recentEmpty = font(recent, 10, P.muted, LJ.L("RECENT_EMPTY"))
+    J.fields.recentEmpty = font(recent, 11, P.muted, LJ.L("RECENT_EMPTY"))
     J.fields.recentEmpty:SetPoint("CENTER", 0, -6)
     for i = 1, 4 do
         local row = button(recent, "", 584, 24)
         row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * 25)
         row.label:Hide()
-        row.name = font(row, 10, P.parchment, "")
+        row.name = font(row, 11, P.parchment, "")
         row.name:SetPoint("LEFT", 10, 0)
         row.name:SetWidth(260)
         row.name:SetWordWrap(false)
-        row.badges = font(row, 9, P.muted, "")
+        row.badges = font(row, 10, P.parchment, "")
         row.badges:SetPoint("LEFT", 274, 0)
         row.badges:SetWidth(220)
         row.badges:SetWordWrap(false)
-        row.date = font(row, 9, P.muted, "")
+        row.date = font(row, 10, P.muted, "")
         row.date:SetPoint("RIGHT", 0, 0)
         row.date:SetWidth(62)
         row.date:SetJustifyH("RIGHT")
@@ -301,14 +317,14 @@ function J:Create()
     divider:SetColorTexture(rgba(P.bronze))
     self.footer = font(f, 9, P.muted, LJ.L("FOOTER_HINT"))
     self.footer:SetPoint("BOTTOMLEFT", 16, 16)
-    self.footer:SetWidth(310)
+    self.footer:SetWidth(230)
     self.compactLatest = CreateFrame("Button", nil, f)
-    self.compactLatest:SetSize(310, 20)
+    self.compactLatest:SetSize(230, 20)
     self.compactLatest:SetPoint("BOTTOMLEFT", 16, 14)
     self.compactLatest:RegisterForClicks("LeftButtonUp")
     self.compactLatest.label = font(self.compactLatest, 10, P.parchment, "")
     self.compactLatest.label:SetPoint("LEFT", 0, 0)
-    self.compactLatest.label:SetWidth(310)
+    self.compactLatest.label:SetWidth(230)
     self.compactLatest.label:SetWordWrap(false)
     self.compactLatest:SetScript("OnEnter", function(button)
         button.label:SetTextColor(P.gold[1], P.gold[2], P.gold[3])
@@ -323,22 +339,30 @@ function J:Create()
     end)
     self.compactLatest:Hide()
     self.historyButton = button(f, LJ.L("HISTORY"), 72, 20)
-    self.historyButton:SetPoint("BOTTOMRIGHT", -228, 14)
+    self.historyButton:SetPoint("BOTTOMRIGHT", -236, 14)
     self.historyButton:SetScript("OnClick", function() if LJ.History then LJ.History:Show() end end)
     self.reportButton = button(f, LJ.L("REPORT"), 72, 20)
-    self.reportButton:SetPoint("BOTTOMRIGHT", -148, 14)
+    self.reportButton:SetPoint("BOTTOMRIGHT", -156, 14)
     self.reportButton:SetScript("OnClick", function() J:ShowReport() end)
     self.helpButton = button(f, LJ.L("HELP"), 58, 20)
-    self.helpButton:SetPoint("BOTTOMRIGHT", -82, 14)
+    self.helpButton:SetPoint("BOTTOMRIGHT", -90, 14)
     self.helpButton:SetScript("OnClick", function() LJ:PrintHelp() end)
     self.resetButton = button(f, LJ.L("RESET"), 58, 20)
-    self.resetButton:SetPoint("BOTTOMRIGHT", -16, 14)
+    self.resetButton:SetPoint("BOTTOMRIGHT", -24, 14)
     self.resetButton:SetScript("OnClick", function() if LJ.UI then LJ.UI:ConfirmReset() end end)
-    self.watermark = f:CreateTexture(nil, "BACKGROUND")
-    self.watermark:SetTexture(MEDIA .. "LootJinxIcon")
-    self.watermark:SetSize(110, 110)
-    self.watermark:SetPoint("BOTTOMRIGHT", -18, 44)
-    self.watermark:SetAlpha(0.07)
+    self.resizeGrip = W:ResizeGrip(f, function(scale)
+        if LJ.UI and LJ.UI.ApplyScale then
+            LJ.UI:ApplyScale(scale)
+        else
+            J:ApplyScale(scale)
+        end
+    end, function()
+        if LJ.UI and LJ.UI.ApplyScale then
+            LJ.UI:ApplyScale(1.0)
+        else
+            J:ApplyScale(1.0)
+        end
+    end)
     makeReport(f)
     f:SetScript("OnHide", function()
         self.reportPopup:Hide()
@@ -372,12 +396,27 @@ function J:Refresh()
     if latest then self.compactLatest.label:SetText(LJ:CompactLatestText(latest)) end
     self.compactLatest:SetShown(LJ.DB.compact == true and latest ~= nil)
     self.footer:SetShown(LJ.DB.compact ~= true or latest == nil)
-    self.fields.status:SetText(active and live and LJ.L("STATUS_LIVE") or LJ.L("STATUS_READY"))
+    local statusText = LJ.L("STATUS_READY")
+    if active and live then
+        statusText = LJ.L("STATUS_LIVE")
+    elseif (active and active.paused) or (latest and not latest.closed and latest.paused) then
+        statusText = LJ.L("STATUS_IDLE")
+    end
+    self.fields.status:SetText(statusText)
     local need = self.needCard.metric
     need.value:SetText(tostring(stats.needRolls or 0))
     need.sub:SetText(LJ.L("CARD_OF_RUNS", stats.totalDungeons or 0))
-    need.extra:SetText(LJ.L("CARD_NEED_BREAKDOWN", stats.needWins or 0,
-        stats.needLost or 0, stats.needPending or 0))
+    if stats.needRolls and stats.needRolls > 0 then
+        need.extra:SetText(LJ.L("CARD_NEED_BREAKDOWN", stats.needWins or 0,
+            stats.needLost or 0, stats.needPending or 0))
+        local rate = math.floor((stats.winRate or 0) + 0.5)
+        if need.pct then need.pct:SetText(LJ.L("CARD_NEED_WINRATE", rate)) end
+        if need.bar then need.bar:SetValue((stats.winRate or 0) / 100) end
+    else
+        need.extra:SetText(LJ.L("CARD_NEED_NO_DATA"))
+        if need.pct then need.pct:SetText(LJ.L("NO_DATA")) end
+        if need.bar then need.bar:SetValue(0) end
+    end
     need.streak:SetText(LJ.L("JOURNAL_CURRENT_VALUE", stats.lostNeedCurrent or 0))
     need.record:SetText(LJ.L("JOURNAL_RECORD_VALUE", stats.lostNeedMax or 0))
     local values = {
@@ -442,8 +481,8 @@ function J:Hide() if self.frame then self.frame:Hide() end end
 function J:ApplyScale(scale)
     if not LJ.DB then return end
     scale = tonumber(scale) or LJ.DB.scale or 1
-    if scale < 0.80 then scale = 0.80 end
-    if scale > 1.30 then scale = 1.30 end
+    if scale < 0.40 then scale = 0.40 end
+    if scale > 3.00 then scale = 3.00 end
     LJ.DB.scale = scale
     if self.frame then self.frame:SetScale(scale) end
     return scale
@@ -455,7 +494,6 @@ function J:ApplyDisplayOptions()
     self.recentPanel:SetShown(not compact)
     self.compactLatest:SetShown(compact and self.compactLatest.run ~= nil)
     self.footer:SetShown(not compact or self.compactLatest.run == nil)
-    self.watermark:SetShown(LJ.DB.showWatermark ~= false)
 end
 function J:ResetPosition()
     if not LJ.DB then return end

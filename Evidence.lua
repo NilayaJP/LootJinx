@@ -7,6 +7,7 @@ local E = {}
 LJ.Evidence = E
 
 local reasons = {
+    ["loot-history"] = { "confirmed", "EVIDENCE_DROP_HISTORY" },
     ["chat-won"] = { "confirmed", "EVIDENCE_CHAT_WIN" },
     ["chat-other-won"] = { "confirmed", "EVIDENCE_CHAT_OTHER" },
     ["chat-all-passed"] = { "confirmed", "EVIDENCE_CHAT_PASSED" },

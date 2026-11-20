@@ -10,6 +10,7 @@ local NEED_TIMEOUT = 5 * 60
 local DEDUPE_SECONDS = 5
 local NEED_CHAT_SECONDS = 120
 local REPAIR_SECONDS = 15 * 60
+local LATE_HISTORY_SECONDS = 5 * 60
 local MAX_BOSSES = 64
 local MAX_TIMELINE_EVENTS = 24
 local LOGIN_STALE_OUTSIDE_SECONDS = 6 * 60 * 60
@@ -26,12 +27,12 @@ local repairScheduled = false
 local reclassifyScheduled = false
 local started = false
 local firstCheck = true
-local recentGreed = {}
 local rollLinks = {}
 local rollLinkAt = {}
 local rollLinkCount = 0
 local lootWindowOpen = false
 local seenLootSlots = {}
+local lootWindowClaims = {}
 local lootHistoryDrops = 0
 local lootHistoryRolls = 0
 local worldEntries = 0
@@ -84,6 +85,12 @@ local function lower(s)
     s = LJ.Plain(s)
     if type(s) ~= "string" then return nil end
     return s:lower()
+end
+
+local function samePlayer(a, b)
+    if LJ.SamePlayerName and LJ:SamePlayerName(a, b) then return true end
+    local name = lower(a)
+    return name ~= nil and name == lower(b)
 end
 
 local function db()
@@ -163,14 +170,20 @@ end
 local function rollFor(run, id, name)
     name = lower(name)
     if not id or not name then return nil end
+    local at = now()
+    for _, drop in ipairs(run.drops or {}) do
+        if drop.id == id and math.abs(at - (drop.at or 0)) <= 300 then return nil end
+    end
+    local match
     for i = #((run and run.rolls) or {}), 1, -1 do
         local roll = run.rolls[i]
-        if roll.id == id and lower(roll.name) == name
-            and now() - (roll.at or 0) <= 180 then
-            return roll.kind, roll.value
+        if roll.id == id and not roll.lootHistoryKey and lower(roll.name) == name
+            and at - (roll.at or 0) <= 180 then
+            if match and (match.kind ~= roll.kind or match.value ~= roll.value) then return nil end
+            match = roll
         end
     end
-    return nil
+    if match then return match.kind, match.value end
 end
 
 local function emptyVisit(run)
@@ -243,7 +256,7 @@ local function getDungeon()
     if not ok then return nil end
     inInstance, kind = LJ.Plain(inInstance), LJ.Plain(kind)
     if not inInstance then return nil end
-    if kind ~= "party" and kind ~= "scenario" then return nil end
+    if kind ~= "party" and kind ~= "scenario" and kind ~= "raid" then return nil end
 
     local okI, name, instanceType, difficultyID, difficultyName, maxPlayers,
         dynamicDifficulty, isDynamic, instanceID = pcall(GetInstanceInfo)
@@ -301,7 +314,7 @@ local function resumeRun(run, d)
     inside = true
     blocked = false
     lootWindowOpen = false
-    seenLootSlots = {}
+    seenLootSlots, lootWindowClaims = {}, {}
     exitGraceRun, exitGraceUntil = nil, nil
     lastExitedRun, lastExitUntil = nil, nil
     transitionGuardRun = nil
@@ -316,7 +329,9 @@ function T:CloseActive(reason)
     local run = activeRun()
     if not run then return false end
     diag("run-close", run.id, reason or "closed")
-    if reason ~= "manual" then T:ResolveStaleNeeds(run, true) end
+    if reason ~= "manual" and reason ~= "switched-instance" and reason ~= "login-outside" then
+        T:ResolveStaleNeeds(run, true)
+    end
     T:FinalizeRunItems(run)
     run.closed = true
     run.ended = run.ended or now()
@@ -380,7 +395,7 @@ function T:StartRun(d, partial)
     inside = true
     blocked = false
     lootWindowOpen = false
-    seenLootSlots = {}
+    seenLootSlots, lootWindowClaims = {}, {}
     diag("run-start", run.id, string.format("name=%s instance=%s partial=%s",
         tostring(run.name), tostring(run.instanceID), tostring(run.partial)))
     LJ:Changed()
@@ -516,6 +531,7 @@ function T:CheckZone()
                 LJ:Changed()
                 return
             end
+            if inExitGrace(run) then return end
             -- Kein "paused"-Zustand mehr: nach dem kurzen Settle-Fenster wird der
             -- Run geschlossen (wie NIT die Instanz beim Verlassen schließt).
             local reason = "left"
@@ -725,28 +741,28 @@ local function needMatches(n, itemID, link, rollID, maxAge)
 end
 
 function T:FindPendingNeed(itemID, link, maxAge)
-    local data = db()
-    if not data then return nil, nil end
-    local found, foundRun, matches = nil, nil, 0
-    for i = #data.runs, 1, -1 do
-        local run = data.runs[i]
-        for j = #(run.needs or {}), 1, -1 do
-            local n = run.needs[j]
-            if needMatches(n, itemID, link, nil, maxAge or 900) then
-                matches = matches + 1
-                if not found or (n.at or 0) >= (found.at or 0) then
-                    found, foundRun = n, run
-                end
+    local run = activeRun()
+    if not run then return nil, nil end
+    local found, matches = nil, 0
+    for _, need in ipairs(run.needs or {}) do
+        if needMatches(need, itemID, link, nil, maxAge or 900) then
+            matches = matches + 1
+            if not found or (need.at or 0) >= (found.at or 0) then
+                found = need
             end
         end
     end
-    return found, foundRun, matches
+    return found, run, matches
 end
 
 function T:ResolveNeed(need, result, reason, run)
     if not need or (result ~= "won" and result ~= "lost") then return false end
-    if need.result == "won" then return false end
-    if need.result == "lost" and result ~= "won" then return false end
+    if reason == "loot-history" then
+        if need.reason == reason and need.result == result then return false end
+    elseif need.reason == "loot-history" or need.result == "won"
+        or (need.result == "lost" and result ~= "won") then
+        return false
+    end
     need.result = result
     need.resolvedAt = now()
     need.reason = reason or "event"
@@ -759,7 +775,6 @@ function T:HasGreedConflict(need, run)
     local id = need and need.id
     if not id then return false end
     local at = need.at or now()
-    if recentGreed[id] and math.abs(recentGreed[id] - at) <= 180 then return true end
     for i = 1, #((run and run.greeds) or {}) do
         local g = run.greeds[i]
         if g.id == id and math.abs((g.at or 0) - at) <= 180 then return true end
@@ -802,7 +817,7 @@ function T:ResolveNeedByBags(need, run, force)
 end
 
 function T:ResolveStaleNeeds(run, force)
-    if not run then return end
+    if not run or run.closedReason == "manual" then return end
     local t = now()
     for i = 1, #(run.needs or {}) do
         local n = run.needs[i]
@@ -816,32 +831,29 @@ function T:ResolveStaleNeeds(run, force)
 end
 
 function T:ResolveStaleNeedsAll(force)
-    local data = db()
-    if not data then return end
-    for i = 1, #data.runs do
-        T:ResolveStaleNeeds(data.runs[i], force)
+    local run = activeRun()
+    if run and not run.reenterPending and (inside or inExitGrace(run)) then
+        T:ResolveStaleNeeds(run, force)
     end
 end
 
 function T:RepairLostNeeds()
-    local data = db()
-    if not data then return end
+    local run = activeRun()
+    if not run or run.reenterPending or (not inside and not inExitGrace(run)) then return end
     local t = now()
     local changed = false
-    for _, run in ipairs(data.runs) do
-        for _, n in ipairs(run.needs or {}) do
-            if n.result == "lost" and not n.noRepair and n.id
-                and (n.reason == "bags" or n.reason == "no-item") then
-                local at = n.resolvedAt or n.at or 0
-                if t - at <= REPAIR_SECONDS then
-                    local before = tonumber(n.before)
-                    local count = LJ:ItemCount(n.id)
-                    if before and count and count > before and not T:HasGreedConflict(n, run) then
-                        n.result = "won"
-                        n.resolvedAt = t
-                        n.reason = "repair"
-                        changed = true
-                    end
+    for _, n in ipairs(run.needs or {}) do
+        if n.result == "lost" and not n.noRepair and n.id
+            and (n.reason == "bags" or n.reason == "no-item") then
+            local at = n.resolvedAt or n.at or 0
+            if t - at <= REPAIR_SECONDS then
+                local before = tonumber(n.before)
+                local count = LJ:ItemCount(n.id)
+                if before and count and count > before and not T:HasGreedConflict(n, run) then
+                    n.result = "won"
+                    n.resolvedAt = t
+                    n.reason = "repair"
+                    changed = true
                 end
             end
         end
@@ -977,7 +989,6 @@ function T:MarkGreed(rollID, link)
     run.greeds = run.greeds or {}
     run.greeds[#run.greeds + 1] = { at = now(), id = id, link = link, rollID = rollID }
     while #run.greeds > 25 do table.remove(run.greeds, 1) end
-    recentGreed[id] = now()
     diag("greed", id, "roll=" .. tostring(rollID))
 end
 
@@ -990,37 +1001,29 @@ function T:ResolveNeedByLink(link, result, reason)
         diag("need-ambiguous", id, reason or "chat")
         return false
     end
-    if result == "won" then
-        return T:ResolveNeed(need, "won", reason, run)
-    elseif result == "lost" then
-        if T:HasGreedConflict(need, run) then
-            need.noRepair = true
-            return T:ResolveNeed(need, "lost", "greed-guard", run)
-        end
-        return T:ResolveNeed(need, "lost", reason, run)
+    if T:HasGreedConflict(need, run) then
+        diag("need-ambiguous", id, "greed")
+        return false
     end
-    return false
+    return T:ResolveNeed(need, result, reason, run)
 end
 
-function T:ResolveNeedByRoll(rollID)
+function T:ResolveNeedByRoll(rollID, run)
     rollID = tonumber(rollID)
-    if not rollID then return end
-    local data = db()
-    if not data then return end
-    for _, run in ipairs(data.runs) do
-        for _, n in ipairs(run.needs or {}) do
-            if n.result == nil and n.rollID == rollID then
-                diag("roll-resolve", n.id, "roll=" .. tostring(rollID))
-                T:ResolveNeedByBags(n, run, true)
-                return
-            end
+    run = run or activeRun()
+    if not rollID or not run or run.reenterPending or run ~= activeRun() then return end
+    for _, need in ipairs(run.needs or {}) do
+        if need.result == nil and need.rollID == rollID then
+            diag("roll-resolve", need.id, "roll=" .. tostring(rollID))
+            T:ResolveNeedByBags(need, run, true)
+            return
         end
     end
 end
 
 -- ---------------------------------------------------------------- Loot-Events
 -- ---------------------------------------------------------------- Boss-/Drop-Details
-local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, passed, winnerClass, rollID)
+local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, passed, winnerClass, rollID, windowClaims)
     if not run then return false end
     source = source or "seen"
     link = LJ:NormalizeLink(link)
@@ -1067,15 +1070,14 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
             and (sources["loot-window"] == true or d.winner ~= nil)
             and windowAge >= 0 and windowAge <= LOOT_WINDOW_ECHO_SECONDS
         local within = echo or (age >= 0 and age <= mergeAge)
-        if d.id == id and within
+        if d.id == id and within and (not windowClaims or not windowClaims[d])
             and (echo or not sources[source] or (rollID and d.rollID == rollID)
                 or (repeatedWindowMatch and d.rollID))
             and (not rollID or not d.rollID or d.rollID == rollID) then
-            local sameWinner = not d.winner or not winner
-                or (LJ.SamePlayerName and LJ:SamePlayerName(d.winner, winner))
-                or lower(d.winner) == lower(winner)
+            local sameWinner = not d.winner or not winner or samePlayer(d.winner, winner)
             if sameWinner then
                 local changed = false
+                if windowClaims then windowClaims[d] = true end
                 d.sources = sources
                 sources[source] = true
                 if source == "loot-window" and d.lastWindowAt ~= at then
@@ -1113,7 +1115,7 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
         rollValue, rollKind = value, kind
     end
 
-    run.drops[#run.drops + 1] = {
+    local drop = {
         id = id,
         link = link,
         bossID = bossID,
@@ -1128,7 +1130,10 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
         passed = passed == true and not winner or false,
         source = source,
         sources = { [source or "unknown"] = true },
+        windowSlotObserved = windowClaims ~= nil or nil,
     }
+    run.drops[#run.drops + 1] = drop
+    if windowClaims then windowClaims[drop] = true end
     diag("drop-new", id, source)
     LJ:Changed()
     return true
@@ -1149,8 +1154,8 @@ local function competingHistoryDrop(run, id, at)
     return false
 end
 
-function T:NoteRoll(link, name, kind, value, source)
-    local run = activeRun()
+function T:NoteRoll(link, name, kind, value, source, run)
+    run = run or activeRun()
     if not run then return false end
     link = LJ:NormalizeLink(link)
     local id = LJ:ItemID(link)
@@ -1184,12 +1189,16 @@ function T:NoteRoll(link, name, kind, value, source)
     diag("roll", id, kind .. "=" .. tostring(value) .. (mine and " self" or " other"))
 
     if source ~= "history" then
-        for i = #(run.drops or {}), 1, -1 do
-            local drop = run.drops[i]
-            if drop.id == id and drop.winner and lower(drop.winner) == lower(name) and not drop.roll then
-                drop.roll = value
-                drop.rollKind = kind
-                break
+        if not competingHistoryDrop(run, id, at) then
+            for i = #(run.drops or {}), 1, -1 do
+                local drop = run.drops[i]
+                if drop.id == id and not drop.lootHistoryKey and not drop.roll
+                    and math.abs(at - (drop.at or 0)) <= 300
+                    and samePlayer(drop.winner, name) then
+                    drop.roll = value
+                    drop.rollKind = kind
+                    break
+                end
             end
         end
         if kind == "need" and mine then
@@ -1226,20 +1235,25 @@ local function historyKind(state)
     end
 end
 
-local function recentDrop(run, id, at, historyKey, winnerName)
+local function recentDrop(run, id, at, historyKey, winnerName, encounterID)
+    local keyed
     for i = #(run.drops or {}), 1, -1 do
         local drop = run.drops[i]
-        if drop.id == id and drop.lootHistoryKey == historyKey then return drop end
+        if drop.id == id and drop.lootHistoryKey == historyKey then
+            if keyed then return nil, true, true end
+            keyed = drop
+        end
     end
+    if keyed then return keyed end
     local candidates, winnerMatches = {}, {}
     for i = #(run.drops or {}), 1, -1 do
         local drop = run.drops[i]
+        local bossID = tonumber(drop.bossID) or 0
         if drop.id == id and not drop.lootHistoryKey
+            and (not encounterID or bossID <= 0 or bossID == encounterID)
             and math.abs((tonumber(drop.at) or 0) - at) <= 900 then
             candidates[#candidates + 1] = drop
-            if winnerName and drop.winner
-                and ((LJ.SamePlayerName and LJ:SamePlayerName(drop.winner, winnerName))
-                    or lower(drop.winner) == lower(winnerName)) then
+            if winnerName and samePlayer(drop.winner, winnerName) then
                 winnerMatches[#winnerMatches + 1] = drop
             end
         end
@@ -1250,28 +1264,78 @@ local function recentDrop(run, id, at, historyKey, winnerName)
     return nil, #candidates > 0
 end
 
--- C_LootHistory liefert für Encounter-Beute die echten Rollzahlen aller
--- Spieler. Die Chatmeldungen bleiben der Fallback für Trash und ältere Runs.
-local function bindHistoryNeed(run, id, name, kind, value, historyKey)
-    if kind ~= "need" or not LJ:IsMe(name) then return end
-    local drop = recentDrop(run, id, now(), historyKey)
-    local rollID = drop and drop.lootHistoryKey == historyKey and drop.rollID
-    local match, count = nil, 0
-    for _, need in ipairs(run.needs or {}) do
-        if need.id == id and (not need.lootHistoryKey or need.lootHistoryKey == historyKey)
-            and math.abs(now() - (need.at or 0)) <= 300
-            and (not rollID or need.rollID == rollID) then
-            match, count = need, count + 1
+-- Late events can finish a closed run, but only when known drop evidence
+-- locates the result. An encounter or item link alone is insufficient there.
+local function runForHistory(id, link, historyKey, winnerName, encounterID)
+    local current = activeRun()
+    if current and ((not inside and not inExitGrace(current)) or transitioningFromOtherRun(current)) then
+        current = nil
+    end
+    local exactRun, exactDrop, possibleRun, possibleDrop, possibleUnkeyed
+    local possibleCount = 0
+    local at = now()
+    local data = db()
+    for _, run in ipairs(data and data.runs or {}) do
+        local ended = tonumber(run.ended)
+        local recent = run.closed
+            and ended and at >= ended and at - ended <= LATE_HISTORY_SECONDS
+        if run == current or recent then
+            local drop, seen, duplicate = recentDrop(run, id, at, historyKey, winnerName,
+                recent and encounterID or nil)
+            if duplicate then return nil end
+            if drop and drop.lootHistoryKey == historyKey then
+                if exactRun or run.closedReason == "manual" then return nil end
+                exactRun, exactDrop = run, drop
+            elseif run.closedReason ~= "manual" and (drop or seen or (run == current
+                and (bossByID(current, encounterID) or (current.seenLinks and current.seenLinks[link])))) then
+                possibleRun, possibleDrop, possibleUnkeyed = run, drop, seen
+                possibleCount = possibleCount + 1
+            end
         end
     end
-    if count == 1 and (not match.roll or match.roll == value) then
-        match.roll, match.rollKind, match.lootHistoryKey = value, kind, historyKey
-        LJ:Changed()
+    if exactRun then return exactRun, exactDrop end
+    if possibleCount > 1 then return nil end
+    if possibleCount == 1 then
+        if possibleDrop or possibleRun == current then
+            return possibleRun, possibleDrop, possibleUnkeyed
+        end
+        return nil
     end
+    return current
 end
 
-function T:NoteRollFromHistory(link, name, kind, value, historyKey)
-    local run = activeRun()
+-- C_LootHistory liefert für Encounter-Beute die echten Rollzahlen aller
+-- Spieler. Die Chatmeldungen bleiben der Fallback für Trash und ältere Runs.
+local function bindHistoryNeed(run, id, value, historyKey)
+    local drop = recentDrop(run, id, now(), historyKey)
+    local rollID = drop and drop.lootHistoryKey == historyKey and drop.rollID
+    local match, count, exact, exactCount = nil, 0, nil, 0
+    for _, need in ipairs(run.needs or {}) do
+        if need.id == id and (not need.lootHistoryKey or need.lootHistoryKey == historyKey)
+            and (not rollID or not need.rollID or need.rollID == rollID) then
+            if need.lootHistoryKey == historyKey or (rollID and need.rollID == rollID) then
+                exact, exactCount = need, exactCount + 1
+            elseif math.abs(now() - (need.at or 0)) <= 300
+                and (not value or not need.roll or need.roll == value) then
+                match, count = need, count + 1
+            end
+        end
+    end
+    if exactCount == 1 then
+        match = exact
+    elseif exactCount ~= 0 or count ~= 1 or competingHistoryDrop(run, id, now()) then
+        return nil
+    end
+    if match.lootHistoryKey ~= historyKey or (value and value ~= match.roll) then
+        match.lootHistoryKey = historyKey
+        if value then match.roll, match.rollKind = value, "need" end
+        LJ:Changed()
+    end
+    return match
+end
+
+function T:NoteRollFromHistory(link, name, kind, value, historyKey, isSelf, run)
+    run = run or activeRun()
     if not run then return false end
     link = LJ:NormalizeLink(link)
     local id = LJ:ItemID(link)
@@ -1279,44 +1343,46 @@ function T:NoteRollFromHistory(link, name, kind, value, historyKey)
     name = LJ.Plain(name)
     if not id or not value or value < 1 or value > 100
         or type(name) ~= "string" or name == "" then return false end
+    if isSelf == nil then isSelf = LJ:IsMe(name) end
+    if kind == "need" and isSelf then bindHistoryNeed(run, id, value, historyKey) end
     local at = now()
+    local chatEcho
     for i = #(run.rolls or {}), 1, -1 do
         local roll = run.rolls[i]
-        if at - (tonumber(roll.at) or 0) > 300 then break end
         if roll.id == id and roll.kind == kind and tonumber(roll.value) == value
-            and lower(roll.name) == lower(name) then
+            and samePlayer(roll.name, name) then
             if roll.lootHistoryKey == historyKey then
-                bindHistoryNeed(run, id, name, kind, value, historyKey)
                 return false
             end
-            if not roll.lootHistoryKey
-                and not competingHistoryDrop(run, id, at) then
-                roll.lootHistoryKey = historyKey
-                roll.chatSeen = true
-                bindHistoryNeed(run, id, name, kind, value, historyKey)
-                return false
+            if not chatEcho and not roll.lootHistoryKey
+                and at - (tonumber(roll.at) or 0) <= 300 then
+                chatEcho = roll
             end
         end
     end
-    if not T:NoteRoll(link, name, kind, value, "history") then return false end
+    if chatEcho and not competingHistoryDrop(run, id, at) then
+        chatEcho.lootHistoryKey = historyKey
+        chatEcho.chatSeen = true
+        return false
+    end
+    if not T:NoteRoll(link, name, kind, value, "history", run) then return false end
     run.rolls[#run.rolls].lootHistoryKey = historyKey
-    bindHistoryNeed(run, id, name, kind, value, historyKey)
     return true
 end
 
+local function historySelf(entry, name)
+    local isSelf = LJ.Plain(entry.isSelf)
+    if type(isSelf) == "boolean" then return isSelf end
+    if name then return LJ:IsMe(name) end
+end
+
 function T:OnLootHistoryDrop(encounterID, lootListID)
-    local run = activeRun()
-    if not run or (not inside and not inExitGrace(run)) then return end
     local api = _G.C_LootHistory
     if type(api) ~= "table" or type(api.GetSortedInfoForDrop) ~= "function" then return end
     encounterID = tonumber(LJ.Plain(encounterID))
     lootListID = tonumber(LJ.Plain(lootListID))
     if not encounterID or not lootListID then return end
     local historyKey = tostring(encounterID) .. ":" .. tostring(lootListID)
-    if transitioningFromOtherRun(run) then
-        diag("exit-late-history-skip", nil, historyKey)
-        return
-    end
     local ok, info = pcall(api.GetSortedInfoForDrop, encounterID, lootListID)
     if not ok or type(info) ~= "table" then return end
 
@@ -1331,7 +1397,11 @@ function T:OnLootHistoryDrop(encounterID, lootListID)
     else
         winnerName = nil
     end
-    local drop, observedUnkeyed = recentDrop(run, id, now(), historyKey, winnerName)
+    local run, drop, observedUnkeyed = runForHistory(id, link, historyKey, winnerName, encounterID)
+    if not run then
+        diag("loot-history-skip", id, "no unique run")
+        return
+    end
     local observedBoss = bossByID(run, encounterID)
     if not drop and not observedBoss and not (run.seenLinks and run.seenLinks[link]) then
         diag("loot-history-skip", id, "unseen")
@@ -1367,8 +1437,12 @@ function T:OnLootHistoryDrop(encounterID, lootListID)
     local winnerKind = winner and historyKind(winner.state) or nil
     if winnerKind == "pass" then winnerKind = nil end
     local winnerRoll = winner and tonumber(LJ.Plain(winner.roll)) or nil
+    local winnerIsSelf
+    if winner then winnerIsSelf = historySelf(winner, winnerName) end
 
     local added = 0
+    local ownNeed = historyKind(info.playerRollState) == "need"
+    local ownRoll
     local rollInfos = type(info.rollInfos) == "table" and info.rollInfos or {}
     for i = 1, #rollInfos do
         local entry = rollInfos[i]
@@ -1382,34 +1456,47 @@ function T:OnLootHistoryDrop(encounterID, lootListID)
             end
             local value = tonumber(LJ.Plain(entry.roll))
             local kind = historyKind(entry.state)
+            local isSelf = historySelf(entry, name)
+            if isSelf and kind == "need" then
+                ownNeed = true
+                if value and value >= 1 and value <= 100 then ownRoll = value end
+            end
             if name and value and kind and kind ~= "pass" then
-                if T:NoteRollFromHistory(link, name, kind, value, historyKey) then added = added + 1 end
+                if T:NoteRollFromHistory(link, name, kind, value, historyKey, isSelf, run) then added = added + 1 end
             end
         end
     end
     if winnerName and winnerKind and winnerRoll then
-        if T:NoteRollFromHistory(link, winnerName, winnerKind, winnerRoll, historyKey) then
+        if T:NoteRollFromHistory(link, winnerName, winnerKind, winnerRoll, historyKey, winnerIsSelf, run) then
             added = added + 1
         end
     end
 
-    if winnerName then
-        if drop then
-            local changed = false
-            if not drop.winner then
-                drop.winner = winnerName
-                drop.winnerSource = "lootHistory"
-                changed = true
-            end
-            if winnerClass and not drop.winnerClass then drop.winnerClass = winnerClass; changed = true end
-            if winnerRoll and not drop.roll then drop.roll = winnerRoll; changed = true end
-            if winnerKind and not drop.rollKind then drop.rollKind = winnerKind; changed = true end
-            if changed then diag("drop-merge", id, "lootHistory") end
+    if drop and winnerName then
+        if not samePlayer(drop.winner, winnerName) then
+            drop.roll, drop.rollKind, drop.winnerClass = nil, nil, nil
+        elseif winnerKind and drop.rollKind and winnerKind ~= drop.rollKind then
+            drop.roll = nil
         end
-    elseif info.allPassed == true then
-        if drop then
-            if not drop.winner then drop.passed = true end
-        end
+        drop.winner, drop.winnerSource, drop.passed = winnerName, "lootHistory", false
+        drop.winnerClass = winnerClass or drop.winnerClass
+        drop.rollKind = winnerKind or drop.rollKind
+        if winnerRoll and winnerRoll >= 1 and winnerRoll <= 100 then drop.roll = winnerRoll end
+        diag("drop-merge", id, "lootHistory")
+    elseif drop and info.allPassed == true and not drop.winner then
+        drop.passed = true
+    end
+
+    local needResult
+    if winnerIsSelf == true and winnerKind == "need" then
+        needResult = "won"
+        ownRoll = ownRoll or (winnerRoll and winnerRoll >= 1 and winnerRoll <= 100 and winnerRoll or nil)
+    elseif ownNeed and (winnerIsSelf == false or info.allPassed == true) then
+        needResult = "lost"
+    end
+    if needResult then
+        local need = bindHistoryNeed(run, id, ownRoll, historyKey)
+        if need then T:ResolveNeed(need, needResult, "loot-history", run) end
     end
 
     lootHistoryRolls = lootHistoryRolls + added
@@ -1425,7 +1512,7 @@ function T:NotePassed(link)
     return noteDrop(run, link, nil, nil, "chat", nil, nil, true)
 end
 
-function T:NoteSeenDrop(link, source, rollID)
+function T:NoteSeenDrop(link, source, rollID, windowClaims)
     local run = activeRun()
     if not run then return false end
     source = source or "seen"
@@ -1435,7 +1522,7 @@ function T:NoteSeenDrop(link, source, rollID)
         local ok, info = pcall(LJ.ClassifyItem, LJ, link)
         if ok and info and info.quest then return false end
     end
-    return noteDrop(run, link, nil, nil, source, nil, nil, nil, nil, rollID)
+    return noteDrop(run, link, nil, nil, source, nil, nil, nil, nil, rollID, windowClaims)
 end
 
 function T:OnBossEvent(event, ...)
@@ -1543,10 +1630,14 @@ end
 
 function T:OnCancelRoll(rollID)
     rollID = tonumber(rollID)
-    if not rollID then return end
+    local run = activeRun()
+    if not rollID or not run then return end
     diag("roll-cancel", nil, "roll=" .. tostring(rollID))
-    after(4, function() T:ResolveNeedByRoll(rollID) end)
-    after(20, function() T:ResolveNeedByRoll(rollID) end)
+    local function resolve()
+        if runByID(run.id) == run then T:ResolveNeedByRoll(rollID, run) end
+    end
+    after(4, resolve)
+    after(20, resolve)
 end
 
 function T:OnLootWindow()
@@ -1556,7 +1647,7 @@ function T:OnLootWindow()
     if not count then return end
     if not lootWindowOpen then
         lootWindowOpen = true
-        seenLootSlots = {}
+        seenLootSlots, lootWindowClaims = {}, {}
         diag("loot-open", nil, "slots=" .. tostring(count))
     end
     for slot = 1, count do
@@ -1568,7 +1659,7 @@ function T:OnLootWindow()
                 seenLootSlots[key] = true
                 diag("loot-window", LJ:ItemID(link), "slot=" .. tostring(slot))
                 T:RecordItem(link, "loot-window")
-                T:NoteSeenDrop(link, "loot-window")
+                T:NoteSeenDrop(link, "loot-window", nil, lootWindowClaims)
             end
         end
     end
@@ -1826,18 +1917,15 @@ local eventFrame
 local function onEvent(event, ...)
     if event == "PLAYER_ENTERING_WORLD" then
         worldEntries = worldEntries + 1
-        local isStartupEntry = worldEntries == 1
+        local isInitialLogin, isReloadingUI = ...
+        local isStartupEntry = (worldEntries == 1) or (isInitialLogin == true) or (isInitialLogin == nil and isReloadingUI == nil)
+        local run = activeRun()
+        local outsideAt = run and tonumber(run.outsideAt)
+        local staleOutside = outsideAt and now() - outsideAt >= LOGIN_STALE_OUTSIDE_SECONDS
+        if not getDungeon() and isStartupEntry and staleOutside then
+            T:CloseActive("login-outside")
+        end
         after(1, function()
-            -- Ein lange pausierter Run kann nach einem neuen Clientstart
-            -- nicht mehr zuverlässig derselben Instanzkopie zugeordnet
-            -- werden. Kurze Reconnects bleiben pausiert; Zonenwechsel
-            -- verwenden weiterhin die GUID-basierte Kopienprüfung.
-            local run = activeRun()
-            local outsideAt = run and tonumber(run.outsideAt)
-            local staleOutside = outsideAt and now() - outsideAt >= LOGIN_STALE_OUTSIDE_SECONDS
-            if not getDungeon() and isStartupEntry and staleOutside then
-                T:CloseActive("login-outside")
-            end
             T:CheckZone()
             T:RefreshPendingItemData()
             T:ResolveStaleNeedsAll(false)
@@ -1852,6 +1940,7 @@ local function onEvent(event, ...)
         if run then
             run.lastSeen = now()
             run.outsideAt = run.outsideAt or now()
+            run.reenterPending = run.zoneID ~= nil
         end
     elseif event == "ZONE_CHANGED_NEW_AREA" then
         after(0.2, function() T:CheckZone() end)
@@ -1880,7 +1969,7 @@ local function onEvent(event, ...)
         T:OnLootWindow()
     elseif event == "LOOT_CLOSED" then
         lootWindowOpen = false
-        seenLootSlots = {}
+        seenLootSlots, lootWindowClaims = {}, {}
         diag("loot-close")
     elseif event == "CHAT_MSG_LOOT" then
         T:OnLootChat(select(1, ...), select(2, ...), select(12, ...))
@@ -1960,12 +2049,11 @@ function T:ResetAll()
     lastExitedRun, lastExitUntil = nil, nil
     transitionGuardRun = nil
     firstCheck = false
-    recentGreed = {}
     rollLinks = {}
     rollLinkAt = {}
     rollLinkCount = 0
     lootWindowOpen = false
-    seenLootSlots = {}
+    seenLootSlots, lootWindowClaims = {}, {}
     lootHistoryDrops = 0
     lootHistoryRolls = 0
     if LJ.Diagnostics and LJ.Diagnostics.Reset then LJ.Diagnostics:Reset() end

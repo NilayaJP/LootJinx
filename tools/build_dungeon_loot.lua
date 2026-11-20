@@ -26,10 +26,16 @@ assert(load("local _, FDJ = ...\n" .. drownedLoot, "@QuestUpdates.lua:drownedloo
 local wowheadAdded, wowheadConflicts, wowheadSeen = assert(loadfile("tools/apply_wowhead_forever_loot.lua"))()(source)
 print(string.format("Wowhead Forever: %d reviewed references, %d added, %d conflicts", wowheadSeen, wowheadAdded, #wowheadConflicts))
 for _, conflict in ipairs(wowheadConflicts) do print("  conflict: " .. conflict) end
+local foreverAdded, foreverPresent, foreverConflicts, foreverSeen =
+    assert(loadfile("tools/apply_foreverdb_loot.lua"))()(source)
+print(string.format("ForeverDB.net: %d reviewed references, %d added, %d already present, %d conflicts",
+    foreverSeen, foreverAdded, foreverPresent, #foreverConflicts))
+for _, conflict in ipairs(foreverConflicts) do print("  conflict: " .. conflict) end
 
 local out = assert(io.open("DungeonLootData.lua", "w"))
 out:write("-- Curated item ID/source index from ForeverDungeonJournal " .. version .. " (WoW Forever 1.60.1).\n")
-out:write("-- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, and tools/wowhead_forever_loot.tsv.\n")
+out:write("-- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, tools/wowhead_forever_loot.tsv,\n")
+out:write("-- and reviewed tools/foreverdb_loot_reviewed.tsv (Data from ForeverDB.net — https://foreverdb.net).\n")
 out:write("-- Reference data only: observations and client events decide whether an item actually dropped.\n")
 out:write("-- Regenerate with tools/build_dungeon_loot.lua after reviewing upstream data changes.\n")
 out:write("local ADDON, ns = ...\n")

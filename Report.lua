@@ -17,19 +17,10 @@ local function stripName(value)
 end
 
 local function targetPlayer()
-    if type(UnitName) ~= "function" or type(UnitIsPlayer) ~= "function" then return nil end
+    if type(UnitIsPlayer) ~= "function" then return nil end
     local okP, isPlayer = pcall(UnitIsPlayer, "target")
     if not okP or LJ.Plain(isPlayer) ~= true then return nil end
-    local ok, name, realm = pcall(UnitName, "target")
-    name, realm = ok and LJ.Plain(name) or nil, ok and LJ.Plain(realm) or nil
-    if type(name) ~= "string" or name == "" then return nil end
-    local okP, _, ownRealm = pcall(UnitName, "player")
-    ownRealm = okP and LJ.Plain(ownRealm) or nil
-    local fullName = name
-    if type(realm) == "string" and realm ~= "" and realm ~= ownRealm then
-        fullName = name .. "-" .. realm
-    end
-    return fullName, name, realm
+    return LJ:UnitCharacterName("target")
 end
 
 local function faction(unit)
@@ -40,7 +31,7 @@ local function faction(unit)
     return nil
 end
 
-local function bnetFriend(battleTag, name, realm, targetGUID)
+local function bnetFriend(battleTag, name, targetGUID)
     if type(BNGetNumFriends) ~= "function" or not C_BattleNet
         or type(C_BattleNet.GetFriendAccountInfo) ~= "function" then return nil end
     local ok, count = pcall(BNGetNumFriends)
@@ -53,11 +44,9 @@ local function bnetFriend(battleTag, name, realm, targetGUID)
             local game = info.gameAccountInfo
             local same = type(tag) == "string" and battleTag and tag:lower() == battleTag:lower()
             if not same and name and type(game) == "table" and LJ.Plain(game.isOnline) == true then
-                local char = LJ.Plain(game.characterName)
-                local gameRealm = LJ.Plain(game.realmName)
                 local friendGUID = LJ.Plain(game.playerGuid)
-                same = type(char) == "string" and char:lower() == name:lower()
-                    and (not realm or realm == "" or not gameRealm or gameRealm:lower() == realm:lower())
+                same = LJ:SamePlayerName(name, game.characterName)
+                    and LJ.Plain(game.isInCurrentRegion) ~= false
                     and (not targetGUID or not friendGUID or targetGUID == friendGUID)
             end
             local id = tonumber(LJ.Plain(info.bnetAccountID))
@@ -78,10 +67,10 @@ local function targetGUID()
 end
 
 function R:GetTargetName()
-    local fullName, name, realm = targetPlayer()
+    local fullName = targetPlayer()
     if not fullName then return nil end
     if faction("target") == faction("player") and faction("player") then return fullName end
-    local _, tag = bnetFriend(nil, name, realm, targetGUID())
+    local _, tag = bnetFriend(nil, fullName, targetGUID())
     return tag
 end
 
@@ -158,7 +147,8 @@ local function sendNextLine(currentSession)
         sent, accepted = pcall(C_BattleNet.SendWhisper, reportTarget, line)
         sent = sent and accepted == true
     else
-        sent = pcall(SendChatMessage, line, reportChannel, nil, reportTarget)
+        local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
+        sent = pcall(send, line, reportChannel, nil, reportTarget)
     end
     if not sent then
         queue = {}
@@ -201,14 +191,14 @@ function R:Send(channel, target)
             if not resolvedTarget then return false, "REPORT_BNET_NOT_FRIEND" end
             resolvedChannel = "BN_WHISPER"
         else
-            local current, name, realm = targetPlayer()
+            local current = targetPlayer()
             if not current or target:lower() ~= current:lower() then
                 return false, "REPORT_UNVERIFIED_TARGET"
             end
             if faction("target") == faction("player") and faction("player") then
                 resolvedChannel, resolvedTarget, display = "WHISPER", current, current
             else
-                resolvedTarget, display = bnetFriend(nil, name, realm, targetGUID())
+                resolvedTarget, display = bnetFriend(nil, current, targetGUID())
                 if not resolvedTarget then return false, "REPORT_OPPOSITE_FACTION" end
                 resolvedChannel = "BN_WHISPER"
             end

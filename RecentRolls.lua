@@ -22,6 +22,19 @@ end
 
 function R:Entries(run)
     local entries, matched = {}, {}
+    local rollIDs = {}
+    for _, drop in ipairs(run.drops or {}) do
+        if drop.lootHistoryKey and drop.rollID then
+            local byItem = rollIDs[drop.id] or {}
+            local previous = byItem[drop.lootHistoryKey]
+            if previous == nil then
+                byItem[drop.lootHistoryKey] = drop.rollID
+            elseif previous ~= drop.rollID then
+                byItem[drop.lootHistoryKey] = false
+            end
+            rollIDs[drop.id] = byItem
+        end
+    end
     for _, roll in ipairs(run.rolls or {}) do
         local value = validRoll(roll.value)
         if value and (roll.kind == "need" or roll.kind == "greed" or roll.kind == "transmog") then
@@ -29,33 +42,48 @@ function R:Entries(run)
                 id = roll.id, name = roll.name, kind = roll.kind,
                 value = value, at = tonumber(roll.at) or 0,
                 lootHistoryKey = roll.lootHistoryKey,
+                rollID = roll.rollID or (rollIDs[roll.id] and rollIDs[roll.id][roll.lootHistoryKey]) or nil,
                 own = type(roll.name) == "string" and LJ:IsMe(roll.name) or false,
             }
         end
     end
-    for _, need in ipairs(run.needs or {}) do
-        local value = validRoll(need.roll)
-        if value then
-            local match
-            for i, entry in ipairs(entries) do
-                if entry.own and entry.kind == "need" and entry.id == need.id
-                    and entry.value == value and not matched[i]
-                    and (not need.lootHistoryKey or not entry.lootHistoryKey
-                        or need.lootHistoryKey == entry.lootHistoryKey)
-                    and entry.at >= (tonumber(need.at) or 0)
-                    and entry.at - (tonumber(need.at) or 0) <= 300 then
-                    match = i
-                    break
+    local observedCount = #entries
+    local function matchObservation(need, value, exactOnly)
+        local at = tonumber(need.at) or 0
+        for i = 1, observedCount do
+            local entry = entries[i]
+            if not matched[i] and entry.own and entry.kind == "need" and entry.id == need.id
+                and entry.value == value then
+                local bothKeys = need.lootHistoryKey and entry.lootHistoryKey
+                local bothIDs = need.rollID and entry.rollID
+                local compatible = (not bothKeys or need.lootHistoryKey == entry.lootHistoryKey)
+                    and (not bothIDs or need.rollID == entry.rollID)
+                local exact = bothKeys or bothIDs
+                local near = entry.at >= at and entry.at - at <= 300
+                if compatible and (exactOnly and exact or not exactOnly and near) then
+                    matched[i] = true
+                    return true
                 end
             end
-            if match then
-                matched[match] = true
-            else
-                entries[#entries + 1] = {
-                    id = need.id, name = LJ.L("RECENT_ROLL_YOU"), kind = "need",
-                    value = value, at = tonumber(need.at) or 0, own = true,
-                }
-            end
+        end
+    end
+
+    -- Reserve identity matches before considering observations with missing identity.
+    local matchedNeeds = {}
+    for _, need in ipairs(run.needs or {}) do
+        local value = validRoll(need.roll)
+        if value and (need.lootHistoryKey or need.rollID) then
+            matchedNeeds[need] = matchObservation(need, value, true)
+        end
+    end
+    for _, need in ipairs(run.needs or {}) do
+        local value = validRoll(need.roll)
+        if value and not matchedNeeds[need] and not matchObservation(need, value, false) then
+            entries[#entries + 1] = {
+                id = need.id, name = LJ.L("RECENT_ROLL_YOU"), kind = "need",
+                value = value, at = tonumber(need.at) or 0, own = true,
+                lootHistoryKey = need.lootHistoryKey, rollID = need.rollID,
+            }
         end
     end
     table.sort(entries, function(a, b) return a.at < b.at end)
