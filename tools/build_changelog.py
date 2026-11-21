@@ -10,7 +10,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = r"\d+\.\d+\.\d+"
 FOREVERDB_CREDIT = "[Data from ForeverDB.net](https://foreverdb.net)"
-ASSETS = ("LootJinxIcon", "NeedRolls", "NoLoot", "NoNeedWin", "Report", "SinceNeedWin")
+ASSETS = ("LootJinxIcon", "NeedRolls", "NoLoot", "NoNeedWin", "SinceNeedWin")
 THEMES = ("Classic", "Journal", "Goblin", "Dwarven", "Oracle")
 THEME_ASSETS = tuple(f"Media/Themes/{theme}{variant}.tga" for theme in THEMES for variant in ("Banner", "Icon"))
 
