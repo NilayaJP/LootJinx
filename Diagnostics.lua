@@ -15,64 +15,6 @@ local REPORT_PENDING = 8
 local REPORT_BOSSES = 24
 
 local W = LJ.Widgets
-local CLASSIC = LJ.COLORS or {}
-local FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
-local WHITE = "Interface\\Buttons\\WHITE8X8"
-
-local JOURNAL = {
-    bg = { 0.141, 0.102, 0.102, 0.98 },
-    card = { 0.190, 0.145, 0.133, 0.98 },
-    border = { 0.545, 0.384, 0.267, 1 },
-    accent = { 0.918, 0.769, 0.494, 1 },
-    text = { 0.906, 0.835, 0.729, 1 },
-    muted = { 0.690, 0.608, 0.510, 1 },
-    inset = { 0.114, 0.086, 0.082, 0.96 },
-}
-
-local palettes = {
-    classic = {
-        bg = CLASSIC.bg,
-        card = CLASSIC.card,
-        border = CLASSIC.border,
-        accent = CLASSIC.accent,
-        cyan = CLASSIC.cyan,
-        text = CLASSIC.text,
-        muted = CLASSIC.muted,
-        editBg = { 0.040, 0.045, 0.060, 1 },
-        editBorder = CLASSIC.border,
-        buttonBg = { 0.100, 0.110, 0.140, 0.96 },
-        titleFont = FONT,
-        titleSize = 10,
-        titleFlags = "OUTLINE",
-        titleColor = CLASSIC.accent,
-    },
-    journal = {
-        bg = JOURNAL.bg,
-        card = JOURNAL.card,
-        border = JOURNAL.border,
-        accent = JOURNAL.accent,
-        cyan = JOURNAL.text,
-        text = JOURNAL.text,
-        muted = JOURNAL.muted,
-        editBg = JOURNAL.inset,
-        editBorder = JOURNAL.border,
-        buttonBg = JOURNAL.inset,
-        titleFont = "Fonts\\MORPHEUS.TTF",
-        titleSize = 14,
-        titleFlags = "",
-        titleColor = JOURNAL.accent,
-    },
-}
-
-local function currentTheme()
-    local ui = LJ.UI
-    if ui and ui.GetLayout then
-        local ok, value = pcall(ui.GetLayout, ui)
-        if ok and value == "journal" then return "journal" end
-    end
-    return "classic"
-end
-
 local function now()
     return LJ.Now and LJ.Now() or 0
 end
@@ -464,50 +406,6 @@ function D:Print()
     end
 end
 
-local function paint(frame, bg, edge)
-    if not frame or not frame.SetBackdrop or not bg or not edge then return end
-    frame:SetBackdrop({
-        bgFile = WHITE,
-        edgeFile = WHITE,
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
-    frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4] or 1)
-    frame:SetBackdropBorderColor(edge[1], edge[2], edge[3], 1)
-end
-
-local function tintButton(button, p, theme)
-    if not button then return end
-    if not button.__classicEnter then
-        button.__classicEnter = button:GetScript("OnEnter")
-        button.__classicLeave = button:GetScript("OnLeave")
-    end
-    if button.SetBackdropColor then
-        button:SetBackdropColor(p.buttonBg[1], p.buttonBg[2], p.buttonBg[3], p.buttonBg[4] or 1)
-        button:SetBackdropBorderColor(p.border[1], p.border[2], p.border[3], 1)
-    end
-    button.label:SetTextColor(p.muted[1], p.muted[2], p.muted[3], 1)
-    if theme == "journal" then
-        button:SetScript("OnEnter", function(self)
-            if self.SetBackdropColor then
-                self:SetBackdropColor(p.card[1], p.card[2], p.card[3], p.card[4] or 1)
-                self:SetBackdropBorderColor(p.accent[1], p.accent[2], p.accent[3], 1)
-            end
-            self.label:SetTextColor(p.text[1], p.text[2], p.text[3], 1)
-        end)
-        button:SetScript("OnLeave", function(self)
-            if self.SetBackdropColor then
-                self:SetBackdropColor(p.buttonBg[1], p.buttonBg[2], p.buttonBg[3], p.buttonBg[4] or 1)
-                self:SetBackdropBorderColor(p.border[1], p.border[2], p.border[3], 1)
-            end
-            self.label:SetTextColor(p.muted[1], p.muted[2], p.muted[3], 1)
-        end)
-    else
-        button:SetScript("OnEnter", button.__classicEnter)
-        button:SetScript("OnLeave", button.__classicLeave)
-    end
-end
-
 local function createWindow()
     if not W or not CreateFrame then return nil end
     local frame = CreateFrame("Frame", "LootJinxDiagnosticsFrame", UIParent,
@@ -515,21 +413,19 @@ local function createWindow()
     frame:SetSize(600, 520)
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     frame:SetFrameStrata("DIALOG")
+    frame:SetFrameLevel(200)
     frame:SetToplevel(true)
     frame:SetClampedToScreen(true)
     frame:EnableMouse(true)
 
-    local accent = frame:CreateTexture(nil, "ARTWORK")
-    accent:SetPoint("TOPLEFT", 1, -1)
-    accent:SetPoint("TOPRIGHT", -1, -1)
-    accent:SetHeight(2)
+    local accent = W:AccentLine(frame)
 
     local title = W:Font(frame, 10, nil, "OUTLINE")
     title:SetPoint("TOPLEFT", 18, -12)
     title:SetText(LJ.L("DIAG_TITLE"))
 
     local subtitle = W:Font(frame, 9, nil, "")
-    subtitle:SetPoint("TOPLEFT", 18, -32)
+    subtitle:SetPoint("TOPLEFT", 18, -34)
     subtitle:SetText(LJ.L("DIAG_SUB"))
 
     local close = W:Button(frame, "×", 20, 20)
@@ -687,41 +583,21 @@ end
 
 function D:ApplyTheme(force)
     if not self.frame then return end
-    local theme = currentTheme()
-    if self.theme == theme and not force then return end
-    local p = palettes[theme] or palettes.classic
-    self.theme = theme
-
-    paint(self.frame, p.bg, p.border)
-    if self.accent then
-        if theme == "journal" then
-            self.accent:SetColorTexture(p.accent[1], p.accent[2], p.accent[3], 1)
-        else
-            W:SetGradient(self.accent, true, p.accent, p.cyan)
-        end
-    end
-    if self.title then
-        W:SetTextFont(self.title, p.titleSize, p.titleFlags, p.titleFont)
-        self.title:SetTextColor(p.titleColor[1], p.titleColor[2], p.titleColor[3], 1)
-    end
-    if self.subtitle then
-        self.subtitle:SetTextColor(p.muted[1], p.muted[2], p.muted[3], 1)
-    end
-    paint(self.scroll, p.editBg, p.editBorder)
-    if self.edit then
-        self.edit:SetTextColor(p.text[1], p.text[2], p.text[3], 1)
-    end
-    for i = 1, #(self.buttons or {}) do
-        tintButton(self.buttons[i], p, theme)
-    end
-    if self.track then
-        self.track:SetColorTexture(p.muted[1], p.muted[2], p.muted[3], 0.25)
-    end
-    if self.thumb then
-        self.thumb:SetColorTexture(p.accent[1], p.accent[2], p.accent[3], 1)
-    end
+    local skin = W:Skin()
+    if self.skin == skin and not force then return end
+    self.skin = skin
+    self.theme = skin.displayFont and "journal" or "classic"
+    W:Paint(self.frame, skin.bg, skin.border)
+    W:StyleAccent(self.accent, skin)
+    W:SetTextFont(self.title, 17, "", skin.displayFont)
+    W:ColorText(self.title, skin.text)
+    W:ColorText(self.subtitle, skin.muted)
+    W:Paint(self.scroll, skin.surface, skin.border)
+    W:ColorText(self.edit, skin.text)
+    for _, button in ipairs(self.buttons) do W:StyleButton(button, skin) end
+    W:ColorTexture(self.track, skin.track)
+    W:ColorTexture(self.thumb, skin.progress)
 end
-
 function D:Refresh(reset)
     if not self.edit then return nil end
     local text = self:Build()

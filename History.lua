@@ -4,52 +4,17 @@ local LJ = ns or _G.LootJinx
 if not LJ then return end
 
 local H = { query = "", dungeon = nil, dungeonKey = nil, range = "all", status = "all", sort = "date",
-    focus = nil,
+    focus = nil, expanded = {},
     page = 1, filterPage = 1,
-    rows = {}, filterRows = {}, dateRows = {}, statusRows = {} }
+    rows = {}, filterRows = {}, advancedChoices = {} }
 LJ.History = H
 local W = LJ.Widgets
-local WHITE = "Interface\\Buttons\\WHITE8X8"
-local PAGE_SIZE, FILTER_PAGE_SIZE = 9, 8
-local palettes = {
-    classic = { bg = { .065, .075, .10, .98 }, card = { .10, .11, .14, .98 }, border = { .27, .29, .35, 1 }, text = { .91, .91, .94, 1 }, accent = { .81, .36, .61, 1 }, muted = { .65, .67, .72, 1 } },
-    journal = { bg = { .141, .102, .102, .98 }, card = { .190, .145, .133, .98 }, border = { .545, .384, .267, 1 }, text = { .906, .835, .729, 1 }, accent = { .918, .769, .494, 1 }, muted = { .690, .608, .510, 1 } },
-}
+local PAGE_SIZE, FILTER_PAGE_SIZE, PRESET_PAGE_SIZE = 9, 8, 5
 local function rgba(c) return c[1], c[2], c[3], c[4] or 1 end
-local function paint(frame, color, edge)
-    if not frame.SetBackdrop then return end
-    frame:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-    frame:SetBackdropColor(rgba(color))
-    frame:SetBackdropBorderColor(rgba(edge))
-end
 local function label(parent, size, text)
-    local f = W:Font(parent, size, palettes.classic.text, "")
-    f:SetText(text or "")
-    return f
-end
-local function button(parent, text, width, height)
-    local b = W:Button(parent, text, width, height)
-    b:RegisterForClicks("LeftButtonUp")
-    b:SetScript("OnEnter", function(self)
-        local theme = LJ.UI and LJ.UI.GetLayout and LJ.UI:GetLayout() or "classic"
-        local p = palettes[theme] or palettes.classic
-        if self.SetBackdropColor then
-            self:SetBackdropColor(p.card[1] * .75 + p.accent[1] * .25,
-                p.card[2] * .75 + p.accent[2] * .25,
-                p.card[3] * .75 + p.accent[3] * .25, .98)
-            self:SetBackdropBorderColor(rgba(p.accent))
-        end
-    end)
-    b:SetScript("OnLeave", function(self)
-        local theme = LJ.UI and LJ.UI.GetLayout and LJ.UI:GetLayout() or "classic"
-        local p = palettes[theme] or palettes.classic
-        if self.SetBackdropColor then
-            self:SetBackdropColor(rgba(p.card))
-            self:SetBackdropBorderColor(rgba(p.border))
-        end
-    end)
-    return b
+    local field = W:Font(parent, size, W:Skin().text, "")
+    field:SetText(text or "")
+    return field
 end
 -- WoW's Lua lowercases ASCII. Fold uppercase letters used in the supported
 -- Latin and Cyrillic locales so they work in case-insensitive searches too.
@@ -75,14 +40,6 @@ local function hex(c)
         math.floor((c[3] or 1) * 255))
 end
 
-local STATUS_COLORS = {
-    RUN_STATUS_LIVE = LJ.COLORS.green,
-    RUN_STATUS_OPEN = LJ.COLORS.cyan,
-    RUN_STATUS_PAUSED = LJ.COLORS.accent,
-    RUN_STATUS_MANUAL = LJ.COLORS.muted,
-    RUN_STATUS_PARTIAL = LJ.COLORS.muted,
-}
-
 local SORT_MODES = { "date", "dateAsc", "name", "wins", "losses" }
 local SORT_LABELS = {
     date = "HISTORY_SORT_DATE",
@@ -91,11 +48,6 @@ local SORT_LABELS = {
     wins = "HISTORY_SORT_WINS",
     losses = "HISTORY_SORT_LOSSES",
 }
-
-local function runStatusKey(run)
-    local active = LJ.Tracker and LJ.Tracker:GetActive() == run
-    return LJ.Stats and LJ.Stats.RunStatusKey(run, active) or nil
-end
 
 local function needStats(run)
     local won, lost = 0, 0
@@ -119,18 +71,12 @@ local function needTextMatches(run, needle)
     return false
 end
 
-local function runBadges(run)
-    local parts = {}
+local function runNeed(run)
     local total = #(run.needs or {})
-    if total > 0 then
-        local wins = needStats(run)
-        local color = wins > 0 and LJ.COLORS.green or LJ.COLORS.red
-        parts[#parts + 1] = hex(color) .. LJ.L("BADGE_NEED", wins, total) .. "|r"
-    end
-    if run.legacy then
-        parts[#parts + 1] = hex(LJ.COLORS.muted) .. LJ.L("HISTORY_LEGACY") .. "|r"
-    end
-    return table.concat(parts, " · ")
+    if total == 0 then return "—" end
+    local wins, losses = needStats(run)
+    local color = wins > 0 and LJ.COLORS.green or (losses == total and LJ.COLORS.red or LJ.COLORS.muted)
+    return string.format("%s%d / %d|r", hex(color), wins, total)
 end
 
 local function sortMatches(result, mode)
@@ -190,11 +136,11 @@ local function sameDungeon(first, second, includeWing)
         and first.name == second.name
 end
 
-local function knownDungeonIDs(runs)
+local function knownDungeonIDs(runs, includeWing)
     local byName = {}
     for _, run in ipairs(runs or {}) do
         if type(run) == "table" and type(run.name) == "string" then
-            local id = dungeonIdentity(run)
+            local id = dungeonIdentity(run, includeWing)
             if id then
                 local group = byName[run.name]
                 if not group then
@@ -212,8 +158,8 @@ local function knownDungeonIDs(runs)
     return byName
 end
 
-local function filterKey(run, knownIDs)
-    local id = dungeonIdentity(run)
+local function filterKey(run, knownIDs, includeWing)
+    local id = dungeonIdentity(run, includeWing)
     if id then return "id:" .. id end
     local name = type(run.name) == "string" and run.name or ""
     local group = knownIDs[name]
@@ -221,13 +167,17 @@ local function filterKey(run, knownIDs)
     return "name:" .. name
 end
 
-local function localDayStart(now, daysBack)
+local function localDayStart(now, daysBack, startOfWeek)
     local gameClock = type(date) == "function" and type(time) == "function"
     local dateFn = gameClock and date or (os and os.date)
     local timeFn = gameClock and time or (os and os.time)
     if not dateFn or not timeFn then return nil end
     local day = dateFn("*t", now)
     if type(day) ~= "table" then return nil end
+    if startOfWeek then
+        if not day.wday then return nil end
+        daysBack = (day.wday + 5) % 7
+    end
     return tonumber(timeFn({ year = day.year, month = day.month,
         day = day.day - daysBack, hour = 0, min = 0, sec = 0 }))
 end
@@ -280,6 +230,26 @@ function H:ResolveDungeonKey(dungeon, runs, rememberedKey)
         end
     end
     return nil
+end
+
+function H:ResolvePresetDungeon(dungeon, rememberedKey, runs)
+    local options = self:DungeonOptions(runs)
+    for _, option in ipairs(options) do
+        if option.key == rememberedKey then return option end
+    end
+
+    local rememberedName = rememberedKey:match("^name:(.+)$")
+    local name = rememberedName or dungeon:gsub("%s+%b()%s*$", "")
+    local names = { [normalized(name)] = true, [normalized(LJ:DungeonName({ name = name }))] = true }
+    local match
+    for _, option in ipairs(options) do
+        local legacy = option.key:match("^name:")
+        if (rememberedName or legacy) and (names[normalized(option.name)] or names[normalized(option.displayName)]) then
+            if match then return nil end
+            match = option
+        end
+    end
+    return match
 end
 
 -- Fokussierte Auswahl der drei Dashboard-Karten. "sinceNeedWin" entspricht
@@ -444,6 +414,45 @@ function H:Summarize(runs)
     }
 end
 
+function H:GroupRuns(matches, runs)
+    local groups, byKey = {}, {}
+    local knownIDs = knownDungeonIDs(runs, true)
+    for _, run in ipairs(matches) do
+        local key = filterKey(run, knownIDs, true)
+        local group = byKey[key]
+        local stamp = tonumber(run.started) or 0
+        if not group then
+            group = { key = key, latest = stamp, name = LJ:DungeonName(run), runs = {}, wins = 0, rolls = 0 }
+            groups[#groups + 1], byKey[key] = group, group
+        elseif stamp > group.latest then
+            group.latest, group.name = stamp, LJ:DungeonName(run)
+        end
+        group.runs[#group.runs + 1] = run
+        group.wins = group.wins + needStats(run)
+        group.rolls = group.rolls + #(run.needs or {})
+    end
+    return groups, byKey
+end
+
+function H:WeeklyNeed(runs)
+    local weeks, byStart = {}, {}
+    for _, run in ipairs(runs) do
+        local stamp = tonumber(run.started)
+        local start = stamp and stamp > 0 and localDayStart(stamp, 0, true) or 0
+        local week = byStart[start]
+        if not week then
+            week = { start = start, wins = 0, losses = 0, pending = 0, rolls = 0 }
+            weeks[#weeks + 1], byStart[start] = week, week
+        end
+        local won, lost = needStats(run)
+        local total = #(run.needs or {})
+        week.wins, week.losses = week.wins + won, week.losses + lost
+        week.pending, week.rolls = week.pending + total - won - lost, week.rolls + total
+    end
+    table.sort(weeks, function(a, b) return a.start > b.start end)
+    return weeks
+end
+
 local function suspendDashboardEscape()
     local dashboard = LJ.UI and LJ.UI.frame
     local name = dashboard and dashboard.IsShown and dashboard:IsShown()
@@ -472,34 +481,46 @@ end
 
 function H:ApplyTheme()
     if not self.frame then return end
-    local theme = LJ.UI and LJ.UI.GetLayout and LJ.UI:GetLayout() or "classic"
-    local p = palettes[theme] or palettes.classic
-    paint(self.frame, p.bg, p.border)
-    paint(self.search, p.card, p.border)
-    paint(self.menu, p.card, p.border)
-    paint(self.dateMenu, p.card, p.border)
-    paint(self.statusMenu, p.card, p.border)
-    paint(self.summaryPanel, p.card, p.border)
-    paint(self.comparePanel, p.bg, p.border)
-    for _, card in ipairs(self.compareCards or {}) do paint(card, p.card, p.border) end
-    for _, f in ipairs(self.labels) do f:SetTextColor(rgba(p.text)) end
-    for _, f in ipairs(self.mutedLabels) do f:SetTextColor(rgba(p.muted)) end
-    self.creditLink:SetTextColor(rgba(p.accent))
-    self.title:SetTextColor(rgba(p.accent))
-    self.summaryTitle:SetTextColor(rgba(p.accent))
-    self.compareTitle:SetTextColor(rgba(p.accent))
-    for _, t in ipairs(self.compareColTitles or {}) do t:SetTextColor(rgba(p.accent)) end
-    for _, b in ipairs(self.buttons) do
-        paint(b, p.card, p.border)
-        b.label:SetTextColor(rgba(p.text))
+    local skin = W:Skin()
+    if self.skin ~= skin then
+        self.skin = skin
+        W:Paint(self.frame, skin.bg, skin.border)
+        W:StyleAccent(self.accent, skin)
+        for _, control in ipairs({ self.search, self.presetName }) do
+            W:Paint(control, skin.bg, skin.border)
+            W:ColorText(control, skin.text)
+        end
+        for _, menu in ipairs({ self.menu, self.advancedMenu, self.presetMenu, self.comparePanel }) do
+            W:Paint(menu, skin.bg, skin.border)
+        end
+        for _, panel in ipairs(self.compareCards) do W:Paint(panel, skin.surface, skin.border) end
+        for _, field in ipairs(self.mutedLabels) do W:ColorText(field, skin.muted) end
+        W:StyleCredit(self.creditLink, skin)
+        W:SetTextFont(self.title, 20, "", skin.displayFont)
+        W:ColorText(self.title, skin.text)
+        W:SetTextFont(self.compareTitle, 16, "", skin.displayFont)
+        W:ColorText(self.compareTitle, skin.text)
+        for _, field in ipairs(self.compareColTitles) do W:ColorText(field, skin.accent) end
+        for _, button in ipairs(self.buttons) do W:StyleButton(button, skin) end
+        for _, row in ipairs(self.rows) do
+            row.separator:SetColorTexture(skin.border[1], skin.border[2], skin.border[3], .60)
+            W:ColorTexture(row.hover, skin.hover)
+            W:StyleCheck(row.compare, skin, row.compare.mark)
+        end
+    end
+    for _, choice in ipairs(self.advancedChoices) do
+        W:StyleButton(choice, skin, self[choice.field] == choice.value)
+    end
+    for _, row in ipairs(self.rows) do
+        W:ColorText(row.label, (row.group or row.boss) and skin.accent or skin.text)
     end
 end
-
 function H:Create()
     if self.frame then return self.frame end
     local f = CreateFrame("Frame", "LootJinxHistoryFrame", UIParent,
         BackdropTemplateMixin and "BackdropTemplate" or nil)
     self.frame = f
+    self.accent = W:AccentLine(f)
     f:SetSize(610, 520)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     f:SetFrameStrata("DIALOG")
@@ -507,68 +528,57 @@ function H:Create()
     f:SetToplevel(true)
     f:EnableMouse(true)
     if f.SetClampedToScreen then f:SetClampedToScreen(true) end
-    self.labels, self.mutedLabels, self.buttons = {}, {}, {}
+    local stopDragging = W:DragHeader(f, 36, 72)
+    self.mutedLabels, self.buttons = {}, {}
     local function addButton(parent, text, w, h)
-        local b = button(parent, text, w, h)
+        local b = W:Button(parent, text, w, h)
+        b:RegisterForClicks("LeftButtonUp")
         self.buttons[#self.buttons + 1] = b
         return b
+    end
+    local function toggleMenu(menu, otherMenu)
+        otherMenu:Hide()
+        H.presetMenu:Hide()
+        if H.comparePanel:IsShown() then
+            H:ClearComparison()
+            H:Refresh()
+        end
+        menu:SetShown(not menu:IsShown())
     end
     self.title = label(f, 16, LJ.L("HISTORY_TITLE"))
     self.title:SetPoint("TOPLEFT", 16, -14)
     local legend = addButton(f, "?", 16, 16)
-    legend:SetPoint("LEFT", self.title, "RIGHT", 8, -1)
+    legend:SetPoint("TOPRIGHT", -51, -16)
     W:Tooltip(legend, LJ.L("HISTORY_LEGEND_TITLE"), {
-        LJ.L("HISTORY_LEGEND_COUNTED"),
-        LJ.L("HISTORY_LEGEND_EMPTY"),
         LJ.L("HISTORY_LEGEND_STATUS"),
+        LJ.L("HISTORY_NEED_LEGEND"),
     })
     self.count = label(f, 10, "")
     self.count:SetPoint("TOPLEFT", 16, -40)
     self.mutedLabels[#self.mutedLabels + 1] = self.count
+    self.groupButton = addButton(f, "", 132, 19)
+    self.groupButton:SetPoint("TOPLEFT", 218, -37)
+    self.groupButton:SetScript("OnClick", function()
+        if H.trend or H.bossView or H.lossRecord then
+            H:CloseReview()
+        else
+            H.grouped = not H.grouped
+            if LJ.DB then LJ.DB.historyGrouped = H.grouped end
+            H.page = 1
+            H:SetComparisonMode(false)
+            return
+        end
+        H:Refresh()
+    end)
     self.creditLink = W:ForeverDBCredit(f, function() H:Hide() end)
-    self.creditLink:SetPoint("TOPRIGHT", -16, -39)
+    self.creditLink:SetPoint("BOTTOMRIGHT", -16, 15)
     self.mutedLabels[#self.mutedLabels + 1] = self.creditLink.label
     local close = addButton(f, "×", 24, 24)
     close:SetPoint("TOPRIGHT", -14, -12)
     close:SetScript("OnClick", function() H:Hide() end)
-    self.cleanupButton = addButton(f, "", 130, 24)
-    self.cleanupButton:SetPoint("TOPRIGHT", -46, -12)
-    self.cleanupButton:SetScript("OnClick", function() H:ConfirmCleanup() end)
-    W:Tooltip(self.cleanupButton, LJ.L("HISTORY_CLEANUP_ACCEPT"),
-        { LJ.L("HISTORY_CLEANUP_HINT") })
-    self.dateButton = addButton(f, "", 150, 24)
-    self.dateButton:SetPoint("TOPRIGHT", -184, -12)
-    local dateArrow = label(self.dateButton, 10, "v")
-    dateArrow:SetPoint("RIGHT", -8, 0)
-    self.labels[#self.labels + 1] = dateArrow
-    self.dateButton:SetScript("OnClick", function()
-        H.menu:Hide()
-        H.statusMenu:Hide()
-        H.dateMenu:SetShown(not H.dateMenu:IsShown())
-    end)
-    self.dateMenu = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    self.dateMenu:SetSize(150, 104)
-    self.dateMenu:SetPoint("TOPLEFT", self.dateButton, "BOTTOMLEFT", 0, -2)
-    self.dateMenu:SetFrameLevel(f:GetFrameLevel() + 25)
-    for i, range in ipairs({ "all", "today", "week", "month" }) do
-        local choice = addButton(self.dateMenu,
-            LJ.L("HISTORY_DATE_" .. string.upper(range)), 138, 23)
-        choice:SetPoint("TOPLEFT", 6, -4 - (i - 1) * 24)
-        choice.range = range
-        choice:SetScript("OnClick", function(self)
-            H.range = self.range
-            H.page = 1
-            H:ClearComparison()
-            H.dateMenu:Hide()
-            H:Refresh()
-        end)
-        self.dateRows[i] = choice
-    end
-    self.dateMenu:Hide()
-
     self.search = CreateFrame("EditBox", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    self.search:SetSize(278, 25)
-    self.search:SetPoint("TOPLEFT", 16, -64)
+    self.search:SetSize(178, 25)
+    self.search:SetPoint("TOPLEFT", 16, -73)
     self.search:SetAutoFocus(false)
     self.search:SetFontObject("GameFontNormal")
     local _, searchFontSize, searchFontFlags = self.search:GetFont()
@@ -576,28 +586,29 @@ function H:Create()
     self.search:SetTextInsets(8, 8, 0, 0)
     self.search:SetText("")
     self.search:SetScript("OnTextChanged", function(edit)
-        H.query = edit:GetText() or ""
+        local query = edit:GetText() or ""
+        if H.query == query then return end
+        H.query = query
         H.page = 1
         H:ClearComparison()
         H:Refresh()
     end)
     self.search:SetScript("OnEnterPressed", function(edit) edit:ClearFocus() end)
     self.search:SetScript("OnEscapePressed", function(edit) edit:ClearFocus() end)
-    local searchLabel = label(f, 9, LJ.L("HISTORY_SEARCH"))
-    searchLabel:SetPoint("BOTTOMLEFT", self.search, "TOPLEFT", 3, 2)
-    self.mutedLabels[#self.mutedLabels + 1] = searchLabel
+    self.searchLabel = label(f, 9, LJ.L("HISTORY_SEARCH"))
+    self.searchLabel:SetPoint("BOTTOMLEFT", self.search, "TOPLEFT", 3, 2)
+    self.mutedLabels[#self.mutedLabels + 1] = self.searchLabel
 
-    self.filterButton = addButton(f, LJ.L("HISTORY_ALL_DUNGEONS"), 278, 25)
-    self.filterButton:SetPoint("TOPLEFT", 310, -64)
+    self.filterButton = addButton(f, LJ.L("HISTORY_ALL_DUNGEONS"), 164, 25)
+    self.filterButton:SetPoint("TOPLEFT", 202, -73)
+    self.filterButton.label:SetWordWrap(false)
     self.filterButton:SetScript("OnClick", function()
-        H.dateMenu:Hide()
-        H.statusMenu:Hide()
-        H.menu:SetShown(not H.menu:IsShown())
+        toggleMenu(H.menu, H.advancedMenu)
         if H.menu:IsShown() then H:RefreshFilterMenu() end
     end)
-    local filterLabel = label(f, 9, LJ.L("HISTORY_DUNGEON"))
-    filterLabel:SetPoint("BOTTOMLEFT", self.filterButton, "TOPLEFT", 3, 2)
-    self.mutedLabels[#self.mutedLabels + 1] = filterLabel
+    self.filterLabel = label(f, 9, LJ.L("HISTORY_DUNGEON"))
+    self.filterLabel:SetPoint("BOTTOMLEFT", self.filterButton, "TOPLEFT", 3, 2)
+    self.mutedLabels[#self.mutedLabels + 1] = self.filterLabel
     self.menu = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
     self.menu:SetSize(278, 250)
     self.menu:SetPoint("TOPLEFT", self.filterButton, "BOTTOMLEFT", 0, -2)
@@ -607,6 +618,8 @@ function H:Create()
         choice:SetPoint("TOPLEFT", 7, -6 - (i - 1) * 24)
         choice:SetScript("OnClick", function(self)
             H.dungeon, H.dungeonKey = self.dungeon, self.dungeonKey
+            H.presetDungeon = nil
+            H.trend, H.bossView = nil, nil
             H.page = 1
             H:ClearComparison()
             H.menu:Hide()
@@ -625,121 +638,255 @@ function H:Create()
     self.mutedLabels[#self.mutedLabels + 1] = self.filterPageText
     self.menu:Hide()
 
-    self.summaryPanel = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    self.summaryPanel:SetPoint("TOPLEFT", 16, -99)
-    self.summaryPanel:SetSize(578, 54)
-    self.summaryTitle = label(self.summaryPanel, 10, "")
-    self.summaryTitle:SetPoint("TOPLEFT", 10, -5)
-    self.summaryTitle:SetWidth(170)
-    self.sortButton = addButton(self.summaryPanel, "", 112, 20)
-    self.sortButton:SetPoint("TOPLEFT", 186, -4)
-    self.sortButton:SetScript("OnClick", function() H:CycleSort() end)
-    W:Tooltip(self.sortButton, LJ.L("HISTORY_SORT_TITLE"),
-        { LJ.L("HISTORY_SORT_HINT") })
-    self.statusButton = addButton(self.summaryPanel, LJ.L("HISTORY_STATUS_ALL"), 138, 20)
-    self.statusButton:SetPoint("TOPRIGHT", -102, -4)
-    self.statusButton:SetScript("OnClick", function()
-        H.menu:Hide()
-        H.dateMenu:Hide()
-        H.statusMenu:SetShown(not H.statusMenu:IsShown())
+    self.advancedButton = addButton(f, "", 96, 25)
+    self.advancedButton:SetPoint("TOPLEFT", 374, -73)
+    self.advancedButton:SetScript("OnClick", function()
+        toggleMenu(H.advancedMenu, H.menu)
     end)
-    self.resetFilters = addButton(self.summaryPanel, LJ.L("HISTORY_RESET_FILTERS"), 88, 20)
-    self.resetFilters:SetPoint("TOPRIGHT", -8, -4)
+    self.compareButton = addButton(f, LJ.L("HISTORY_COMPARE_PICK"), 116, 25)
+    self.compareButton:SetPoint("TOPRIGHT", -16, -73)
+    self.compareButton:SetScript("OnClick", function() H:SetComparisonMode(not H.comparing) end)
+    self.advancedMenu = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    self.advancedMenu:SetSize(550, 207)
+    self.advancedMenu:SetPoint("TOPRIGHT", self.compareButton, "BOTTOMRIGHT", 0, -4)
+    self.advancedMenu:SetFrameLevel(f:GetFrameLevel() + 25)
+    self.advancedMenu:EnableMouse(true)
+    local groups = {
+        { field = "range", title = "HISTORY_FILTER_PERIOD", values = { "all", "today", "week", "month" } },
+        { field = "status", title = "HISTORY_FILTER_STATUS", values = { "all", "clear", "manual", "pending" } },
+        { field = "sort", title = "HISTORY_SORT_TITLE", values = SORT_MODES, labels = SORT_LABELS },
+    }
+    for i, group in ipairs(groups) do
+        local x = 12 + (i - 1) * 178
+        local heading = label(self.advancedMenu, 10, LJ.L(group.title))
+        heading:SetPoint("TOPLEFT", x + 2, -10)
+        self.mutedLabels[#self.mutedLabels + 1] = heading
+        for index, value in ipairs(group.values) do
+            local key = group.labels and group.labels[value] or
+                ("HISTORY_" .. (group.field == "range" and "DATE_" or "STATUS_") .. string.upper(value))
+            local choice = addButton(self.advancedMenu, LJ.L(key), 170, 22)
+            choice:SetPoint("TOPLEFT", x, -30 - (index - 1) * 26)
+            choice.field, choice.value = group.field, value
+            choice:SetScript("OnClick", function(selected)
+                H[selected.field] = selected.value
+                H.page = 1
+                if selected.field ~= "sort" then H:ClearComparison() end
+                H:Refresh()
+            end)
+            self.advancedChoices[#self.advancedChoices + 1] = choice
+        end
+    end
+    self.resetFilters = addButton(self.advancedMenu, LJ.L("HISTORY_RESET_FILTERS"), 166, 24)
+    self.resetFilters:SetPoint("BOTTOMLEFT", 12, 12)
     self.resetFilters:SetScript("OnClick", function() H:ResetFilters() end)
-    self.focusButton = addButton(f, "", 210, 18)
-    self.focusButton:SetPoint("TOPRIGHT", -46, -36)
+    self.presetsButton = addButton(self.advancedMenu, LJ.L("HISTORY_PRESETS"), 166, 24)
+    self.presetsButton:SetPoint("BOTTOM", 0, 12)
+    self.presetsButton:SetScript("OnClick", function()
+        H.advancedMenu:Hide()
+        H.presetStatus:SetText("")
+        H.presetMenu:Show()
+        H:RefreshPresets()
+    end)
+    self.cleanupButton = addButton(self.advancedMenu, "", 166, 24)
+    self.cleanupButton:SetPoint("BOTTOMRIGHT", -12, 12)
+    self.cleanupButton:SetScript("OnClick", function()
+        H.advancedMenu:Hide()
+        H:ConfirmCleanup()
+    end)
+    W:Tooltip(self.cleanupButton, LJ.L("HISTORY_CLEANUP_ACCEPT"), { LJ.L("HISTORY_CLEANUP_HINT") })
+    self.advancedMenu:Hide()
+    self.presetMenu = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    self.presetMenu:SetSize(354, 256)
+    self.presetMenu:SetPoint("TOPRIGHT", self.compareButton, "BOTTOMRIGHT", 0, -4)
+    self.presetMenu:SetFrameLevel(f:GetFrameLevel() + 26)
+    self.presetMenu:EnableMouse(true)
+    local presetTitle = label(self.presetMenu, 11, LJ.L("HISTORY_PRESETS"))
+    presetTitle:SetPoint("TOPLEFT", 12, -12)
+    local presetBack = addButton(self.presetMenu, LJ.L("HISTORY_FILTERS"), 86, 22)
+    presetBack:SetPoint("TOPRIGHT", -12, -8)
+    presetBack:SetScript("OnClick", function()
+        H.presetMenu:Hide()
+        H.advancedMenu:Show()
+    end)
+    local presetLabel = label(self.presetMenu, 9, LJ.L("HISTORY_PRESET_NAME"))
+    presetLabel:SetPoint("TOPLEFT", 12, -38)
+    self.mutedLabels[#self.mutedLabels + 1] = presetLabel
+    self.presetName = CreateFrame("EditBox", nil, self.presetMenu, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    self.presetName:SetPoint("TOPLEFT", 12, -51)
+    self.presetName:SetSize(238, 24)
+    self.presetName:SetAutoFocus(false)
+    self.presetName:SetMaxLetters(42)
+    self.presetName:SetTextInsets(7, 7, 0, 0)
+    W:SetTextFont(self.presetName, 11)
+    self.presetName:SetScript("OnEscapePressed", function(edit) edit:ClearFocus() end)
+    self.presetMenu:SetScript("OnHide", function() H.presetName:ClearFocus() end)
+    self.presetSave = addButton(self.presetMenu, LJ.L("HISTORY_PRESET_SAVE"), 84, 24)
+    self.presetSave:SetPoint("TOPRIGHT", -12, -51)
+    local function savePreset()
+        H:SavePreset(H.presetName:GetText())
+        H.presetName:ClearFocus()
+    end
+    self.presetSave:SetScript("OnClick", savePreset)
+    self.presetName:SetScript("OnEnterPressed", savePreset)
+    self.presetStatus = label(self.presetMenu, 9, "")
+    self.presetStatus:SetPoint("TOPLEFT", 12, -82)
+    self.mutedLabels[#self.mutedLabels + 1] = self.presetStatus
+    self.presetRows = {}
+    for i = 1, PRESET_PAGE_SIZE do
+        local loadButton = addButton(self.presetMenu, "", 298, 21)
+        loadButton:SetPoint("TOPLEFT", 12, -100 - (i - 1) * 25)
+        loadButton.label:SetWidth(284)
+        loadButton.label:SetWordWrap(false)
+        loadButton:SetScript("OnClick", function(b) H:ApplyPreset(b.index) end)
+        local remove = addButton(self.presetMenu, "×", 24, 21)
+        remove:SetPoint("LEFT", loadButton, "RIGHT", 8, 0)
+        W:Tooltip(remove, LJ.L("HISTORY_PRESET_DELETE"))
+        remove:SetScript("OnClick", function() H:DeletePreset(loadButton.index) end)
+        self.presetRows[i] = { load = loadButton, remove = remove }
+    end
+    self.presetPrev = addButton(self.presetMenu, "<", 32, 19)
+    self.presetPrev:SetPoint("BOTTOMLEFT", 12, 8)
+    self.presetPrev:SetScript("OnClick", function() H.presetPage = H.presetPage - 1; H:RefreshPresets() end)
+    self.presetNext = addButton(self.presetMenu, ">", 32, 19)
+    self.presetNext:SetPoint("BOTTOMRIGHT", -12, 8)
+    self.presetNext:SetScript("OnClick", function() H.presetPage = H.presetPage + 1; H:RefreshPresets() end)
+    self.presetPageText = label(self.presetMenu, 9, "")
+    self.presetPageText:SetPoint("BOTTOM", 0, 13)
+    self.mutedLabels[#self.mutedLabels + 1] = self.presetPageText
+    self.presetMenu:Hide()
+
+    self.focusButton = addButton(f, "", 236, 18)
+    self.focusButton:SetPoint("TOPRIGHT", -16, -37)
     self.focusButton:SetScript("OnClick", function()
         H.focus = nil
+        H.presetFocus = nil
         H.page = 1
         H:ClearComparison()
         H:Refresh()
     end)
     W:Tooltip(self.focusButton, LJ.L("HISTORY_RESET_FILTERS"))
     self.focusButton:Hide()
-    self.statusMenu = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    self.statusMenu:SetSize(138, 106)
-    self.statusMenu:SetPoint("TOPLEFT", self.statusButton, "BOTTOMLEFT", 0, -2)
-    self.statusMenu:SetFrameLevel(f:GetFrameLevel() + 25)
-    for i, status in ipairs({ "all", "clear", "manual", "pending" }) do
-        local choice = addButton(self.statusMenu,
-            LJ.L("HISTORY_STATUS_" .. string.upper(status)), 126, 22)
-        choice:SetPoint("TOPLEFT", 6, -5 - (i - 1) * 24)
-        choice.status = status
-        choice:SetScript("OnClick", function(self)
-            H.status = self.status
-            H.page = 1
-            H:ClearComparison()
-            H.statusMenu:Hide()
-            H:Refresh()
-        end)
-        self.statusRows[i] = choice
-    end
-    self.statusMenu:Hide()
-    self.summaryLine1 = label(self.summaryPanel, 9, "")
-    self.summaryLine1:SetPoint("TOPLEFT", 10, -22)
-    self.summaryLine1:SetWidth(550)
-    self.summaryLine2 = label(self.summaryPanel, 9, "")
-    self.summaryLine2:SetPoint("TOPLEFT", 10, -37)
-    self.summaryLine2:SetWidth(550)
-    self.labels[#self.labels + 1] = self.summaryLine1
-    self.labels[#self.labels + 1] = self.summaryLine2
+    self.summary = label(f, 10, "")
+    self.summary:SetPoint("TOPLEFT", 16, -111)
+    self.summary:SetWidth(578)
+    self.summary:SetWordWrap(false)
+    self.mutedLabels[#self.mutedLabels + 1] = self.summary
 
     self.headerDungeon = label(f, 8, LJ.L("HISTORY_COL_DUNGEON"))
-    self.headerDungeon:SetPoint("TOPLEFT", 34, -160)
-    self.headerInfo = label(f, 8, LJ.L("HISTORY_COL_INFO"))
-    self.headerInfo:SetPoint("TOPLEFT", 240, -160)
+    self.headerDungeon:SetPoint("TOPLEFT", 38, -139)
+    self.headerDungeon:SetWidth(546)
+    self.headerNeed = label(f, 8, LJ.L("HISTORY_COL_NEED"))
+    self.headerNeed:SetPoint("TOPLEFT", 370, -139)
     self.headerDate = label(f, 8, LJ.L("HISTORY_COL_DATE"))
-    self.headerDate:SetPoint("TOPRIGHT", -26, -160)
+    self.headerDate:SetPoint("TOPRIGHT", -26, -139)
     self.headerDate:SetJustifyH("RIGHT")
     self.mutedLabels[#self.mutedLabels + 1] = self.headerDungeon
-    self.mutedLabels[#self.mutedLabels + 1] = self.headerInfo
+    self.mutedLabels[#self.mutedLabels + 1] = self.headerNeed
     self.mutedLabels[#self.mutedLabels + 1] = self.headerDate
 
     for i = 1, PAGE_SIZE do
-        local row = addButton(f, "", 578, 31)
-        row:SetPoint("TOPLEFT", 16, -176 - (i - 1) * 34)
-        row.label:ClearAllPoints()
-        row.label:SetPoint("LEFT", 18, 0)
-        row.label:SetWidth(200)
-        row.label:SetJustifyH("LEFT")
+        local row = CreateFrame("Button", nil, f)
+        row:RegisterForClicks("LeftButtonUp")
+        row:SetSize(578, 35)
+        row:SetPoint("TOPLEFT", 16, -154 - (i - 1) * 35)
+        row.label = label(row, 11)
+        row.label:SetPoint("LEFT", 22, 0)
+        row.label:SetWidth(319)
+        row.label:SetWordWrap(false)
+        row.separator = row:CreateTexture(nil, "BACKGROUND")
+        row.separator:SetPoint("BOTTOMLEFT")
+        row.separator:SetPoint("BOTTOMRIGHT")
+        row.separator:SetHeight(1)
+        row.hover = row:CreateTexture(nil, "BACKGROUND")
+        row.hover:SetAllPoints()
+        row.hover:Hide()
         row.bar = row:CreateTexture(nil, "ARTWORK")
         row.bar:SetSize(2, 18)
         row.bar:SetPoint("LEFT", 0, 0)
-        row.bar:Hide()
-        row.status = row:CreateTexture(nil, "ARTWORK")
-        row.status:SetSize(6, 6)
-        row.status:SetPoint("LEFT", 7, 0)
-        row.status:Hide()
-        row.badges = W:Font(row, 9, LJ.COLORS.muted, "")
-        row.badges:SetPoint("LEFT", 224, 0)
-        row.badges:SetWidth(140)
-        row.badges:SetWordWrap(false)
-        row.compare = addButton(row, LJ.L("HISTORY_COMPARE_PICK"), 76, 22)
-        row.compare:SetPoint("RIGHT", row, "RIGHT", -118, 0)
-        row.compare:SetScript("OnClick", function()
-            if row.run then H:SelectForComparison(row.run) end
+        row.need = label(row, 10)
+        row.need:SetPoint("LEFT", 354, 0)
+        self.mutedLabels[#self.mutedLabels + 1] = row.need
+        row.groupCount = label(row, 10)
+        row.groupCount:SetPoint("LEFT", 212, 0)
+        row.groupCount:SetWidth(66)
+        row.groupCount:SetWordWrap(false)
+        self.mutedLabels[#self.mutedLabels + 1] = row.groupCount
+        row.trendValues = label(row, 10)
+        row.trendValues:SetPoint("LEFT", 155, 0)
+        row.trendValues:SetWidth(414)
+        row.trendValues:SetWordWrap(false)
+        self.mutedLabels[#self.mutedLabels + 1] = row.trendValues
+        row.trend = addButton(row, LJ.L("HISTORY_TREND_SHORT"), 76, 20)
+        row.trend:SetPoint("RIGHT", -101, 0)
+        row.trend:SetScript("OnClick", function()
+            if not row.group then return end
+            H.menu:Hide()
+            H.advancedMenu:Hide()
+            H.trend = { key = row.group.key, name = row.group.name }
+            H.groupPage, H.page = H.page, 1
+            H:Refresh()
         end)
-        W:Tooltip(row.compare, LJ.L("HISTORY_COMPARE_PICK"),
-            { LJ.L("HISTORY_COMPARE_HINT") })
+        row.trend:Hide()
+        row.bossButton = addButton(row, LJ.L("HISTORY_BOSS_SHORT"), 68, 20)
+        row.bossButton:SetPoint("LEFT", 282, 0)
+        row.bossButton:SetScript("OnClick", function()
+            if not row.group then return end
+            H:HideMenus()
+            H.bossView = { key = row.group.key, name = row.group.name, expanded = {} }
+            H.groupPage, H.page = H.page, 1
+            H:Refresh()
+        end)
+        row.bossButton:Hide()
+        row.context = label(row, 9)
+        row.context:SetPoint("LEFT", 22, -8)
+        row.context:SetWidth(320)
+        row.context:SetWordWrap(false)
+        self.mutedLabels[#self.mutedLabels + 1] = row.context
+        row.compare = CreateFrame("CheckButton", nil, row, BackdropTemplateMixin and "BackdropTemplate" or nil)
+        row.compare:SetSize(20, 20)
+        row.compare:SetPoint("RIGHT", -112, 0)
+        row.compare.mark = row.compare:CreateTexture(nil, "ARTWORK")
+        row.compare.mark:SetAllPoints()
+        row.compare.mark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+        row.compare:SetScript("OnClick", function()
+            if row.run then
+                H.menu:Hide()
+                H.advancedMenu:Hide()
+                H:SelectForComparison(row.run)
+            end
+        end)
+        row.compare:Hide()
         row.date = label(row, 9, "")
         row.date:SetPoint("RIGHT", -10, 0)
         row.date:SetWidth(88)
         row.date:SetJustifyH("RIGHT")
         self.mutedLabels[#self.mutedLabels + 1] = row.date
         row:SetScript("OnClick", function(self)
-            if self.run and not self.run.legacy and LJ.RunDetail then
-                H.menu:Hide()
+            H:HideMenus()
+            if self.boss then
+                local expanded = H.bossView.expanded
+                expanded[self.boss.key] = not expanded[self.boss.key] or nil
+                H:Refresh()
+                return
+            end
+            if self.group then
+                H.expanded[self.group.key] = not H.expanded[self.group.key] or nil
+                H:Refresh()
+                return
+            end
+            if not self.run then return end
+            if H.comparing then
+                H:SelectForComparison(self.run)
+            elseif not self.run.legacy and LJ.RunDetail then
                 LJ.RunDetail:Show(self.run, LJ.UI and LJ.UI:GetLayout())
             end
         end)
-        local prevEnter = row:GetScript("OnEnter")
-        local prevLeave = row:GetScript("OnLeave")
         row:SetScript("OnEnter", function(self)
-            if prevEnter then prevEnter(self) end
+            self.hover:SetShown(self.group ~= nil or self.boss ~= nil or self.run ~= nil)
             if self.run and LJ.ShowRecentTooltip then LJ:ShowRecentTooltip(self, self.run) end
         end)
         row:SetScript("OnLeave", function(self)
-            if prevLeave then prevLeave(self) end
+            self.hover:Hide()
             if GameTooltip then GameTooltip:Hide() end
         end)
         self.rows[i] = row
@@ -748,14 +895,21 @@ function H:Create()
     self.empty:SetPoint("CENTER", 0, -20)
     self.mutedLabels[#self.mutedLabels + 1] = self.empty
     self.pageText = label(f, 9, "")
-    self.pageText:SetPoint("BOTTOM", 0, 16)
+    self.pageText:SetPoint("BOTTOM", f, "BOTTOMLEFT", 111, 19)
     self.mutedLabels[#self.mutedLabels + 1] = self.pageText
-    self.prev = addButton(f, LJ.L("DETAIL_PREV"), 75, 22)
+    self.prev = addButton(f, "<", 54, 22)
     self.prev:SetPoint("BOTTOMLEFT", 16, 12)
+    W:Tooltip(self.prev, LJ.L("DETAIL_PREV"))
     self.prev:SetScript("OnClick", function() H.page = H.page - 1; H:Refresh() end)
-    self.next = addButton(f, LJ.L("DETAIL_NEXT"), 75, 22)
-    self.next:SetPoint("BOTTOMRIGHT", -16, 12)
+    self.next = addButton(f, ">", 54, 22)
+    self.next:SetPoint("BOTTOMLEFT", 152, 12)
+    W:Tooltip(self.next, LJ.L("DETAIL_NEXT"))
     self.next:SetScript("OnClick", function() H.page = H.page + 1; H:Refresh() end)
+    if LJ.CharacterOverview then
+        self.characterButton = addButton(f, LJ.L("CHARACTER_OVERVIEW_BUTTON"), 118, 22)
+        self.characterButton:SetPoint("BOTTOMLEFT", 216, 12)
+        self.characterButton:SetScript("OnClick", function() H:ToggleCharacters() end)
+    end
     self.comparePanel = CreateFrame("Frame", nil, f,
         BackdropTemplateMixin and "BackdropTemplate" or nil)
     self.comparePanel:SetSize(560, 240)
@@ -800,9 +954,13 @@ function H:Create()
         H:Refresh()
     end)
     f:SetScript("OnHide", function()
+        stopDragging()
         H.menu:Hide()
-        H.dateMenu:Hide()
-        H.statusMenu:Hide()
+        H.advancedMenu:Hide()
+        H.presetMenu:Hide()
+        if LJ.CharacterOverview and LJ.CharacterOverview.panel then LJ.CharacterOverview.panel:Hide() end
+        H.comparing = false
+        H:CloseReview()
         H:ClearComparison()
         if LJ.RunDetail and LJ.RunDetail:IsShown() then LJ.RunDetail:Hide() end
         restoreDashboardEscape()
@@ -841,18 +999,151 @@ end
 
 function H:ClearComparison()
     self.compareA, self.compareB = nil, nil
+    self.compareMismatch = nil
     if self.comparePanel then self.comparePanel:Hide() end
+end
+
+function H:HideMenus()
+    self.menu:Hide()
+    self.advancedMenu:Hide()
+    self.presetMenu:Hide()
+end
+
+function H:CloseReview()
+    if self.lossRecord then
+        self.page = self.recordPage or 1
+    elseif self.trend or self.bossView then
+        self.page = self.groupPage or 1
+    end
+    self.trend, self.bossView, self.lossRecord, self.record = nil, nil, nil, nil
+end
+
+function H:ShowLossRecord()
+    if not self:IsShown() then self:Show() end
+    if not self.frame then return end
+    if not self.lossRecord then
+        self:CloseReview()
+        self.recordPage = self.page
+        self.page = 1
+    end
+    self:HideMenus()
+    self.search:ClearFocus()
+    if LJ.RunDetail then LJ.RunDetail:Hide() end
+    if LJ.CharacterOverview and LJ.CharacterOverview.panel then LJ.CharacterOverview.panel:Hide() end
+    self.comparing = false
+    self:ClearComparison()
+    self.lossRecord = true
+    self:Refresh()
+end
+
+local function choice(value, options, fallback)
+    for _, option in ipairs(options) do
+        if option == value then return value end
+    end
+    return fallback
+end
+
+function H:SavePreset(name)
+    local presets = LJ.DB.historyPresets
+    name = type(name) == "string" and name:match("^%s*(.-)%s*$") or ""
+    if name == "" then
+        self.presetStatus:SetText(LJ.L("HISTORY_PRESET_NAME_REQUIRED"))
+        return false
+    end
+    local entry = {
+        name = name, query = self.query, dungeon = self.dungeon, dungeonKey = self.dungeonKey,
+        range = self.range, status = self.status, sort = self.sort, focus = self.focus,
+    }
+    local index = #presets + 1
+    for i, preset in ipairs(presets) do
+        if type(preset) == "table" and normalized(preset.name) == normalized(name) then
+            index = i
+            break
+        end
+    end
+    presets[index] = entry
+    self.presetPage = math.ceil(index / PRESET_PAGE_SIZE)
+    self.presetStatus:SetText(LJ.L("HISTORY_PRESET_SAVED"))
+    self:RefreshPresets()
+    return true
+end
+
+function H:ApplyPreset(index)
+    local preset = index and LJ.DB.historyPresets[index]
+    if type(preset) ~= "table" or type(preset.name) ~= "string" then return false end
+    self.query = type(preset.query) == "string" and preset.query or ""
+    self.dungeon = type(preset.dungeon) == "string" and preset.dungeon ~= "" and preset.dungeon or nil
+    self.dungeonKey = type(preset.dungeonKey) == "string" and preset.dungeonKey or nil
+    self.presetDungeon = self.dungeon ~= nil
+    self.range = choice(preset.range, { "all", "today", "week", "month" }, "all")
+    self.status = choice(preset.status, { "all", "clear", "manual", "pending" }, "all")
+    self.sort = choice(preset.sort, SORT_MODES, "date")
+    self.focus = choice(preset.focus, { "noNeedWin", "noLoot", "sinceNeedWin" })
+    self.presetFocus = self.focus ~= nil
+    self:CloseReview()
+    self.page, self.filterPage = 1, 1
+    self:ClearComparison()
+    self.search:SetText(self.query)
+    self.presetMenu:Hide()
+    self:Refresh()
+    return true
+end
+
+function H:DeletePreset(index)
+    local presets = LJ.DB.historyPresets
+    if not index or not presets[index] then return end
+    table.remove(presets, index)
+    self.presetStatus:SetText("")
+    self:RefreshPresets()
+end
+
+function H:RefreshPresets()
+    local presets = LJ.DB.historyPresets
+    local pages = math.max(1, math.ceil(#presets / PRESET_PAGE_SIZE))
+    self.presetPage = math.max(1, math.min(self.presetPage or 1, pages))
+    for i, row in ipairs(self.presetRows) do
+        local index = (self.presetPage - 1) * PRESET_PAGE_SIZE + i
+        local preset = presets[index]
+        local name = type(preset) == "table" and type(preset.name) == "string" and preset.name or nil
+        row.load.index = name and index or nil
+        row.load:SetShown(name ~= nil)
+        row.remove:SetShown(name ~= nil)
+        if name then row.load.label:SetText((name:gsub("|", "||"))) end
+    end
+    self.presetPrev:SetShown(self.presetPage > 1)
+    self.presetNext:SetShown(self.presetPage < pages)
+    self.presetPageText:SetShown(pages > 1)
+    self.presetPageText:SetText(self.presetPage .. " / " .. pages)
+end
+
+function H:ToggleCharacters()
+    local overview = LJ.CharacterOverview
+    local panel = overview:Create(self.frame)
+    if panel:IsShown() then
+        panel:Hide()
+    else
+        self.menu:Hide()
+        self.advancedMenu:Hide()
+        self.presetMenu:Hide()
+        self:ClearComparison()
+        self.search:ClearFocus()
+        if LJ.RunDetail then LJ.RunDetail:Hide() end
+        panel:Show()
+    end
+    self:Refresh()
 end
 
 function H:ResetFilters()
     self.query, self.dungeon, self.dungeonKey, self.range, self.status = "", nil, nil, "all", "all"
-    self.focus = nil
+    self.focus, self.sort = nil, "date"
+    self:CloseReview()
+    self.presetDungeon, self.presetFocus = nil, nil
     self.page, self.filterPage = 1, 1
     self:ClearComparison()
     if self.search then self.search:SetText("") end
     if self.menu then self.menu:Hide() end
-    if self.dateMenu then self.dateMenu:Hide() end
-    if self.statusMenu then self.statusMenu:Hide() end
+    if self.advancedMenu then self.advancedMenu:Hide() end
+    if self.presetMenu then self.presetMenu:Hide() end
     self:Refresh()
 end
 
@@ -865,7 +1156,7 @@ function H:ShowComparison(first, second)
         local column = self.compareValues[i]
         local when = LJ:FormatTime(run.started, "DATE_TIME")
         column.date:SetText(LJ.L("HISTORY_COMPARE_DATE", when))
-        column.date:SetTextColor(rgba(LJ.COLORS.muted))
+        W:ColorText(column.date, W:Skin().muted)
         column.need:SetText(LJ.L("HISTORY_COMPARE_NEED", run.won, run.lost, run.pending))
         column.need:SetTextColor(rgba(compareNeedColor(run.won, run.lost)))
         column.state:SetText(LJ.L(run.state))
@@ -877,6 +1168,7 @@ end
 
 function H:SelectForComparison(run)
     if type(run) ~= "table" then return false end
+    self.compareMismatch = nil
     if self.compareA == run then
         self.compareA, self.compareB = self.compareB, nil
         self.comparePanel:Hide()
@@ -886,9 +1178,9 @@ function H:SelectForComparison(run)
     elseif not self.compareA then
         self.compareA = run
     elseif not sameDungeon(self.compareA, run, true) then
-        -- Anderer Dungeon: Auswahl neu starten, statt den Nutzer zu blockieren.
-        self.compareA, self.compareB = run, nil
-        self.comparePanel:Hide()
+        self.compareMismatch = true
+        self:Refresh()
+        return false
     else
         self.compareB = run
     end
@@ -896,19 +1188,166 @@ function H:SelectForComparison(run)
     return true
 end
 
-function H:CycleSort()
-    local idx = 1
-    for i, mode in ipairs(SORT_MODES) do
-        if mode == self.sort then idx = i break end
-    end
-    idx = (idx % #SORT_MODES) + 1
-    self.sort = SORT_MODES[idx]
-    self.page = 1
+function H:SetComparisonMode(enabled)
+    self.comparing = enabled
+    self:CloseReview()
+    if self.grouped then self.page = 1 end
+    self.menu:Hide()
+    self.advancedMenu:Hide()
+    self.presetMenu:Hide()
+    self:ClearComparison()
     self:Refresh()
+end
+
+function H:VisibleEntries(matches, runs)
+    local entries = {}
+    if self.lossRecord then
+        local record = LJ.Stats.Compute(runs, true).longestLossSeries
+        self.record = record
+        if record then
+            for _, loss in ipairs(record.losses) do
+                entries[#entries + 1] = { roll = loss, run = loss.run }
+            end
+            if record.winner then entries[#entries + 1] = { roll = record.winner, run = record.winner.run } end
+        end
+        return entries, runs
+    end
+    if self.grouped and not self.comparing then
+        local groups, byKey = self:GroupRuns(matches, runs)
+        local review = self.trend or self.bossView
+        if review then
+            local group = byKey[review.key]
+            local visits = group and group.runs or {}
+            if self.trend then
+                for _, week in ipairs(self:WeeklyNeed(visits)) do
+                    entries[#entries + 1] = { week = week }
+                end
+            else
+                for _, boss in ipairs(LJ.RunDetail:BossStatistics(visits)) do
+                    entries[#entries + 1] = { boss = boss, visits = #visits }
+                    if self.bossView.expanded[boss.key] then
+                        for _, item in ipairs(boss.items) do
+                            entries[#entries + 1] = { bossItem = item, nested = true }
+                        end
+                    end
+                end
+            end
+            return entries, visits
+        end
+        for _, group in ipairs(groups) do
+            entries[#entries + 1] = { group = group }
+            if self.expanded[group.key] then
+                for _, run in ipairs(group.runs) do
+                    entries[#entries + 1] = { run = run, nested = true }
+                end
+            end
+        end
+    else
+        for _, run in ipairs(matches) do
+            entries[#entries + 1] = { run = run }
+        end
+    end
+    return entries, matches
+end
+
+local function trendCounts(wins, losses, pending, rolls)
+    return LJ.L("HISTORY_TREND_COUNTS", wins, losses, pending, rolls)
+end
+
+local function summaryItemName(item)
+    if type(item.link) == "string" then
+        local name = item.link:match("%[(.-)%]")
+        if name and name ~= "" then return name end
+    end
+    local id = tonumber(item.id)
+    if not id then return LJ.L("HISTORY_STREAK_ITEM_MISSING") end
+    local info = LJ:ItemInfo(id)
+    return info and info.name or LJ.L("DETAIL_ITEM_UNKNOWN", id)
+end
+
+function H:RenderEntry(row, entry)
+    local run, group, week = entry.run, entry.group, entry.week
+    local boss, item, roll = entry.boss, entry.bossItem, entry.roll
+    local withContext = boss or item or roll
+    row.run, row.group, row.boss = run, group, boss
+    row.compare:SetShown(run ~= nil and self.comparing == true)
+    row.bar:SetShown(run ~= nil and roll == nil)
+    row.trend:SetShown(group ~= nil)
+    row.bossButton:SetShown(group ~= nil)
+    row.groupCount:SetShown(group ~= nil)
+    row.need:SetShown(not (week or boss or item))
+    row.date:SetShown(not (week or boss or item))
+    row.trendValues:SetShown(week ~= nil)
+    row.context:SetShown(withContext ~= nil)
+    row.label:ClearAllPoints()
+    local x = entry.nested and 36 or 22
+    row.label:SetPoint("LEFT", x, withContext and 7 or 0)
+    row.label:SetWidth(week and 126 or (group and 183 or (entry.nested and 305 or 319)))
+    if withContext then
+        row.context:ClearAllPoints()
+        row.context:SetPoint("LEFT", x, -8)
+        row.context:SetWidth(roll and 319 or 532)
+    end
+    if roll then
+        local need = roll.need
+        row.label:SetText(summaryItemName(need))
+        row.context:SetText(LJ:DungeonName(run) .. " · " .. LJ.L(need.result == "won"
+            and "HISTORY_STREAK_ENDING_WIN" or "DETAIL_NEED_LOST"))
+        row.need:SetText(tonumber(need.roll) or "—")
+        local at = tonumber(need.at)
+        row.date:SetText(LJ:FormatTime(at and at > 0 and at or run.started, "DATE_LONG"))
+    elseif run then
+        local checked = run == self.compareA or run == self.compareB
+        row.compare:SetChecked(checked)
+        row.compare.mark:SetShown(checked)
+        local marker, color = LJ:RunStatusMarker(run)
+        W:ColorTexture(row.bar, color)
+        local name = LJ:DungeonName(run)
+        if marker then name = name .. " · " .. marker end
+        if run.legacy then
+            name = name .. " · " .. hex(LJ.COLORS.muted) .. LJ.L("HISTORY_LEGACY") .. "|r"
+        end
+        row.label:SetText(name)
+        row.need:SetText(runNeed(run))
+        row.date:SetText(LJ:FormatTime(run.started, "DATE_LONG"))
+    elseif group then
+        local arrow = self.expanded[group.key] and "▼ " or "▶ "
+        row.label:SetText(arrow .. group.name)
+        row.groupCount:SetText(LJ.L("HISTORY_GROUP_COUNT", #group.runs))
+        row.need:SetText(group.rolls > 0 and ("%d / %d"):format(group.wins, group.rolls) or "—")
+        row.date:SetText(LJ:FormatTime(group.latest, "DATE_LONG"))
+    elseif week then
+        local date = week.start > 0 and LJ:FormatTime(week.start, "DATE_LONG")
+        row.label:SetText(date and LJ.L("HISTORY_TREND_WEEK", date) or LJ.L("HISTORY_TREND_UNDATED"))
+        row.trendValues:SetText(trendCounts(week.wins, week.losses, week.pending, week.rolls))
+    elseif boss then
+        local arrow = self.bossView.expanded[boss.key] and "▼ " or "▶ "
+        row.label:SetText(arrow .. boss.name)
+        row.context:SetText(LJ.L("HISTORY_BOSS_TOTALS", boss.visits, entry.visits, boss.drops) .. " · "
+            .. LJ.L("HISTORY_BOSS_NEED", boss.won, boss.lost, boss.pending))
+    elseif item then
+        row.label:SetText(summaryItemName(item))
+        row.context:SetText(LJ.L("HISTORY_BOSS_ITEM_DROPS", item.count) .. " · "
+            .. LJ.L("HISTORY_BOSS_NEED", item.won, item.lost, item.pending))
+    end
 end
 
 function H:Refresh()
     if not self.frame or not LJ.Tracker then return end
+    local overview = LJ.CharacterOverview
+    local showingCharacters = overview and overview.panel and overview.panel:IsShown()
+    if self.characterButton then
+        self.characterButton.label:SetText(LJ.L(showingCharacters and "CHARACTER_OVERVIEW_BACK" or "CHARACTER_OVERVIEW_BUTTON"))
+    end
+    if showingCharacters then
+        self.prev:Hide()
+        self.next:Hide()
+        self.pageText:Hide()
+        self:ApplyTheme()
+        overview:Refresh()
+        return
+    end
+    self.pageText:Show()
     local runs = LJ.Tracker:GetRuns()
     if self.compareA then
         local foundA, foundB = false, false
@@ -921,74 +1360,99 @@ function H:Refresh()
             self:ClearComparison()
         end
     end
-    if self.dungeon then
+    local unavailableDungeon, filterDungeonKey = false, self.dungeonKey
+    if not self.lossRecord and self.dungeon and self.presetDungeon and self.dungeonKey then
+        local option = self:ResolvePresetDungeon(self.dungeon, self.dungeonKey, runs)
+        unavailableDungeon = option == nil
+        if option then
+            self.dungeon = option.label
+            filterDungeonKey = option.key
+        end
+    elseif not self.lossRecord and self.dungeon then
         local key = self:ResolveDungeonKey(self.dungeon, runs, self.dungeonKey)
         if key then
-            self.dungeonKey = key
-        else
+            self.dungeonKey, filterDungeonKey = key, key
+        elseif not self.presetDungeon then
             -- Der gewählte Dungeon existiert nicht mehr (z. B. nach dem Aufräumen):
             -- Filter zurücksetzen, statt eine leere Liste ohne Erklärung zu zeigen.
             self.dungeon, self.dungeonKey = nil, nil
+            self:CloseReview()
             self.page, self.filterPage = 1, 1
+        else
+            unavailableDungeon = true
         end
     end
-    local matches = self:Filter(runs, self.query, self.dungeon, self.range, LJ.Now(), self.status,
-        self.dungeonKey)
+    local matches = self.lossRecord and runs or (unavailableDungeon and {} or
+        self:Filter(runs, self.query, self.dungeon, self.range, LJ.Now(), self.status, filterDungeonKey))
+    local entries, visibleRuns = self:VisibleEntries(matches, runs)
     local preview = LJ.Storage:Preview(runs, LJ.Tracker:GetActive(), LJ.Now())
     self.cleanupButton.label:SetText(LJ.L("HISTORY_CLEANUP_BUTTON", preview.eligible))
-    local summary = self:Summarize(matches)
-    self.summaryTitle:SetText(LJ.L("HISTORY_SUMMARY_TITLE",
-        W:Truncate(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"), 28)))
-    self.summaryLine1:SetText(LJ.L("HISTORY_SUMMARY_RUNS", summary.runs, summary.noLoot))
-    self.summaryLine2:SetText(LJ.L("HISTORY_SUMMARY_NEED", summary.needWins,
-        summary.needLost, summary.needPending))
-    local pages = math.max(1, math.ceil(#matches / PAGE_SIZE))
+    local summary = self:Summarize(visibleRuns)
+    local trend, bossView, lossRecord = self.trend, self.bossView, self.lossRecord
+    local header, empty = "HISTORY_COL_DUNGEON", "HISTORY_EMPTY"
+    if unavailableDungeon then empty = "HISTORY_PRESET_NO_DUNGEON" end
+    if lossRecord then
+        self.summary:SetText(LJ.L("HISTORY_STREAK_TITLE", self.record and #self.record.losses or 0))
+        header = not self.record and "HISTORY_STREAK_ITEM"
+            or self.record.winner and "HISTORY_STREAK_CLOSED" or "HISTORY_STREAK_ONGOING"
+        empty = "HISTORY_STREAK_EMPTY"
+    elseif bossView then
+        self.summary:SetText(LJ.L("HISTORY_BOSS_TITLE", bossView.name, LJ.L("HISTORY_DATE_" .. string.upper(self.range))))
+        header, empty = "HISTORY_BOSS_HINT", "HISTORY_BOSS_EMPTY"
+    elseif trend then
+        self.summary:SetText(LJ.L("HISTORY_TREND_TITLE", trend.name,
+            LJ.L("HISTORY_DATE_" .. string.upper(self.range))))
+        self.headerDungeon:SetText(trendCounts(summary.needWins, summary.needLost, summary.needPending,
+            summary.needWins + summary.needLost + summary.needPending))
+    elseif self.comparing then
+        self.summary:SetText(self.compareMismatch and LJ.L("HISTORY_COMPARE_SAME_DUNGEON") or
+            LJ.L("HISTORY_COMPARE_PROGRESS", self.compareB and 2 or (self.compareA and 1 or 0)))
+    else
+        self.summary:SetText(LJ.L("HISTORY_SUMMARY_RUNS", summary.runs, summary.noLoot) .. "   ||   " ..
+            LJ.L("HISTORY_SUMMARY_NEED", summary.needWins, summary.needLost, summary.needPending))
+    end
+    if not trend then self.headerDungeon:SetText(LJ.L(header)) end
+    self.headerDungeon:SetWidth(lossRecord and 315 or 546)
+    self.headerNeed:SetText(LJ.L(lossRecord and "HISTORY_STREAK_ROLL" or "HISTORY_COL_NEED"))
+    self.headerNeed:SetShown(not (trend or bossView))
+    self.headerDate:SetShown(not (trend or bossView))
+    local groupKey = lossRecord and "CHARACTER_OVERVIEW_BACK" or (trend or bossView) and "HISTORY_TREND_BACK" or
+        (self.grouped and not self.comparing and "HISTORY_GROUP_FLAT" or "HISTORY_GROUP_TOGGLE")
+    self.groupButton.label:SetText(LJ.L(groupKey))
+    self.groupButton:SetShown(not self.comparing)
+    self.count:SetShown(not lossRecord)
+    self.search:SetShown(not lossRecord)
+    self.searchLabel:SetShown(not lossRecord)
+    self.filterButton:SetShown(not lossRecord)
+    self.filterLabel:SetShown(not lossRecord)
+    self.advancedButton:SetShown(not lossRecord)
+    self.compareButton:SetShown(not lossRecord)
+    local pages = math.max(1, math.ceil(#entries / PAGE_SIZE))
     self.page = math.max(1, math.min(self.page, pages))
     self.filterButton.label:SetText(self.dungeon or LJ.L("HISTORY_ALL_DUNGEONS"))
-    self.dateButton.label:SetText(LJ.L("HISTORY_DATE_" .. string.upper(self.range)))
-    self.statusButton.label:SetText(LJ.L("HISTORY_STATUS_" .. string.upper(self.status)))
-    self.sortButton.label:SetText(LJ.L("HISTORY_SORT_BUTTON", LJ.L(SORT_LABELS[self.sort])))
+    local activeFilters = (self.query ~= "" and 1 or 0) + (self.dungeon and 1 or 0)
+        + (self.range ~= "all" and 1 or 0) + (self.status ~= "all" and 1 or 0) + (self.focus and 1 or 0)
+    self.advancedButton.label:SetText(activeFilters > 0 and LJ.L("HISTORY_FILTER_COUNT", activeFilters)
+        or LJ.L("HISTORY_FILTERS"))
+    self.compareButton.label:SetText(LJ.L(self.comparing and "HISTORY_COMPARE_DONE" or "HISTORY_COMPARE_PICK"))
     local focusLabels = { noNeedWin = "MINI_NO_WIN", noLoot = "MINI_NO_LOOT", sinceNeedWin = "MINI_SINCE" }
     if self.focusButton then
         local focusKey = focusLabels[self.focus]
-        self.focusButton:SetShown(focusKey ~= nil)
+        self.focusButton:SetShown(not lossRecord and focusKey ~= nil)
         if focusKey then
             self.focusButton.label:SetText(LJ.L("HISTORY_FOCUS_CHIP", LJ.L(focusKey)))
         end
     end
-    self.count:SetText(LJ.L("HISTORY_COUNT", #matches, preview.savedRuns))
-    self.empty:SetShown(#matches == 0)
+    self.count:SetText(LJ.L("HISTORY_COUNT", #visibleRuns, preview.savedRuns))
+    self.empty:SetText(LJ.L(empty))
+    self.empty:SetShown(#entries == 0)
     self.pageText:SetText(self.page .. " / " .. pages)
     self.prev:SetShown(self.page > 1)
     self.next:SetShown(self.page < pages)
     for i, row in ipairs(self.rows) do
-        local run = matches[(self.page - 1) * PAGE_SIZE + i]
-        row.run = run
-        row:SetShown(run ~= nil)
-        if run then
-            row.compare.label:SetText(run == self.compareA and LJ.L("HISTORY_COMPARE_A")
-                or run == self.compareB and LJ.L("HISTORY_COMPARE_B")
-                or LJ.L("HISTORY_COMPARE_PICK"))
-            local color = LJ.Tracker:IsCounted(run) and LJ.COLORS.green or LJ.COLORS.red
-            row.bar:SetColorTexture(color[1], color[2], color[3], 0.85)
-            row.bar:Show()
-            local key = runStatusKey(run)
-            if key and STATUS_COLORS[key] then
-                local sc = STATUS_COLORS[key]
-                row.status:SetColorTexture(sc[1], sc[2], sc[3], 1)
-                row.status:Show()
-            else
-                row.status:Hide()
-            end
-            local name = W:Truncate(LJ:DungeonName(run), 22)
-            if key then
-                local sc = STATUS_COLORS[key] or LJ.COLORS.muted
-                name = name .. " · " .. hex(sc) .. LJ.L(key) .. "|r"
-            end
-            row.label:SetText(name)
-            row.badges:SetText(runBadges(run))
-            row.date:SetText(LJ:FormatTime(run.started, "DATE_LONG"))
-        end
+        local entry = entries[(self.page - 1) * PAGE_SIZE + i]
+        self:RenderEntry(row, entry or {})
+        row:SetShown(entry ~= nil)
     end
     self:ApplyTheme()
 end
@@ -1004,7 +1468,7 @@ function H:ConfirmCleanup()
         LJ:Print(LJ.L("HISTORY_CLEANUP_UNAVAILABLE"))
         return
     end
-    StaticPopupDialogs.LOOTJINX_CLEANUP = {
+    StaticPopupDialogs.LOOTJINX_CLEANUP = W:StylePopup({
         text = LJ.L("HISTORY_CLEANUP_CONFIRM", preview.eligible, LJ.Storage.AGE_DAYS),
         button1 = LJ.L("HISTORY_CLEANUP_ACCEPT"),
         button2 = LJ.L("REPORT_CANCEL"),
@@ -1019,23 +1483,33 @@ function H:ConfirmCleanup()
         whileDead = true,
         hideOnEscape = true,
         preferredIndex = 3,
-    }
+    })
     StaticPopup_Show("LOOTJINX_CLEANUP")
 end
 
 function H:Show(focus)
     if not self.frame then self:Create() end
     if not self.frame then return end
+    if not self.frame:IsShown() then
+        self.grouped = LJ.DB and LJ.DB.historyGrouped == true
+        local dashboard = LJ.UI and LJ.UI.frame
+        local anchor = dashboard and dashboard:IsShown() and dashboard or UIParent
+        self.frame:ClearAllPoints()
+        self.frame:SetPoint("CENTER", anchor, "CENTER", 0, 0)
+    end
     if focus then
+        self:CloseReview()
+        self.presetDungeon, self.presetFocus = nil, nil
         self.focus = focus
         self.query, self.dungeon, self.dungeonKey, self.range, self.status = "", nil, nil, "all", "all"
         self.page, self.filterPage = 1, 1
         self:ClearComparison()
         if self.search then self.search:SetText("") end
         if self.menu then self.menu:Hide() end
-        if self.dateMenu then self.dateMenu:Hide() end
-        if self.statusMenu then self.statusMenu:Hide() end
-    else
+        if self.advancedMenu then self.advancedMenu:Hide() end
+        self.presetMenu:Hide()
+        if LJ.CharacterOverview and LJ.CharacterOverview.panel then LJ.CharacterOverview.panel:Hide() end
+    elseif not self.presetFocus then
         self.focus = nil
     end
     self:Refresh()
