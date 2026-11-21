@@ -6,6 +6,7 @@ if not LJ then return end
 local O = {}
 LJ.Options = O
 local W = LJ.Widgets
+local PANEL_WIDTH, PANEL_HEIGHT = 600, 524
 
 local function inCombat()
     return type(InCombatLockdown) == "function" and InCombatLockdown() == true
@@ -235,7 +236,7 @@ end
 local function buildPanel()
     panel = CreateFrame("Frame", "LootJinxOptionsPanel", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     panel.name = LJ.L("OPTIONS_TAB")
-    panel:SetSize(600, 524)
+    panel:SetSize(PANEL_WIDTH, PANEL_HEIGHT)
     panel:SetPoint("CENTER")
     panel:SetFrameStrata("DIALOG")
     panel:SetFrameLevel(175)
@@ -492,6 +493,14 @@ function O:Open()
         LJ:Print(LJ.L("OPTIONS_UNAVAILABLE"))
         return false
     end
+    local scale = 1.15
+    if UIParent then
+        local width, height = UIParent:GetWidth(), UIParent:GetHeight()
+        local margin = 24
+        if width > 0 then scale = math.min(scale, width / (PANEL_WIDTH + margin)) end
+        if height > 0 then scale = math.min(scale, height / (PANEL_HEIGHT + margin)) end
+    end
+    panel:SetScale(scale)
     if not registered and not inCombat() then registerPanel() end
     if not panel:IsShown() then
         local main = LJ.UI and LJ.UI.frame

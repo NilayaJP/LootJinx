@@ -10,6 +10,7 @@ LJ.ChangelogData = {
 • Added boss evidence from readable corpse sources and defeated members reported by successful encounters. Included rare and optional bosses in the NPC source catalog.]] },
         { title = [[Changed]], text = [[• Applied illustrated headers and matching controls across LootJinx windows, comparison panels, and confirmation dialogs.
 • Improved the contrast of run and loot lists and highlighted selected controls and focused text inputs.
+• Enlarged the Options window and its text, with scaling that kept the panel within smaller viewports.
 • Replaced expand and collapse glyphs in Dungeon History, boss statistics, and Run Details with font-independent controls.]] },
         { title = [[Fixed]], text = [[• Fixed the Need win-rate bar so its fill matched the resolved percentage.
 • Grouped uniquely attributed loot under its boss in Run Details and boss statistics, even when the client omitted the boss event.
