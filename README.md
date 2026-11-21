@@ -15,7 +15,7 @@ All trackers appear in all five designs. Empty visits with no observed boss, ite
 
 ## Review and share
 
-Choose a design under **Options → Design**. Every design includes its own illustration and icon, with matching headers, controls, and list colors across LootJinx windows. History and Report stay in the footer alongside the **…** menu for Help and Reset.
+Choose a design under **Options → Design**. Every design includes its own illustration and icon, with matching headers, controls, and list colors across LootJinx windows. The dashboard keeps its position when you switch designs. History and Report stay in the footer alongside the **…** menu for Help and Reset.
 
 - **Classic** uses cool blue and violet accents with iron dice.
 - **Dungeon Journal** uses parchment and warm brass tones.

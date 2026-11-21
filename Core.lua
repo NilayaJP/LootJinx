@@ -664,6 +664,17 @@ function LJ:InitDB()
     db.compact = db.compact == true
     db.announceRecords = db.announceRecords == true
     db.layoutPreview = self:GetLayoutSpec(db.layoutPreview).id
+    if db.sharedDashboardPosition ~= true then
+        local layout = db.layoutPreview
+        if layout ~= "classic" then
+            local point, relativePoint = db[layout .. "Point"], db[layout .. "RelPoint"]
+            db.point = type(point) == "string" and point or "CENTER"
+            db.relPoint = type(relativePoint) == "string" and relativePoint or "CENTER"
+            db.x = tonumber(db[layout .. "X"]) or 0
+            db.y = tonumber(db[layout .. "Y"]) or -40
+        end
+        db.sharedDashboardPosition = true
+    end
     db.language = type(db.language) == "string" and db.language or "auto"
     db.minimapAngle = tonumber(db.minimapAngle) or 225
     if db.minimapAngle ~= db.minimapAngle then db.minimapAngle = 225 end
