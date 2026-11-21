@@ -943,8 +943,8 @@ if loader then
                 C_Timer.After(4, function() LJ:Print(LJ.L("CHAT_WELCOME")) end)
             end
             LJ:Changed()
-        elseif event == "PLAYER_ENTERING_WORLD" and LJ.dbReady and arg1 == true and arg2 == false then
-            if LJ.Changelog then pcall(LJ.Changelog.ShowOnLogin, LJ.Changelog) end
+        elseif event == "PLAYER_ENTERING_WORLD" and LJ.dbReady and (arg1 == true or arg2 == true) then
+            if LJ.Changelog then pcall(LJ.Changelog.ShowAfterUpdate, LJ.Changelog) end
         elseif event == "PLAYER_LOGOUT" and LJ.dbReady and LJ.CharacterOverview then
             LJ.CharacterOverview:Snapshot()
         end

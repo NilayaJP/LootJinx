@@ -159,7 +159,7 @@ function Changelog:Show()
     return true
 end
 
-function Changelog:ShowOnLogin()
+function Changelog:ShowAfterUpdate()
     local data = LJ.ChangelogData
     if not LJ.DB or LJ.DB.hideChangelog or not data or data.version ~= LJ:AddOnVersion()
         or not isNewer(data.version, LJ.DB.changelogBaseVersion)

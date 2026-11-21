@@ -5,7 +5,7 @@ LJ.ChangelogData = {
     date = "2026-11-21",
     foreverDB = true,
     sections = {
-        { title = [[Added New]], text = [[• Added an in-game changelog with sections, automatic display on the first character login after an update, and an account-wide opt-out. Players could reopen it from LootJinx Settings.
+        { title = [[Added New]], text = [[• Added an in-game changelog with sections, automatic display on the first character login or UI reload after an update, and an account-wide opt-out. Players could reopen it from LootJinx Settings.
 • Added expandable dungeon groups with run counts, Need results, and the latest visit.
 • Added weekly dungeon Need trends with wins, losses, pending rolls, and the total number of recorded rolls.
 • Added a visible, copyable ForeverDB.net credit to the dashboard in both designs and window sizes.
