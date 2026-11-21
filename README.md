@@ -43,7 +43,7 @@ After an update, the changelog opens at the first character login if that versio
 
 ## Build a release
 
-After updating the version in `LootJinx.toc` and its section in `docs/CHANGELOG.md`, run `python tools/build_changelog.py` to regenerate `ChangelogData.lua`. Use third-level Markdown headings such as `### Added New`, `### Changed`, `### Fixed` and `### Removed` to organize that release. Use `--check` to verify the generated file or `--zip` to regenerate the notes and build the runtime-only release ZIP in `dist/`.
+To build the runtime ZIP from a Git checkout, run `python tools/build_changelog.py --zip`. It uses the checked-in release notes when the local `docs/CHANGELOG.md` is absent. When preparing a new release, update the version in `LootJinx.toc` and its section in `docs/CHANGELOG.md`, then run the tool to regenerate `ChangelogData.lua`. Use third-level headings such as `### Added New`, `### Changed`, `### Fixed` and `### Removed`. With the Markdown present, `--check` verifies the generated notes and `--zip` regenerates them before packaging.
 
 ## Commands
 

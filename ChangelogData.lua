@@ -20,7 +20,8 @@ LJ.ChangelogData = {
 • Centered dungeon history over the dashboard on open and made the history and run details movable by their title bars.
 • Used the same status markers in dungeon history and recent runs, reserved green for live runs, and showed statistical eligibility in the run details.]] },
         { title = [[Fixed]], text = [[• Kept open windows in place when the current dashboard design was selected again.
-• Preserved the first run selection when a comparison required a different second run.]] },
+• Preserved the first run selection when a comparison required a different second run.
+• Matched saved dungeon filters to unambiguous older runs without instance IDs and excluded unrelated Greed drops from Need attribution in boss statistics.]] },
         { title = [[Removed]], text = [[• Removed the /lj scale command.]] },
     },
 }

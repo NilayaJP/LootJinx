@@ -232,6 +232,26 @@ function H:ResolveDungeonKey(dungeon, runs, rememberedKey)
     return nil
 end
 
+function H:ResolvePresetDungeon(dungeon, rememberedKey, runs)
+    local options = self:DungeonOptions(runs)
+    for _, option in ipairs(options) do
+        if option.key == rememberedKey then return option end
+    end
+
+    local rememberedName = rememberedKey:match("^name:(.+)$")
+    local name = rememberedName or dungeon:gsub("%s+%b()%s*$", "")
+    local names = { [normalized(name)] = true, [normalized(LJ:DungeonName({ name = name }))] = true }
+    local match
+    for _, option in ipairs(options) do
+        local legacy = option.key:match("^name:")
+        if (rememberedName or legacy) and (names[normalized(option.name)] or names[normalized(option.displayName)]) then
+            if match then return nil end
+            match = option
+        end
+    end
+    return match
+end
+
 -- Fokussierte Auswahl der drei Dashboard-Karten. "sinceNeedWin" entspricht
 -- der laufenden Serie in Stats.Compute; "noNeedWin" und "noLoot" den Summen.
 local function focusSet(runs, focus)
@@ -1340,20 +1360,18 @@ function H:Refresh()
             self:ClearComparison()
         end
     end
-    local unavailableDungeon
+    local unavailableDungeon, filterDungeonKey = false, self.dungeonKey
     if not self.lossRecord and self.dungeon and self.presetDungeon and self.dungeonKey then
-        unavailableDungeon = true
-        for _, option in ipairs(self:DungeonOptions(runs)) do
-            if option.key == self.dungeonKey then
-                self.dungeon = option.label
-                unavailableDungeon = false
-                break
-            end
+        local option = self:ResolvePresetDungeon(self.dungeon, self.dungeonKey, runs)
+        unavailableDungeon = option == nil
+        if option then
+            self.dungeon = option.label
+            filterDungeonKey = option.key
         end
     elseif not self.lossRecord and self.dungeon then
         local key = self:ResolveDungeonKey(self.dungeon, runs, self.dungeonKey)
         if key then
-            self.dungeonKey = key
+            self.dungeonKey, filterDungeonKey = key, key
         elseif not self.presetDungeon then
             -- Der gewählte Dungeon existiert nicht mehr (z. B. nach dem Aufräumen):
             -- Filter zurücksetzen, statt eine leere Liste ohne Erklärung zu zeigen.
@@ -1365,7 +1383,7 @@ function H:Refresh()
         end
     end
     local matches = self.lossRecord and runs or (unavailableDungeon and {} or
-        self:Filter(runs, self.query, self.dungeon, self.range, LJ.Now(), self.status, self.dungeonKey))
+        self:Filter(runs, self.query, self.dungeon, self.range, LJ.Now(), self.status, filterDungeonKey))
     local entries, visibleRuns = self:VisibleEntries(matches, runs)
     local preview = LJ.Storage:Preview(runs, LJ.Tracker:GetActive(), LJ.Now())
     self.cleanupButton.label:SetText(LJ.L("HISTORY_CLEANUP_BUTTON", preview.eligible))

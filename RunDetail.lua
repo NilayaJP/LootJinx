@@ -364,7 +364,7 @@ function M:BossStatistics(runs)
                         end
                         item.link = item.link or drop.link
                         boss.drops, item.count = boss.drops + 1, item.count + 1
-                        local need = findNeed(run, drop, used)
+                        local need = (not drop.rollKind or drop.rollKind == "need") and findNeed(run, drop, used)
                         if need then
                             local dropAt, needAt = tonumber(drop.at) or 0, tonumber(need.at) or 0
                             local unique = dropCount[id] == 1 and needCount[id] == 1
