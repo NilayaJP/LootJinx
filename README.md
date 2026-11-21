@@ -39,7 +39,7 @@ Version 1.7.1 added smooth corner drag-resizing (40% to 300%) with right-click r
 2. Enter `/reload` in game.
 3. Open the dashboard with `/lj`, the minimap button, or the AddOn Compartment.
 
-After an update, the changelog opens at the first character login if that version's notes have not been shown. Open it manually under **LootJinx Settings → Changelog**. The checkbox in either window disables automatic opening account-wide. The window labels follow the addon language and the release notes use the English changelog.
+After an update, the changelog opens at the first character login or UI reload if that version's notes have not been shown. Open it manually under **LootJinx Settings → Changelog**. The checkbox in either window disables automatic opening account-wide. The window labels follow the addon language and the release notes use the English changelog.
 
 ## Build a release
 
