@@ -1021,19 +1021,38 @@ local function scheduleRepair()
     end)
 end
 
-function T:OnNeedRoll(rollID, link)
+function T:OnNeedRoll(rollID, link, evidence)
     if not inside then return end
     local run = activeRun()
     if not run then return end
-    if transitioningFromOtherRun(run) then
+    rollID = tonumber(LJ.Plain(rollID))
+    local queue = reentryQueue(run)
+    if queue then
+        link = LJ:NormalizeLink(LJ.Plain(link)) or (rollID and readRollLink(rollID))
+        local id = LJ:ItemID(link)
+        local observation = { id = id, before = id and LJ:ItemCount(id) }
+        enqueueReentry(queue, function()
+            T:OnNeedRoll(rollID, link, observation)
+        end)
+        return
+    end
+    if not reentryEventTime and transitioningFromOtherRun(run) then
         diag("exit-late-roll-skip", tonumber(rollID), "need")
         return
     end
-    rollID = tonumber(rollID)
     local token = rollID and rollToken(rollID)
-    link = link or (rollID and rollLink(rollID)) or nil
+    if not link and rollID then
+        if evidence then link = rollLinks[rollID] else link = rollLink(rollID) end
+    end
     link = LJ:NormalizeLink(link)
     local id = LJ:ItemID(link)
+    local function initialCount(itemID)
+        if evidence then
+            if itemID == evidence.id then return evidence.before end
+        elseif itemID then
+            return LJ:ItemCount(itemID)
+        end
+    end
 
     -- Forever liefert beim eigenen Need-Chat keinen Item-Link. Solche Echos
     -- dürfen keinen zweiten offenen Eintrag anlegen; sie bestätigen nur die
@@ -1088,7 +1107,7 @@ function T:OnNeedRoll(rollID, link)
         if not match.rollID and rollID then match.rollID = rollID; filled = true end
         if rollID then needRollTokens[match] = token end
         if not rollID then match.chatSeen = true end
-        if match.id and not match.before then match.before = LJ:ItemCount(match.id) end
+        if match.id and not match.before then match.before = initialCount(match.id) end
         if filled then diag("need-link", match.id or id, "roll=" .. tostring(rollID)) end
         LJ:Changed()
         return
@@ -1100,7 +1119,7 @@ function T:OnNeedRoll(rollID, link)
         link = link,
         rollID = rollID,
         chatSeen = not rollID,
-        before = id and LJ:ItemCount(id) or nil,
+        before = initialCount(id),
     }
     run.needs[#run.needs + 1] = need
     if rollID then needRollTokens[need] = token end
@@ -1134,16 +1153,24 @@ function T:FillNeedLink(need, rollID)
     LJ:Changed()
 end
 
-function T:MarkGreed(rollID, link)
+function T:MarkGreed(rollID, link, captured)
     if not inside then return end
     local run = activeRun()
     if not run then return end
-    if transitioningFromOtherRun(run) then
+    rollID = tonumber(LJ.Plain(rollID))
+    local queue = reentryQueue(run)
+    if queue then
+        link = LJ:NormalizeLink(LJ.Plain(link)) or (rollID and readRollLink(rollID))
+        enqueueReentry(queue, function() T:MarkGreed(rollID, link, true) end)
+        return
+    end
+    if not reentryEventTime and transitioningFromOtherRun(run) then
         diag("exit-late-roll-skip", tonumber(rollID), "greed")
         return
     end
-    rollID = tonumber(rollID)
-    link = link or (rollID and rollLink(rollID)) or nil
+    if not link and rollID then
+        if captured then link = rollLinks[rollID] else link = rollLink(rollID) end
+    end
     link = LJ:NormalizeLink(link)
     if link then T:RecordItem(link, "greed-roll") end
     local id = LJ:ItemID(link)
@@ -1971,9 +1998,14 @@ function T:OnStartRoll(rollID)
 end
 
 function T:OnCancelRoll(rollID)
-    rollID = tonumber(rollID)
+    rollID = tonumber(LJ.Plain(rollID))
     local run = activeRun()
     if not rollID or not run then return end
+    local queue = reentryQueue(run)
+    if queue then
+        enqueueReentry(queue, function() T:OnCancelRoll(rollID) end)
+        return
+    end
     diag("roll-cancel", nil, "roll=" .. tostring(rollID))
     local token = rollToken(rollID)
     token.cancelled = true

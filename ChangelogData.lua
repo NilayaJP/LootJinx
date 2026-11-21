@@ -16,7 +16,7 @@ LJ.ChangelogData = {
 • Preserved corpse identities across reloads and kept shared encounters, conflicting IDs, and multi-source loot from producing false boss attributions.
 • Grouped loot from repeated kills by timestamp and kept attribution stable when saved drops changed order.
 • Preserved known boss names after incomplete follow-up events and recognized typographic apostrophes in boss names.
-• Buffered loot windows, loot chat, boss events, roll starts, and Loot History updates during re-entry. Preserved unresolved observations in a separate partial run on exit or reload.
+• Buffered loot windows, loot chat, boss events, roll starts, Need and Greed votes, cancellations, and Loot History updates during re-entry. Preserved unresolved observations in a separate partial run on exit or reload.
 • Required more than a shared map ID to confirm the same copy and started a fresh run after a confirmed reset, even when the previous run had already closed.
 • Listed dungeon wings separately in the History filter.]] },
     },
