@@ -138,10 +138,6 @@ for _, dungeonName in ipairs(source.ORDER or {}) do
                         for _, alias in ipairs((journalAliases[dungeonName] or {})[boss.name] or {}) do
                             appendUnique(aliases, alias)
                         end
-                        for _, killer in ipairs(implicitKills[boss.name] or {}) do
-                            appendUnique(aliases, killer)
-                            appendUnique(aliases, german[killer])
-                        end
                     end
                     local impliedBy
                     if dungeonName == "Scarlet Monastery: Cathedral" and name == "Scarlet Commander Mograine" then
@@ -149,6 +145,11 @@ for _, dungeonName in ipairs(source.ORDER or {}) do
                     elseif dungeonName == "Sunken Temple" and name == "Altar Bosses" then
                         -- The six altar guardians gate Jammal'an.
                         impliedBy = { "Jammal'an the Prophet", "Jammal'an der Prophet" }
+                    end
+                    for _, killer in ipairs(implicitKills[boss.name] or {}) do
+                        impliedBy = impliedBy or {}
+                        appendUnique(impliedBy, killer)
+                        appendUnique(impliedBy, german[killer])
                     end
                     writeBoss(out, name, aliases, boss.npcID, german[boss.name], impliedBy, groupMembers[name])
                 end

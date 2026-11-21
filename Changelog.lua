@@ -46,17 +46,17 @@ function Changelog:Create()
 
     local panel = W:Panel(frame)
     panel:SetAllPoints()
-    local accent = W:AccentLine(panel)
     local title = W:Font(panel, 20)
-    title:SetPoint("TOPLEFT", 20, -16)
+    title:SetPoint("TOPLEFT", 56, -12)
     title:SetText(LJ.L("CHANGELOG_TITLE"))
 
     local version = W:Font(panel, 11)
     version:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -7)
 
-    local close = W:Button(panel, LJ.L("CLOSE"), 96, 22)
-    close:SetPoint("TOPRIGHT", -16, -17)
+    local close = W:Button(panel, "×", 24, 24)
+    W:WindowClose(close)
     close:SetScript("OnClick", function() frame:Hide() end)
+    W:Tooltip(close, LJ.L("CLOSE"))
 
     local scroll = CreateFrame("ScrollFrame", "LootJinxChangelogScroll", panel, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", 20, -68)
@@ -92,7 +92,7 @@ function Changelog:Create()
     if UISpecialFrames then table.insert(UISpecialFrames, frame:GetName()) end
 
     self.frame, self.version, self.notes = frame, version, notes
-    self.panel, self.title, self.accent, self.close, self.preferenceLabel = panel, title, accent, close, label
+    self.panel, self.title, self.close, self.preferenceLabel = panel, title, close, label
     self.scroll, self.content, self.checkbox, self.credit = scroll, content, checkbox, credit
     return frame
 end
@@ -102,8 +102,7 @@ function Changelog:ApplyTheme()
     local skin = W:Skin()
     if self.skin ~= skin then
         self.skin = skin
-        W:Paint(self.panel, skin.bg, skin.border)
-        W:StyleAccent(self.accent, skin)
+        W:StyleWindow(self.panel, skin, 57, 30)
         W:SetTextFont(self.title, 20, "", skin.displayFont)
         W:ColorText(self.title, skin.text)
         W:ColorText(self.version, skin.muted)

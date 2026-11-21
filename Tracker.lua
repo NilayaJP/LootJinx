@@ -37,6 +37,7 @@ local dropRollTokens = setmetatable({}, { __mode = "k" })
 local lootWindowOpen = false
 local seenLootSlots = {}
 local lootWindowClaims = {}
+local pendingReentry, replayReentry, reentryEventTime
 local lootWindowSources = setmetatable({}, { __mode = "k" })
 local seenItemKeys = setmetatable({}, { __mode = "k" })
 local lootHistoryDrops = 0
@@ -48,7 +49,34 @@ local transitionGuardRun
 local lastSwitchedRun
 
 local function now()
-    return LJ.Now()
+    return reentryEventTime or LJ.Now()
+end
+
+local function reentryQueue(run)
+    if pendingReentry and pendingReentry.run == run then return pendingReentry end
+    if not inside or not run or not run.reenterPending then return nil end
+    local departed, exitIndex
+    for i = #(run.timeline or {}), 1, -1 do
+        local event = run.timeline[i]
+        if event.kind == "exit" then
+            departed, exitIndex = event.at, i
+            break
+        end
+    end
+    pendingReentry = { run = run, started = now(), departed = departed, exitIndex = exitIndex, events = {} }
+    return pendingReentry
+end
+
+local function enqueueReentry(queue, replay, events)
+    events = events or queue.events
+    events[#events + 1] = { at = now(), replay = replay }
+end
+
+local function endBeforeReentry(run, queue)
+    run.ended = queue.departed or queue.started
+    if queue.exitIndex then
+        for i = #run.timeline, queue.exitIndex + 1, -1 do run.timeline[i] = nil end
+    end
 end
 
 local function timelineEvent(run, kind, at)
@@ -292,17 +320,21 @@ end
 -- Kehrt der Spieler kurz nach dem Verlassen in dieselbe Instanz zurück, wird
 -- der zuletzt geschlossene Run fortgesetzt. Das verhindert geteilte Runs nach
 -- Wipe, Portal oder Reload innerhalb des Zeitfensters.
-local function resumableRun(d)
+local function recentlyLeftRun()
     local data = db()
     local run = data and data.runs[#data.runs]
-    if not run or run.closed ~= true or run.closedReason ~= "left" then return nil end
-    if not sameInstance(run, d) then return nil end
+    if not run or run.closed ~= true or run.closedReason ~= "left"
+        or run.resetAfterExit or run.unconfirmedCopy then return nil end
     local ended = tonumber(run.ended) or tonumber(run.lastSeen)
-    if not ended or now() - ended > RESUME_SECONDS then return nil end
+    local age = ended and now() - ended
+    if age and age >= 0 and age <= RESUME_SECONDS then return run, age end
+end
+
+local function resumableRun(d)
+    local run, age = recentlyLeftRun()
     -- Ein Reentry in derselben Sekunde ist kein echter Wiedereintritt: dann
     -- laeuft der Run noch im Settle-Fenster und wird ohnehin fortgesetzt.
-    if now() - ended <= 0 then return nil end
-    return run
+    if run and age > 0 and sameInstance(run, d) then return run end
 end
 
 local function resetRollLinks()
@@ -337,9 +369,7 @@ local function resumeRun(run, d)
     return run
 end
 
-function T:CloseActive(reason)
-    local run = activeRun()
-    if not run then return false end
+local function closeRun(run, reason)
     diag("run-close", run.id, reason or "closed")
     if reason ~= "manual" and reason ~= "switched-instance" and reason ~= "login-outside" then
         T:ResolveStaleNeeds(run, true)
@@ -359,6 +389,30 @@ function T:CloseActive(reason)
     if emptyVisit(run) then discardRun(data, run) end
     LJ:Changed()
     return true
+end
+
+function T:CloseActive(reason)
+    local run = activeRun()
+    if not run then return false end
+    local queue = pendingReentry
+    if not queue or queue.run ~= run then return closeRun(run, reason) end
+    pendingReentry = nil
+    local wasInside = inside
+    endBeforeReentry(run, queue)
+    closeRun(run, "left")
+    local visit = self:StartRun(run, true)
+    if not visit then return true end
+    visit.started = queue.started
+    visit.unconfirmedCopy = true
+    replayReentry(queue, visit)
+    inside = wasInside
+    return closeRun(visit, reason == "all-bosses-cleared" and "left" or reason)
+end
+
+function T:SavePendingReentry()
+    if pendingReentry and pendingReentry.run == activeRun() then
+        self:CloseActive("left")
+    end
 end
 
 function T:FinishActiveManually(runID)
@@ -386,7 +440,7 @@ function T:StartRun(d, partial)
         name = d.name,
         key = d.key,
         instanceID = d.instanceID,
-        zoneID = nil, -- Instanz-ID der Kopie (GUID-Feld 4), nicht die Karten-ID
+        zoneID = nil,
         difficulty = d.difficulty,
         started = now(),
         lastSeen = now(),
@@ -418,16 +472,21 @@ function T:StartRun(d, partial)
     return run
 end
 
--- Die ID aus GetInstanceInfo bezeichnet die Karte. Feld 4 einer Kreatur-
--- oder Cast-GUID ist die Instanz-ID der konkreten Kopie (Feld 5 ist die
--- zoneUID/Layer-ID und unterscheidet keine Kopien).
-local function guidInstanceID(guid)
-    if type(issecretvalue) == "function" and issecretvalue(guid) then return nil end
+local function guidInstanceID(guid, instanceID)
+    guid = LJ.Plain(guid)
     if type(guid) ~= "string" then return nil end
-    local kind, id = guid:match("^(%a+)%-[^-]*%-[^-]*%-(%d+)%-")
-    if kind ~= "Creature" and kind ~= "Cast" then return nil end
-    id = tonumber(id)
-    return id and id > 0 and id or nil
+    local kind, map, zone = guid:match("^(%a+)%-%d+%-[^-]+%-(%d+)%-(%d+)%-%d+%-[^-]+$")
+    if kind then
+        -- Use only the readable zone field of a creature on the current map.
+        if (kind == "Creature" or kind == "Vehicle") and tonumber(map) == tonumber(instanceID)
+            and tonumber(map) > 0 and tonumber(zone) > 0 then return tonumber(zone), "zone" end
+        return nil
+    end
+    local legacyKind, legacyID = guid:match("^(%a+)%-%d+%-%d+%-(%d+)%-%d+%-[^-]+$")
+    local id = tonumber(legacyID)
+    if (legacyKind == "Creature" or legacyKind == "Cast") and id and id > 0 and id ~= tonumber(instanceID) then
+        return id
+    end
 end
 
 local function observeUnit(unit)
@@ -438,12 +497,15 @@ end
 
 function T:ObserveInstanceGUID(guid)
     if not inside then return false end
-    local zoneID = guidInstanceID(guid)
     local run = activeRun()
-    if not zoneID or not run then return false end
+    if not run then return false end
+    local zoneID, zoneKind = guidInstanceID(guid, run.instanceID)
+    if not zoneID then return false end
     if run.reenterPending then
+        local queue = pendingReentry
+        pendingReentry = nil
         run.reenterPending = nil
-        if run.zoneID ~= zoneID then
+        if run.zoneIDKind == zoneKind and run.zoneID ~= zoneID then
             -- A different instance copy: close the previous run and start fresh.
             diag("copy-mismatch", run.id, "zone=" .. tostring(zoneID))
             local fallback = {
@@ -451,25 +513,32 @@ function T:ObserveInstanceGUID(guid)
                 difficulty = run.difficulty,
             }
             local d = getDungeon()
+            if queue and queue.run == run then endBeforeReentry(run, queue) end
             T:CloseActive("switched-instance")
             local candidate = T:StartRun(d or fallback, false)
             if candidate then
-                candidate.zoneID = zoneID
+                candidate.zoneID, candidate.zoneIDKind = zoneID, zoneKind
                 diag("copy-confirmed", candidate.id, "zone=" .. tostring(zoneID))
+                if queue and queue.run == run then
+                    candidate.started = queue.started
+                    replayReentry(queue, candidate)
+                end
             end
             observeUnit("target")
             observeUnit("mouseover")
             LJ:Changed()
             return true
         end
-        -- Same copy: continue the existing run.
-        timelineEvent(run, "return", now())
+        run.zoneID, run.zoneIDKind = zoneID, zoneKind
+        local last = run.timeline and run.timeline[#run.timeline]
+        if not last or last.kind ~= "return" then timelineEvent(run, "return", now()) end
+        if queue and queue.run == run then replayReentry(queue, run) end
         diag("copy-merged", run.id, "zone=" .. tostring(zoneID))
         LJ:Changed()
         return true
     end
-    if run and not run.zoneID then
-        run.zoneID = zoneID
+    if not run.zoneID or (zoneKind and not run.zoneIDKind) then
+        run.zoneID, run.zoneIDKind = zoneID, zoneKind
         diag("copy-confirmed", run.id, "zone=" .. tostring(zoneID))
         LJ:Changed()
     end
@@ -593,14 +662,18 @@ local function cacheRollLink(rollID, link)
     return rollLinks[rollID]
 end
 
+local function readRollLink(rollID)
+    if type(GetLootRollItemLink) ~= "function" then return nil end
+    local ok, link = pcall(GetLootRollItemLink, rollID)
+    if ok then return LJ:NormalizeLink(LJ.Plain(link)) end
+end
+
 local function rollLink(rollID)
     rollID = tonumber(rollID)
     if not rollID then return nil end
-    local cached = rollLinks[rollID]
-    if cached then return cached end
-    if type(GetLootRollItemLink) ~= "function" then return nil end
-    local ok, link = pcall(GetLootRollItemLink, rollID)
-    link = ok and LJ.Plain(link) or nil
+    local link = rollLinks[rollID]
+    if link then return link end
+    link = readRollLink(rollID)
     if type(link) ~= "string" or link == "" then return nil end
     return cacheRollLink(rollID, link)
 end
@@ -1150,6 +1223,16 @@ local function reopenedDrop(drops, link, source, claimed, at)
     end
 end
 
+local function lootSourceNPC(run, guid)
+    guid = LJ.Plain(guid)
+    if not run or type(guid) ~= "string" then return nil end
+    local kind, map, entry = guid:match("^(%a+)%-%d+%-[^-]+%-(%d+)%-%d+%-(%d+)%-[^-]+$")
+    if kind ~= "Creature" and kind ~= "Vehicle" then return nil end
+    if run.instanceID and tonumber(run.instanceID) ~= tonumber(map) then return nil end
+    local npc = tonumber(entry)
+    if npc and npc > 0 then return npc end
+end
+
 local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, passed, winnerClass, rollID, windowClaims, windowSource)
     if not run then return false end
     source = source or "seen"
@@ -1166,6 +1249,7 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
     local bossID = boss and tonumber(boss.id) or 0
     if not bossID or bossID <= 0 then bossID = 0 end
     local bossName = boss and boss.name or nil
+    local sourceNPCID = lootSourceNPC(run, windowSource)
     rollValue = tonumber(rollValue)
     rollID = tonumber(rollID)
     local token = rollID and rollStartTokens[rollID]
@@ -1187,6 +1271,7 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
         if (not reopened or echo) and d.id == id and within and (not windowClaims or not windowClaims[d])
             and compatibleItemVariant(d.link, link)
             and (bossID <= 0 or priorBossID <= 0 or bossID == priorBossID)
+            and (not sourceNPCID or not d.sourceNPCID or sourceNPCID == d.sourceNPCID)
             and (echo or not sources[source] or sameRoll) and (not rollID or not d.rollID or sameRoll) then
             local sameWinner = not d.winner or not winner or samePlayer(d.winner, winner)
             if sameWinner then
@@ -1199,6 +1284,10 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
                     changed = true
                 end
                 if windowSource then lootWindowSources[d] = windowSource end
+                if sourceNPCID and not d.sourceNPCID then d.sourceNPCID = sourceNPCID; changed = true end
+                if windowSource == false and not d.lootSourceAmbiguous then
+                    d.lootSourceAmbiguous, changed = true, true
+                end
                 if winner and not d.winner then
                     d.winner = winner
                     d.winnerSource = source
@@ -1235,6 +1324,8 @@ local function noteDrop(run, link, winner, boss, source, rollValue, rollKind, pa
         id = id,
         link = link,
         bossID = bossID,
+        sourceNPCID = sourceNPCID,
+        lootSourceAmbiguous = windowSource == false or nil,
         bossName = bossName,
         at = at,
         winner = winner,
@@ -1487,19 +1578,9 @@ local function historySelf(entry, name)
     if name then return LJ:IsMe(name) end
 end
 
-function T:OnLootHistoryDrop(encounterID, lootListID)
-    local api = _G.C_LootHistory
-    if type(api) ~= "table" or type(api.GetSortedInfoForDrop) ~= "function" then return end
-    encounterID = tonumber(LJ.Plain(encounterID))
-    lootListID = tonumber(LJ.Plain(lootListID))
-    if not encounterID or not lootListID then return end
+local function recordLootHistoryDrop(encounterID, lootListID, link, info, routedRun)
     local historyKey = tostring(encounterID) .. ":" .. tostring(lootListID)
-    local ok, info = pcall(api.GetSortedInfoForDrop, encounterID, lootListID)
-    if not ok or type(info) ~= "table" then return end
-
-    local link = LJ:NormalizeLink(LJ.Plain(info.itemHyperlink))
     local id = LJ:ItemID(link)
-    if not id then return end
     local winner = type(info.winner) == "table" and info.winner or nil
     local winnerName = winner and LJ.Plain(winner.playerName) or nil
     if type(winnerName) == "string" then
@@ -1508,7 +1589,14 @@ function T:OnLootHistoryDrop(encounterID, lootListID)
     else
         winnerName = nil
     end
-    local run, drop, observedUnkeyed = runForHistory(id, link, historyKey, winnerName, encounterID)
+    local run, drop, observedUnkeyed
+    if routedRun then
+        local conflict
+        drop, observedUnkeyed, conflict = recentDrop(routedRun, id, now(), historyKey, link, winnerName, encounterID)
+        if not conflict then run = routedRun end
+    else
+        run, drop, observedUnkeyed = runForHistory(id, link, historyKey, winnerName, encounterID)
+    end
     if not run then
         diag("loot-history-skip", id, "no unique run")
         return
@@ -1624,6 +1712,46 @@ function T:OnLootHistoryDrop(encounterID, lootListID)
     if dropBound or added > 0 or winnerName or info.allPassed == true then LJ:Changed() end
 end
 
+local function historyPlayerSnapshot(entry)
+    entry = LJ.Plain(entry)
+    if type(entry) ~= "table" then return nil end
+    return {
+        playerName = LJ.Plain(entry.playerName), playerClass = LJ.Plain(entry.playerClass),
+        state = LJ.Plain(entry.state), roll = LJ.Plain(entry.roll), isSelf = LJ.Plain(entry.isSelf),
+    }
+end
+
+function T:OnLootHistoryDrop(encounterID, lootListID)
+    local api = _G.C_LootHistory
+    if type(api) ~= "table" or type(api.GetSortedInfoForDrop) ~= "function" then return end
+    encounterID = tonumber(LJ.Plain(encounterID))
+    lootListID = tonumber(LJ.Plain(lootListID))
+    if not encounterID or not lootListID then return end
+    local ok, info = pcall(api.GetSortedInfoForDrop, encounterID, lootListID)
+    info = ok and LJ.Plain(info) or nil
+    if type(info) ~= "table" then return end
+    local link = LJ:NormalizeLink(LJ.Plain(info.itemHyperlink))
+    if not LJ:ItemID(link) then return end
+    local queue = reentryQueue(activeRun())
+    if not queue then return recordLootHistoryDrop(encounterID, lootListID, link, info) end
+
+    local snapshot = {
+        winner = historyPlayerSnapshot(info.winner), playerRollState = LJ.Plain(info.playerRollState),
+        allPassed = LJ.Plain(info.allPassed) == true, rollInfos = {},
+    }
+    local entries = LJ.Plain(info.rollInfos)
+    if type(entries) == "table" then
+        for _, entry in ipairs(entries) do
+            local player = historyPlayerSnapshot(entry)
+            if player then snapshot.rollInfos[#snapshot.rollInfos + 1] = player end
+        end
+    end
+    queue.history = queue.history or {}
+    enqueueReentry(queue, function(destination)
+        recordLootHistoryDrop(encounterID, lootListID, link, snapshot, destination)
+    end, queue.history)
+end
+
 function T:NotePassed(link)
     local run = activeRun()
     if not run then return false end
@@ -1646,6 +1774,37 @@ function T:NoteSeenDrop(link, source, rollID, windowClaims, windowSource)
     return noteDrop(run, link, nil, nil, source, nil, nil, nil, nil, rollID, windowClaims, windowSource)
 end
 
+local function noteBoss(run, id, name, at, followUp)
+    local bosses = run.bosses
+    for i = #bosses, 1, -1 do
+        local boss = bosses[i]
+        if at - (boss.at or 0) > 60 then break end
+        local same = id and boss.id and id == boss.id
+            or ((not id or not boss.id) and lower(boss.name) == lower(name))
+        if not same and followUp then same = LJ.DungeonLoot:MatchesBoss(run, boss.name, name) end
+        if same then
+            if id then boss.id = id end
+            if name and (id or not boss.name) then boss.name = name end
+            return
+        end
+    end
+    bosses[#bosses + 1] = { id = id, name = name, at = at }
+    while #bosses > MAX_BOSSES do table.remove(bosses, 1) end
+end
+
+local function recordBossEvent(run, id, name, event, at, members, routed)
+    if not routed and transitioningFromOtherRun(run) and not bossByID(run, id) then
+        diag("exit-late-boss-skip", id)
+        return
+    end
+    diag("boss", id, event)
+    if not inside then diag("exit-late-boss", id, event) end
+    run.bosses = run.bosses or {}
+    noteBoss(run, id, name, at)
+    for _, member in ipairs(members) do noteBoss(run, nil, member, at, true) end
+    LJ:Changed()
+end
+
 function T:OnBossEvent(event, ...)
     local run = activeRun()
     if not run or (not inside and not inExitGrace(run)) then return end
@@ -1663,49 +1822,35 @@ function T:OnBossEvent(event, ...)
     if type(name) == "string" then name = name:match("^%s*(.-)%s*$") end
     success = LJ.Plain(success)
     if not (success == 1 or success == true or success == "1") then return end
-    if transitioningFromOtherRun(run) and not bossByID(run, id) then
-        diag("exit-late-boss-skip", id)
-        return
-    end
-    if type(name) ~= "string" or name == "" then name = LJ.L("DETAIL_UNKNOWN_BOSS") end
-    diag("boss", id, event)
-    if not inside then diag("exit-late-boss", id, event) end
+    if type(name) ~= "string" or name == "" then name = nil end
+    if not id and not name then return end
 
-    run.bosses = run.bosses or {}
     local at = now()
-    local last = run.bosses[#run.bosses]
-    local same = last and at - (last.at or 0) <= 60 and (
-        (id and last.id == id) or
-        (last.name and lower(last.name) == lower(name)))
-    if same then
-        last.at = at
-        last.name = name
-        if id then last.id = id end
-    else
-        run.bosses[#run.bosses + 1] = { id = id, name = name, at = at }
-        while #run.bosses > MAX_BOSSES do table.remove(run.bosses, 1) end
-    end
-    LJ:Changed()
-end
-
-function T:OnEncounterLoot(...)
-    local run = activeRun()
-    if not run or (not inside and not inExitGrace(run)) then return end
-    local args = { ... }
-    local link
-    for i = 1, #args do
-        local candidate = LJ:NormalizeLink(args[i])
-        if candidate and LJ:ItemID(candidate) then
-            link = candidate
-            break
+    local members = {}
+    local units = event == "ENCOUNTER_END" and LJ.Plain(select(6, ...))
+    if type(units) == "table" and LJ.DungeonLoot then
+        for _, value in ipairs(units) do
+            local unit = LJ.Plain(value)
+            if type(unit) == "table" and tonumber(LJ.Plain(unit.remainingHealthPercent)) == 0 then
+                local npc = tonumber(LJ.Plain(unit.creatureID))
+                local member = LJ.DungeonLoot:BossForNPC(run, npc)
+                if member then members[#members + 1] = member end
+            end
         end
     end
-    if not link then return end
-    local encounterID = tonumber(LJ.Plain(args[1]))
-    local eventItemID = tonumber(LJ.Plain(args[2]))
-    if eventItemID and eventItemID ~= LJ:ItemID(link) then return end
+    local queue = reentryQueue(run)
+    if queue then
+        enqueueReentry(queue, function(destination)
+            recordBossEvent(destination, id, name, event, at, members, true)
+        end)
+        return
+    end
+    recordBossEvent(run, id, name, event, at, members)
+end
+
+local function recordEncounterLoot(run, link, encounterID, routed)
     local boss = bossByID(run, encounterID)
-    local previous = previousLootRun(run)
+    local previous = not routed and previousLootRun(run)
     if previous and not boss then
         local knownPrevious = bossByID(previous, encounterID) ~= nil
         if encounterID and encounterID > 0 and not knownPrevious then
@@ -1727,13 +1872,34 @@ function T:OnEncounterLoot(...)
     noteDrop(run, link, nil, boss, "encounter")
 end
 
-function T:OnStartRoll(rollID)
-    if not inside then return end
+function T:OnEncounterLoot(...)
     local run = activeRun()
-    if not run then return end
-    rollID = tonumber(rollID)
-    if not rollID then return end
-    if transitioningFromOtherRun(run) then
+    if not run or (not inside and not inExitGrace(run)) then return end
+    local args = { ... }
+    local link
+    for i = 1, #args do
+        local candidate = LJ:NormalizeLink(args[i])
+        if candidate and LJ:ItemID(candidate) then
+            link = candidate
+            break
+        end
+    end
+    if not link then return end
+    local encounterID = tonumber(LJ.Plain(args[1]))
+    local eventItemID = tonumber(LJ.Plain(args[2]))
+    if eventItemID and eventItemID ~= LJ:ItemID(link) then return end
+    local queue = reentryQueue(run)
+    if queue then
+        enqueueReentry(queue, function(destination)
+            recordEncounterLoot(destination, link, encounterID, true)
+        end)
+        return
+    end
+    recordEncounterLoot(run, link, encounterID)
+end
+
+local function recordRollStart(run, rollID, observedLink, routed)
+    if not routed and transitioningFromOtherRun(run) then
         diag("exit-late-roll-skip", rollID, "start")
         return
     end
@@ -1742,7 +1908,9 @@ function T:OnStartRoll(rollID)
     local token = rollStartTokens[rollID]
     -- START can reuse an ID. Read the current link before trusting its cached item.
     forgetRollLink(rollID)
-    local link = rollLink(rollID)
+    local link
+    if routed then link = cacheRollLink(rollID, observedLink)
+    else link = rollLink(rollID) end
     if not token or token.cancelled or not link or link ~= previousLink then
         token = { at = now() }
         rollStartTokens[rollID] = token
@@ -1756,6 +1924,7 @@ function T:OnStartRoll(rollID)
         return
     end
     diag("roll-start-unlinked", nil, "roll=" .. tostring(rollID))
+    if routed and LJ.Now() - now() >= 4 then return end
     local recorded = false
     local function retry()
         if recorded or not inside or activeRun() ~= run or run.reenterPending
@@ -1771,6 +1940,34 @@ function T:OnStartRoll(rollID)
     after(0.4, retry)
     after(1.5, retry)
     after(4, retry)
+end
+
+function T:OnStartRoll(rollID)
+    if not inside then return end
+    local run = activeRun()
+    rollID = tonumber(LJ.Plain(rollID))
+    if not run or not rollID then return end
+    local queue = reentryQueue(run)
+    if not queue then return recordRollStart(run, rollID) end
+    queue.rollStarts = queue.rollStarts or {}
+    local marker = {}
+    queue.rollStarts[rollID] = marker
+    local link = readRollLink(rollID)
+    enqueueReentry(queue, function(destination)
+        if link or queue.rollStarts[rollID] == marker then
+            recordRollStart(destination, rollID, link, true)
+        end
+    end)
+    if not link then
+        local function capture()
+            if pendingReentry == queue and queue.rollStarts[rollID] == marker and not link then
+                link = readRollLink(rollID)
+            end
+        end
+        after(0.4, capture)
+        after(1.5, capture)
+        after(4, capture)
+    end
 end
 
 function T:OnCancelRoll(rollID)
@@ -1791,39 +1988,107 @@ end
 
 local function lootSlotSource(slot)
     if type(GetLootSourceInfo) ~= "function" then return nil end
-    -- Forever supplies the corpse or container GUID first, followed by quantity.
-    local values = { pcall(GetLootSourceInfo, slot) }
-    if not values[1] or #values > 3 then return nil end
-    local guid = LJ.Plain(values[2])
-    if type(guid) == "string" and guid ~= "" then return guid end
+    local function read(ok, ...)
+        if not ok then return nil end
+        -- A slot can contain more than one GUID/quantity pair.
+        if select("#", ...) > 2 then return false end
+        local guid = LJ.Plain((...))
+        if type(guid) == "string" and guid ~= "" then return guid end
+    end
+    return read(pcall(GetLootSourceInfo, slot))
 end
 
-function T:OnLootWindow()
-    if not inside or type(GetNumLootItems) ~= "function" then return end
-    local ok, count = pcall(GetNumLootItems)
-    count = ok and tonumber(LJ.Plain(count)) or nil
-    if not count then return end
+local function recordLootWindow(run, entries)
     if not lootWindowOpen then
         lootWindowOpen = true
         seenLootSlots, lootWindowClaims = {}, {}
-        diag("loot-open", nil, "slots=" .. tostring(count))
+        diag("loot-open", nil, "slots=" .. tostring(#entries))
     end
+    for _, entry in ipairs(entries) do
+        local observed = seenLootSlots[entry.key]
+        if not observed then
+            diag("loot-window", LJ:ItemID(entry.link), "slot=" .. tostring(entry.slot))
+            T:RecordItem(entry.link, "loot-window")
+            local _, drop = T:NoteSeenDrop(entry.link, "loot-window", nil, lootWindowClaims, entry.source)
+            seenLootSlots[entry.key] = drop or true
+        elseif type(observed) == "table" then
+            if entry.source == false and not observed.lootSourceAmbiguous then
+                observed.lootSourceAmbiguous = true
+                LJ:Changed()
+            elseif entry.source and not lootWindowSources[observed] then
+                lootWindowSources[observed] = entry.source
+                local npc = lootSourceNPC(run, entry.source)
+                if npc and not observed.sourceNPCID then
+                    observed.sourceNPCID = npc
+                    LJ:Changed()
+                end
+            end
+        end
+    end
+end
+
+replayReentry = function(queue, run)
+    local function replay(events)
+        for _, entry in ipairs(events) do
+            reentryEventTime = entry.at
+            local ok = pcall(entry.replay, run)
+            reentryEventTime = nil
+            if not ok then diag("copy-replay-error", run.id) end
+        end
+    end
+    replay(queue.events)
+    -- Loot History may arrive before the matching drop or roll observation.
+    if queue.history then replay(queue.history) end
+    if not queue.current then
+        lootWindowOpen = false
+        seenLootSlots, lootWindowClaims = {}, {}
+    end
+end
+
+function T:OnLootWindow()
+    local run = activeRun()
+    if not inside or not run or type(GetNumLootItems) ~= "function" then return end
+    local ok, count = pcall(GetNumLootItems)
+    count = ok and tonumber(LJ.Plain(count)) or nil
+    if not count then return end
+    local entries = {}
     for slot = 1, count do
         local okL, link = pcall(GetLootSlotLink, slot)
         link = okL and LJ.Plain(link) or nil
         if type(link) == "string" and link ~= "" then
-            local key = slot .. ":" .. itemObservationKey(link)
-            local observed = seenLootSlots[key]
-            if not observed then
-                diag("loot-window", LJ:ItemID(link), "slot=" .. tostring(slot))
-                T:RecordItem(link, "loot-window")
-                local _, drop = T:NoteSeenDrop(link, "loot-window", nil, lootWindowClaims, lootSlotSource(slot))
-                seenLootSlots[key] = drop or true
-            elseif type(observed) == "table" and not lootWindowSources[observed] then
-                lootWindowSources[observed] = lootSlotSource(slot)
-            end
+            entries[#entries + 1] = { slot = slot, link = link,
+                key = slot .. ":" .. itemObservationKey(link), source = lootSlotSource(slot) }
         end
     end
+    if not run.reenterPending then return recordLootWindow(run, entries) end
+    if #entries == 0 then return end
+    local queue = reentryQueue(run)
+    if not queue.current then
+        local batch = {}
+        queue.current = batch
+        enqueueReentry(queue, function(destination)
+            lootWindowOpen = false
+            recordLootWindow(destination, batch)
+        end)
+    end
+    local batch = queue.current
+    batch.byKey = batch.byKey or {}
+    local guid, zone, conflictingZones
+    for _, entry in ipairs(entries) do
+        local previous = batch.byKey[entry.key]
+        if previous then
+            if previous.source == nil or entry.source == false then previous.source = entry.source end
+        else
+            batch.byKey[entry.key] = entry
+            batch[#batch + 1] = entry
+        end
+        local candidate, kind = guidInstanceID(entry.source, run.instanceID)
+        if kind == "zone" then
+            if zone and candidate ~= zone then conflictingZones = true end
+            guid, zone = entry.source, candidate
+        end
+    end
+    if guid and not conflictingZones then T:ObserveInstanceGUID(guid) end
 end
 
 -- ---------------------------------------------------------------- Chat-Muster
@@ -1926,13 +2191,11 @@ local function noteChatDrop(link, winner, guid, source)
     noteDrop(run, link, winner, nil, source or "chat", nil, nil, nil, classFile)
 end
 
-function T:OnLootChat(text, _who, guid)
-    text = LJ.Plain(text)
-    if type(text) ~= "string" then return end
+local function recordLootChat(text, guid, routed)
     local itemLink = firstItemLink(text)
     local eventID = LJ:ItemID(itemLink)
     local run = activeRun()
-    local previous = inside and previousLootRun(run)
+    local previous = not routed and inside and previousLootRun(run)
     if previous then
         local foundCurrent = false
         for _, drop in ipairs(run.drops or {}) do
@@ -2063,6 +2326,18 @@ function T:OnLootChat(text, _who, guid)
         .. " num=" .. tostring(text:find("%d") ~= nil))
 end
 
+function T:OnLootChat(text, _who, guid)
+    text, guid = LJ.Plain(text), LJ.Plain(guid)
+    if type(text) ~= "string" then return end
+    local run = activeRun()
+    local queue = firstItemLink(text) and reentryQueue(run)
+    if queue then
+        enqueueReentry(queue, function() recordLootChat(text, guid, true) end)
+        return
+    end
+    recordLootChat(text, guid)
+end
+
 function T:OnSystem(text)
     text = LJ.Plain(text)
     if type(text) ~= "string" then return end
@@ -2071,7 +2346,15 @@ function T:OnSystem(text)
     if not args then return end
     local resetName = lower(args[1])
     local run = activeRun()
-    if not run then return end
+    if not run then
+        local recent = recentlyLeftRun()
+        if recent and resetName and resetName == lower(recent.name) then
+            recent.resetAfterExit = true
+            diag("system-reset", recent.id, "after-exit")
+            LJ:Changed()
+        end
+        return
+    end
     local runName = lower(run.name)
     if resetName and runName and resetName ~= runName then return end
     if inside then blocked = true end
@@ -2136,6 +2419,7 @@ local function onEvent(event, ...)
     elseif event == "LOOT_OPENED" or event == "LOOT_READY" then
         T:OnLootWindow()
     elseif event == "LOOT_CLOSED" then
+        if pendingReentry then pendingReentry.current = nil end
         lootWindowOpen = false
         seenLootSlots, lootWindowClaims = {}, {}
         diag("loot-close")
@@ -2222,6 +2506,7 @@ function T:ResetAll()
     lastExitedRun, lastExitUntil = nil, nil
     lastSwitchedRun = nil
     transitionGuardRun = nil
+    pendingReentry = nil
     firstCheck = false
     resetRollLinks()
     lootWindowOpen = false

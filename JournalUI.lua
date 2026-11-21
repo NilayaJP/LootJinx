@@ -1,41 +1,37 @@
--- Classic dashboard geometry with an independent Dungeon Journal skin.
+-- Shared dashboard controller for Dungeon Journal and the illustrated designs.
 local ADDON, ns = ...
 local LJ = ns or _G.LootJinx
 if not LJ then return end
 
-local J = { fields = {}, recentRows = {}, miniCards = {} }
-LJ.JournalUI = J
 local W = LJ.Widgets
-local S = W:Skin("journal")
-local function position()
+local Dashboard = {}
+
+function Dashboard:Position()
     local db = LJ.DB
-    if not J.frame or not db then return end
-    J.frame:ClearAllPoints()
-    J.frame:SetPoint(db.journalPoint or "CENTER", UIParent,
-        db.journalRelPoint or "CENTER", tonumber(db.journalX) or 0, tonumber(db.journalY) or -40)
+    if not self.frame or not db then return end
+    local key = self.theme
+    self.frame:ClearAllPoints()
+    self.frame:SetPoint(db[key .. "Point"] or "CENTER", UIParent,
+        db[key .. "RelPoint"] or "CENTER", tonumber(db[key .. "X"]) or 0, tonumber(db[key .. "Y"]) or -40)
 end
-local function savePosition()
-    if not J.frame or not LJ.DB then return end
-    local point, _, relativePoint, x, y = J.frame:GetPoint(1)
+
+function Dashboard:SavePosition()
+    if not self.frame or not LJ.DB then return end
+    local point, _, relativePoint, x, y = self.frame:GetPoint(1)
     if point then
-        LJ.DB.journalPoint = point
-        LJ.DB.journalRelPoint = relativePoint or point
-        LJ.DB.journalX = tonumber(x) or 0
-        LJ.DB.journalY = tonumber(y) or -40
+        local key = self.theme
+        LJ.DB[key .. "Point"] = point
+        LJ.DB[key .. "RelPoint"] = relativePoint or point
+        LJ.DB[key .. "X"] = tonumber(x) or 0
+        LJ.DB[key .. "Y"] = tonumber(y) or -40
     end
 end
-local function makeReport(f)
-    J.reportPopup, J.shareTarget, J.fields.shareError, J.shareParty, J.shareWhisper =
-        LJ:CreateDashboardReport(f, S, function(channel, target)
-            local sent, reason = LJ.Report:Send(channel, target)
-            J.fields.shareError:SetText(reason and LJ.L(reason) or "")
-            if sent then J.reportPopup:Hide() end
-        end)
-end
-function J:Create()
+
+function Dashboard:Create()
     if self.frame then return self.frame end
     if not LJ.DB or not LJ.Tracker then return nil end
-    local f = CreateFrame("Frame", "LootJinxJournalFrame", UIParent,
+    local S = W:Skin(self.theme)
+    local f = CreateFrame("Frame", self.frameName, UIParent,
         BackdropTemplateMixin and "BackdropTemplate" or nil)
     self.frame = f
     f:SetSize(640, 510)
@@ -45,14 +41,21 @@ function J:Create()
     f:SetMovable(true)
     f:EnableMouse(true)
     if f.SetClampedToScreen then f:SetClampedToScreen(true) end
-    W:Paint(f, S.bg, S.border)
-    position()
-    W:StyleAccent(W:AccentLine(f), S)
-    self.statusPill = LJ:CreateDashboardHeader(self, f, S, savePosition)
+    self:Position()
+    self.statusPill = LJ:CreateDashboardHeader(self, f, S, function() self:SavePosition() end)
     self.fields.status = self.statusPill.label
     self.needCard = LJ:CreateDashboardNeed(self, f, S)
     self.miniCards = LJ:CreateDashboardMinis(self, f, S)
-    self.recentPanel, self.recentRows = LJ:CreateDashboardRecent(self, f, S, "journal")
+    if self.theme == "dwarven" then
+        for i, card in ipairs(self.miniCards) do
+            card:ClearAllPoints()
+            card:SetPoint("TOPLEFT", 16 + (i - 1) * 208, -68)
+            W:StyleAccent(W:AccentLine(card), S)
+        end
+        self.needCard:ClearAllPoints()
+        self.needCard:SetPoint("TOPLEFT", 16, -186)
+    end
+    self.recentPanel, self.recentRows = LJ:CreateDashboardRecent(self, f, S, self.theme)
     self.fields.recentEmpty = self.recentPanel.empty
     self.fields.needLostCurrent = self.needCard.metric.streak
     self.fields.noNeedWinCurrent = self.miniCards[1].value
@@ -87,24 +90,18 @@ function J:Create()
     end)
     self.compactLatest:SetScript("OnClick", function(button)
         if self.moreMenu then self.moreMenu:Hide() end
-        LJ:OpenCompactRun(button.run, "journal")
+        LJ:OpenCompactRun(button.run, self.theme)
     end)
     self.compactLatest:Hide()
     LJ:CreateDashboardFooterActions(self, f, S)
-    self.resizeGrip = W:ResizeGrip(f, function(scale)
-        if LJ.UI and LJ.UI.ApplyScale then
-            LJ.UI:ApplyScale(scale)
-        else
-            J:ApplyScale(scale)
-        end
-    end, function()
-        if LJ.UI and LJ.UI.ApplyScale then
-            LJ.UI:ApplyScale(1.0)
-        else
-            J:ApplyScale(1.0)
-        end
-    end)
-    makeReport(f)
+    self.resizeGrip = W:ResizeGrip(f, function(scale) LJ.UI:ApplyScale(scale) end,
+        function() LJ.UI:ApplyScale(1.0) end)
+    self.reportPopup, self.shareTarget, self.fields.shareError, self.shareParty, self.shareWhisper =
+        LJ:CreateDashboardReport(f, S, function(channel, target)
+            local sent, reason = LJ.Report:Send(channel, target)
+            self.fields.shareError:SetText(reason and LJ.L(reason) or "")
+            if sent then self.reportPopup:Hide() end
+        end)
     f:SetScript("OnHide", function()
         self.moreMenu:Hide()
         self.reportPopup:Hide()
@@ -114,7 +111,7 @@ function J:Create()
     end)
     f:Hide()
     if type(UISpecialFrames) == "table" then
-        local escapeName = "LootJinxJournalFrame"
+        local escapeName = self.frameName
         local found = false
         for i = 1, #UISpecialFrames do
             if UISpecialFrames[i] == escapeName then found = true break end
@@ -123,12 +120,13 @@ function J:Create()
     end
     self:ApplyScale(LJ.DB.scale or 1)
     self:ApplyDisplayOptions()
-    LJ:RegisterRefresh(function() if f:IsShown() then J:Refresh() end end)
+    LJ:RegisterRefresh(function() if f:IsShown() then self:Refresh() end end)
     self:Refresh()
     return f
 end
-function J:Refresh()
+function Dashboard:Refresh()
     if not self.frame or not LJ.Stats or not LJ.Tracker then return end
+    local S = W:Skin(self.theme)
     local runs = LJ.Tracker:GetRuns()
     local stats = LJ.Stats.Compute(runs)
     local active = LJ.Tracker:GetActive()
@@ -143,7 +141,7 @@ function J:Refresh()
     LJ:UpdateDashboardMinis(self.miniCards, stats)
     LJ:UpdateDashboardRecent(self.recentPanel, self.recentRows, runs)
 end
-function J:ShowReport()
+function Dashboard:ShowReport()
     if not self.frame then self:Create() end
     if not self.frame then return end
     self.moreMenu:Hide()
@@ -153,7 +151,7 @@ function J:ShowReport()
     self.reportPopup:Show()
     self.shareTarget:SetFocus()
 end
-function J:Show()
+function Dashboard:Show()
     if not self.frame then self:Create() end
     if not self.frame then return false end
     self:ApplyScale(LJ.DB.scale or 1)
@@ -162,8 +160,8 @@ function J:Show()
     self.frame:Show()
     return true
 end
-function J:Hide() if self.frame then self.frame:Hide() end end
-function J:ApplyScale(scale)
+function Dashboard:Hide() if self.frame then self.frame:Hide() end end
+function Dashboard:ApplyScale(scale)
     if not LJ.DB then return end
     scale = tonumber(scale) or LJ.DB.scale or 1
     if scale < 0.40 then scale = 0.40 end
@@ -172,7 +170,7 @@ function J:ApplyScale(scale)
     if self.frame then self.frame:SetScale(scale) end
     return scale
 end
-function J:ApplyDisplayOptions()
+function Dashboard:ApplyDisplayOptions()
     if not self.frame or not LJ.DB then return end
     local compact = LJ.DB.compact == true
     self.frame:SetHeight(compact and 358 or 510)
@@ -180,10 +178,23 @@ function J:ApplyDisplayOptions()
     self.compactLatest:SetShown(compact and self.compactLatest.run ~= nil)
     self.footer:SetShown(not compact or self.compactLatest.run == nil)
 end
-function J:ResetPosition()
+function Dashboard:ResetPosition()
     if not LJ.DB then return end
-    LJ.DB.journalPoint, LJ.DB.journalRelPoint = "CENTER", "CENTER"
-    LJ.DB.journalX, LJ.DB.journalY = 0, -40
-    position()
+    local key = self.theme
+    LJ.DB[key .. "Point"], LJ.DB[key .. "RelPoint"] = "CENTER", "CENTER"
+    LJ.DB[key .. "X"], LJ.DB[key .. "Y"] = 0, -40
+    self:Position()
 end
-return J
+local function createDashboard(theme, name)
+    return setmetatable({
+        theme = theme, frameName = name, fields = {},
+    }, { __index = Dashboard })
+end
+
+LJ.JournalUI = createDashboard("journal", "LootJinxJournalFrame")
+LJ.ThemeDashboards = {
+    goblin = createDashboard("goblin", "LootJinxGoblinFrame"),
+    dwarven = createDashboard("dwarven", "LootJinxDwarvenFrame"),
+    oracle = createDashboard("oracle", "LootJinxOracleFrame"),
+}
+return LJ.JournalUI

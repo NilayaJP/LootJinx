@@ -418,19 +418,18 @@ local function createWindow()
     frame:SetClampedToScreen(true)
     frame:EnableMouse(true)
 
-    local accent = W:AccentLine(frame)
-
     local title = W:Font(frame, 10, nil, "OUTLINE")
-    title:SetPoint("TOPLEFT", 18, -12)
+    title:SetPoint("TOPLEFT", 56, -12)
     title:SetText(LJ.L("DIAG_TITLE"))
 
     local subtitle = W:Font(frame, 9, nil, "")
-    subtitle:SetPoint("TOPLEFT", 18, -34)
+    subtitle:SetPoint("TOPLEFT", 56, -32)
+    subtitle:SetWidth(500)
+    subtitle:SetWordWrap(false)
     subtitle:SetText(LJ.L("DIAG_SUB"))
 
     local close = W:Button(frame, "×", 20, 20)
-    close:SetPoint("TOPRIGHT", -12, -10)
-    W:SetTextFont(close.label, 14)
+    W:WindowClose(close)
     close.label:SetPoint("CENTER", 0, 1)
     close:SetScript("OnClick", function() frame:Hide() end)
 
@@ -528,7 +527,6 @@ local function createWindow()
     D.track = track
     D.thumb = thumb
     D.measure = measure
-    D.accent = accent
     D.title = title
     D.subtitle = subtitle
     D.buttons = { refresh, selectAll, print, closeButton, close }
@@ -586,9 +584,8 @@ function D:ApplyTheme(force)
     local skin = W:Skin()
     if self.skin == skin and not force then return end
     self.skin = skin
-    self.theme = skin.displayFont and "journal" or "classic"
-    W:Paint(self.frame, skin.bg, skin.border)
-    W:StyleAccent(self.accent, skin)
+    self.theme = LJ:GetLayoutSpec(LJ.DB and LJ.DB.layoutPreview).id
+    W:StyleWindow(self.frame, skin, 46, 28)
     W:SetTextFont(self.title, 17, "", skin.displayFont)
     W:ColorText(self.title, skin.text)
     W:ColorText(self.subtitle, skin.muted)

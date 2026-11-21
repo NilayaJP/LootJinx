@@ -17,7 +17,7 @@ local ROWS_PER_PAGE = 12
 local CONTENT_HEIGHT = ROW_HEIGHT * ROWS_PER_PAGE
 
 local frame, content, summary, subtitle, title, eyebrow, pageText, prevButton, nextButton
-local summaryPanel, hint, closeButton, finishButton, topAccent
+local summaryPanel, hint, closeButton, finishButton
 local rows = {}
 local pages = {}
 local currentRun
@@ -322,39 +322,76 @@ local function dropRollText(run, drop)
     return LJ.L("DETAIL_ROLL_UNKNOWN", value)
 end
 
-local function bossIndexFor(run, drop, bosses, catalogKind, catalogBoss)
-    local id = tonumber(drop.bossID)
-    if id and id > 0 then
-        for i = #bosses, 1, -1 do
-            if tonumber(bosses[i].id) == id then return i end
-        end
-    end
-    local name = type(drop.bossName) == "string" and drop.bossName:lower() or nil
-    if name then
-        for i = #bosses, 1, -1 do
-            local bossName = bosses[i].name
-            if type(bossName) == "string" and bossName:lower() == name then return i end
-        end
-    end
-    if (id and id > 0) or drop.source == "encounter" then return nil end
-    if catalogKind == "boss" and type(catalogBoss) == "string" then
-        local aliases = {}
-        for _, dungeon in ipairs(LJ.DungeonLoot and LJ.DungeonLoot:Candidates(run) or {}) do
-            for _, required in ipairs((LJ.DungeonCompletionData or {})[dungeon] or {}) do
-                if required.name == catalogBoss then
-                    for _, alias in ipairs(required.aliases or {}) do
-                        aliases[alias:lower()] = true
-                    end
+local function closestBoss(bosses, at, matches)
+    local count, first, lastDistance, best, tied = 0
+    at = tonumber(at) or 0
+    for i, boss in ipairs(bosses) do
+        if matches(boss) then
+            count, first = count + 1, i
+            local bossAt = tonumber(boss.at) or 0
+            if at > 0 and bossAt > 0 then
+                local distance = math.abs(at - bossAt)
+                if not lastDistance or distance < lastDistance then
+                    best, lastDistance, tied = i, distance, false
+                elseif distance == lastDistance then
+                    tied = true
                 end
             end
         end
-        for i = #bosses, 1, -1 do
-            if type(bosses[i].name) == "string"
-                and (bosses[i].name:lower() == catalogBoss:lower()
-                    or aliases[bosses[i].name:lower()]) then return i end
-        end
     end
-    return nil
+    if count == 1 then return first, true end
+    return not tied and best or nil, count > 0, first
+end
+
+local function bossIndexFor(run, drop, bosses, catalogKind, catalogBoss, corpse, aggregate)
+    local id = not corpse and tonumber(drop.bossID)
+    if id and id > 0 then
+        local index, found, any = closestBoss(bosses, drop.at, function(boss) return tonumber(boss.id) == id end)
+        if found then return index or (aggregate and any or nil), true end
+    end
+    local name = not corpse and type(drop.bossName) == "string" and drop.bossName:gsub("’", "'"):lower() or nil
+    if name then
+        local index, found = closestBoss(bosses, drop.at, function(boss)
+            local observedID = tonumber(boss.id)
+            return (not id or id <= 0 or not observedID or observedID <= 0 or id == observedID)
+                and type(boss.name) == "string" and boss.name:gsub("’", "'"):lower() == name
+        end)
+        if found then return index, true end
+    end
+    if not corpse and not LJ.DungeonLoot:CanInferBoss(drop) then return nil, true end
+    if catalogKind == "boss" and type(catalogBoss) == "string" then
+        return closestBoss(bosses, drop.at, function(boss)
+            return LJ.DungeonLoot:MatchesBoss(run, boss.name, catalogBoss)
+        end)
+    end
+end
+
+local function bossLootFor(run, aggregate)
+    local bosses, resolved, inferred, byDrop = {}, {}, {}, {}
+    local observed = run.bosses or {}
+    for index, boss in ipairs(observed) do bosses[index] = boss end
+    for _, drop in ipairs(run.drops or {}) do
+        local kind, name, corpse = LJ.DungeonLoot:DropSource(run, drop)
+        local index, found = bossIndexFor(run, drop, observed, kind, name, corpse, aggregate)
+        -- Only a unique catalog source or a known corpse can supply a group
+        -- without a saved boss event. Keep unresolved encounter IDs visible.
+        if not found and kind == "boss" then
+            index = inferred[name]
+            if not index then
+                index = #bosses + 1
+                inferred[name] = index
+                bosses[index] = { name = name, lootEvidence = true, at = drop.at }
+            elseif (tonumber(drop.at) or 0) < (tonumber(bosses[index].at) or 0) then
+                bosses[index].at = drop.at
+            end
+        end
+        if found and not index and kind == "boss" and (corpse or LJ.DungeonLoot:CanInferBoss(drop)) then
+            kind = "ambiguous"
+        end
+        resolved[drop] = kind
+        byDrop[drop] = index
+    end
+    return bosses, byDrop, resolved
 end
 
 local NEED_MATCH_FIELDS = { "rollID", "lootHistoryKey" }
@@ -389,7 +426,7 @@ function M:BossStatistics(runs)
         end
     end
     for _, run in ipairs(runs) do
-        local bosses = run.bosses or {}
+        local bosses, byDrop = bossLootFor(run, true)
         local byIndex, seen, used = {}, {}, {}
         for index, boss in ipairs(bosses) do
             local name = boss.name or LJ.L("DETAIL_UNKNOWN_BOSS")
@@ -412,13 +449,8 @@ function M:BossStatistics(runs)
             for _, drop in ipairs(drops) do
                 local id = tonumber(drop.id)
                 if id then
-                    local kind, name
-                    if LJ.DungeonLoot then kind, name = LJ.DungeonLoot:Source(run, id) end
-                    local index = bossIndexFor(run, drop, bosses, kind, name)
-                    local observedID = index and tonumber(bosses[index].id)
-                    local explicitID = tonumber(drop.bossID)
-                    local conflict = explicitID and explicitID > 0 and observedID and observedID > 0 and explicitID ~= observedID
-                    local boss = not conflict and byIndex[index]
+                    local index = byDrop[drop]
+                    local boss = byIndex[index]
                     if boss then
                         local item = boss.byItem[id]
                         if not item then
@@ -465,6 +497,7 @@ local function otherLootReason(run, drop, catalogKind)
     if (tonumber(drop.bossID) or 0) > 0 or drop.bossName or drop.source == "encounter" then
         return "DETAIL_OTHER_ENCOUNTER"
     end
+    if catalogKind == "unknown-npc" then return "DETAIL_OTHER_NPC" end
     if catalogKind == "ambiguous" then return "DETAIL_OTHER_AMBIGUOUS" end
     if catalogKind == "boss" then return "DETAIL_OTHER_BOSS_NOT_SEEN" end
     local candidates = LJ.DungeonLoot and LJ.DungeonLoot:Candidates(run)
@@ -610,7 +643,7 @@ local function buildLines(run, progress)
             lines[#lines + 1] = { kind = "need", need = needs[i] }
         end
     end
-    local bosses = run.bosses or {}
+    local bosses, bossByDrop, sourceByDrop = bossLootFor(run)
     local byBoss = {}
     local trash = {}
     local other = {}
@@ -624,11 +657,8 @@ local function buildLines(run, progress)
     local needByDrop = matchDetailNeeds(run, visibleDrops)
     local dropCount = #visibleDrops
     for _, drop in ipairs(visibleDrops) do
-        local catalogKind, catalogBoss
-        if LJ.DungeonLoot then
-            catalogKind, catalogBoss = LJ.DungeonLoot:Source(run, drop.id)
-        end
-        local index = bossIndexFor(run, drop, bosses, catalogKind, catalogBoss)
+        local catalogKind = sourceByDrop[drop]
+        local index = bossByDrop[drop]
         if index then
             byBoss[index] = byBoss[index] or {}
             byBoss[index][#byBoss[index] + 1] = drop
@@ -640,15 +670,24 @@ local function buildLines(run, progress)
         end
     end
 
-    for i = 1, #bosses do
+    local order = {}
+    for i = 1, #bosses do order[i] = i end
+    table.sort(order, function(a, b)
+        local first, second = tonumber(bosses[a].at) or 0, tonumber(bosses[b].at) or 0
+        if first ~= second then return first < second end
+        return a < b
+    end)
+    for _, i in ipairs(order) do
         local boss = bosses[i]
         local items = byBoss[i] or {}
+        local group = boss.lootEvidence and ("loot:" .. boss.name) or boss
         lines[#lines + 1] = {
             kind = "boss",
             name = boss.name or LJ.L("DETAIL_UNKNOWN_BOSS"),
-            count = #items, group = boss, collapsed = collapsedGroups[boss] == true,
+            count = #items, group = group, collapsed = collapsedGroups[group] == true,
+            lootEvidence = boss.lootEvidence,
         }
-        if not collapsedGroups[boss] then
+        if not collapsedGroups[group] then
             if #items == 0 then
                 lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_BOSS_EMPTY"), muted = true }
             else
@@ -698,7 +737,7 @@ local function buildLines(run, progress)
     end
 
     addCompletionLines(lines, run, progress)
-    return lines, dropCount
+    return lines, dropCount, #bosses
 end
 
 local function paginate(lines)
@@ -796,6 +835,7 @@ local function configureRow(row, line)
     row.baseAlpha = 0
     row.bg:SetColorTexture(skin.surface[1], skin.surface[2], skin.surface[3], 0)
     row.bar:Hide()
+    W:SetFoldIndicator(row)
     row.icon:Hide()
     row.recipient:SetText("")
     row.roll:SetText("")
@@ -805,16 +845,19 @@ local function configureRow(row, line)
     if line.kind == "boss" or line.kind == "section" then
         row:Show()
         row.name:ClearAllPoints()
-        row.name:SetPoint("LEFT", 10, 0)
+        row.name:SetPoint("LEFT", line.group and 23 or 10, 0)
         row.name:SetWidth(380)
         local color = line.kind == "section" and skin.progress or (line.other and skin.progress or skin.accent)
-        local arrow = line.group and (line.collapsed and "▶ " or "▼ ") or ""
-        row.name:SetText(colored(color, arrow .. line.name))
+        if line.group then
+            W:SetFoldIndicator(row, color, not line.collapsed)
+        end
+        row.name:SetText(colored(color, line.name))
         if line.count then
             row.recipient:ClearAllPoints()
             row.recipient:SetPoint("RIGHT", -8, 0)
-            row.recipient:SetWidth(140)
-            row.recipient:SetText(colored(skin.muted, LJ.L("DETAIL_BOSS_ITEMS", line.count)))
+            row.recipient:SetWidth(186)
+            local caption = line.lootEvidence and "DETAIL_BOSS_ITEMS_EVIDENCE" or "DETAIL_BOSS_ITEMS"
+            row.recipient:SetText(colored(skin.muted, LJ.L(caption, line.count)))
         end
         row.baseAlpha = line.kind == "section" and .65 or .88
         row.bg:SetColorTexture(skin.surface[1], skin.surface[2], skin.surface[3], row.baseAlpha)
@@ -937,23 +980,22 @@ function M:Create()
     local stopDragging = W:DragHeader(f, 66, 46)
 
     eyebrow = W:Font(f, 8, skin.accent, "OUTLINE")
-    eyebrow:SetPoint("TOPLEFT", 20, -12)
+    eyebrow:SetPoint("TOPLEFT", 57, -12)
     eyebrow:SetText(LJ.L("DETAIL_TITLE"))
 
     title = W:Font(f, 17, skin.text, "OUTLINE")
-    title:SetPoint("TOPLEFT", 20, -25)
-    title:SetWidth(470)
+    title:SetPoint("TOPLEFT", 57, -25)
+    title:SetWidth(433)
     title:SetWordWrap(false)
 
     subtitle = W:Font(f, 9, skin.muted, "")
     M.subtitle = subtitle
-    subtitle:SetPoint("TOPLEFT", 21, -51)
-    subtitle:SetWidth(470)
+    subtitle:SetPoint("TOPLEFT", 58, -51)
+    subtitle:SetWidth(433)
     subtitle:SetWordWrap(false)
 
     closeButton = W:Button(f, "×", 22, 22)
-    closeButton:SetPoint("TOPRIGHT", -14, -14)
-    W:SetTextFont(closeButton.label, 15)
+    W:WindowClose(closeButton)
     closeButton.label:SetPoint("CENTER", 0, 1)
     closeButton:SetScript("OnClick", function() M:Hide() end)
     W:Tooltip(closeButton, LJ.L("CLOSE"), { LJ.L("CLOSE") })
@@ -966,7 +1008,7 @@ function M:Create()
     M.summary = summary
     summary:SetPoint("LEFT", 12, 0)
     summary:SetWidth(400)
-    summary:SetWordWrap(false)
+    summary:SetWordWrap(true)
     M.timelineButton = W:Button(summaryPanel, LJ.L("DETAIL_TIMELINE_BUTTON"), 96, 20)
     M.timelineButton:SetPoint("RIGHT", -8, 0)
     M.timelineButton:SetScript("OnClick", function() M:ToggleTimeline() end)
@@ -1000,6 +1042,8 @@ function M:Create()
         row.bar:SetSize(2, 18)
         row.bar:SetPoint("LEFT", 0, 0)
         row.bar:Hide()
+
+        W:CreateFoldIndicator(row, 10)
 
         row.icon = row:CreateTexture(nil, "ARTWORK")
         row.icon:SetSize(16, 16)
@@ -1082,7 +1126,6 @@ function M:Create()
     nextButton:SetPoint("BOTTOMRIGHT", -16, 10)
     nextButton:SetScript("OnClick", function() M:Page(1) end)
 
-    topAccent = W:AccentLine(f)
 
     f:SetScript("OnHide", function()
         stopDragging()
@@ -1124,12 +1167,11 @@ function M:Create()
 end
 
 function M:ApplyTheme(theme)
-    skin = W:Skin(theme)
-    self.theme = skin.displayFont and "journal" or "classic"
+    self.theme = LJ:GetLayoutSpec(theme or (LJ.DB and LJ.DB.layoutPreview)).id
+    skin = W:Skin(self.theme)
     if not frame then return end
-    W:Paint(frame, skin.bg, skin.border)
+    W:StyleWindow(frame, skin, 63, 30)
     W:Paint(summaryPanel, skin.surface, skin.border)
-    W:StyleAccent(topAccent, skin)
     W:SetTextFont(title, 20, "", skin.displayFont)
     W:ColorText(title, skin.text)
     W:ColorText(eyebrow, skin.accent)
@@ -1137,7 +1179,8 @@ function M:ApplyTheme(theme)
     W:ColorText(summary, skin.text)
     W:StyleCredit(self.creditLink, skin)
     W:ColorTexture(self.separator, skin.border)
-    for _, row in ipairs(rows) do
+    for i, row in ipairs(rows) do
+        W:StyleListRow(row, skin, i % 2 == 1)
         W:ColorText(row.name, skin.text)
         W:ColorText(row.recipient, skin.text)
         W:ColorText(row.meta, skin.muted)
@@ -1228,8 +1271,7 @@ function M:Refresh(group)
     subtitle:SetText(formatDate(run) .. " · " .. LJ.L(status) .. " · " .. tracking)
     if finishButton then finishButton:SetShown(active == run) end
 
-    local bossCount = #(run.bosses or {})
-    local lines, dropCount = buildLines(run, progress)
+    local lines, dropCount, bossCount = buildLines(run, progress)
     local won, lost, pending = 0, 0, 0
     for _, need in ipairs(run.needs or {}) do
         if need.result == "won" then won = won + 1
@@ -1242,6 +1284,7 @@ function M:Refresh(group)
     M.lines = self.showTimeline and buildTimelineLines(run) or lines
     self.timelineButton.label:SetText(LJ.L(self.showTimeline
         and "DETAIL_TIMELINE_BACK" or "DETAIL_TIMELINE_BUTTON"))
+    W:StyleButton(self.timelineButton, skin, self.showTimeline)
     pages = paginate(M.lines)
     M.pages = pages
     if group then

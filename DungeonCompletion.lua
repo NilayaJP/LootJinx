@@ -10,7 +10,7 @@ LJ.DungeonCompletion = Completion
 local function normalized(value)
     value = LJ.Plain(value)
     if type(value) ~= "string" then return nil end
-    return value:match("^%s*(.-)%s*$"):lower()
+    return value:match("^%s*(.-)%s*$"):gsub("’", "'"):lower()
 end
 
 local function markBoss(seen, name)
@@ -50,9 +50,9 @@ local function collectSeen(run)
                 or drop.source == "loot-history" or drop.source == "loot-history-recovered"
             local knownEncounter = fromEncounter
                 and (observedIDs[tonumber(drop.bossID)] or observedNames[normalized(drop.bossName)])
-            if not knownEncounter then
-                local kind, boss = LJ.DungeonLoot:Source(run, drop.id)
-                if kind == "boss" then markBoss(seen, boss) end
+            local kind, boss, corpse = LJ.DungeonLoot:DropSource(run, drop)
+            if kind == "boss" and (corpse or (not knownEncounter and LJ.DungeonLoot:CanInferBoss(drop))) then
+                markBoss(seen, boss)
             end
         end
     end
