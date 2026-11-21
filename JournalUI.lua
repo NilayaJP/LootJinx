@@ -6,27 +6,6 @@ if not LJ then return end
 local W = LJ.Widgets
 local Dashboard = {}
 
-function Dashboard:Position()
-    local db = LJ.DB
-    if not self.frame or not db then return end
-    local key = self.theme
-    self.frame:ClearAllPoints()
-    self.frame:SetPoint(db[key .. "Point"] or "CENTER", UIParent,
-        db[key .. "RelPoint"] or "CENTER", tonumber(db[key .. "X"]) or 0, tonumber(db[key .. "Y"]) or -40)
-end
-
-function Dashboard:SavePosition()
-    if not self.frame or not LJ.DB then return end
-    local point, _, relativePoint, x, y = self.frame:GetPoint(1)
-    if point then
-        local key = self.theme
-        LJ.DB[key .. "Point"] = point
-        LJ.DB[key .. "RelPoint"] = relativePoint or point
-        LJ.DB[key .. "X"] = tonumber(x) or 0
-        LJ.DB[key .. "Y"] = tonumber(y) or -40
-    end
-end
-
 function Dashboard:Create()
     if self.frame then return self.frame end
     if not LJ.DB or not LJ.Tracker then return nil end
@@ -41,8 +20,8 @@ function Dashboard:Create()
     f:SetMovable(true)
     f:EnableMouse(true)
     if f.SetClampedToScreen then f:SetClampedToScreen(true) end
-    self:Position()
-    self.statusPill = LJ:CreateDashboardHeader(self, f, S, function() self:SavePosition() end)
+    LJ:ApplyDashboardPosition(f)
+    self.statusPill = LJ:CreateDashboardHeader(self, f, S)
     self.fields.status = self.statusPill.label
     self.needCard = LJ:CreateDashboardNeed(self, f, S)
     self.miniCards = LJ:CreateDashboardMinis(self, f, S)
@@ -168,6 +147,7 @@ function Dashboard:ApplyScale(scale)
     if scale > 3.00 then scale = 3.00 end
     LJ.DB.scale = scale
     if self.frame then self.frame:SetScale(scale) end
+    LJ:ApplyDashboardPosition(self.frame)
     return scale
 end
 function Dashboard:ApplyDisplayOptions()
@@ -179,11 +159,7 @@ function Dashboard:ApplyDisplayOptions()
     self.footer:SetShown(not compact or self.compactLatest.run == nil)
 end
 function Dashboard:ResetPosition()
-    if not LJ.DB then return end
-    local key = self.theme
-    LJ.DB[key .. "Point"], LJ.DB[key .. "RelPoint"] = "CENTER", "CENTER"
-    LJ.DB[key .. "X"], LJ.DB[key .. "Y"] = 0, -40
-    self:Position()
+    LJ:ResetDashboardPosition(self.frame)
 end
 local function createDashboard(theme, name)
     return setmetatable({

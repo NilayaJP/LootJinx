@@ -42,14 +42,18 @@ function R:SetLayout(id)
     self:Create()
     if LJ.Diagnostics and LJ.Diagnostics.ApplyTheme then LJ.Diagnostics:ApplyTheme() end
     if LJ.Changelog then LJ.Changelog:ApplyTheme() end
-    if wasVisible then self:Show() end
+    if wasVisible then
+        self:Show()
+    else
+        LJ:ApplyDashboardPosition(self.frame)
+    end
     if LJ.Options and LJ.Options.Refresh then LJ.Options:Refresh() end
     return id
 end
 
 function R:Create()
     if not LJ.DB then return nil end
-    -- Classic remains initialized for its legacy callbacks and saved position.
+    -- Classic remains initialized for its legacy callbacks.
     if not Classic.frame then Classic:Create() end
     local active = view()
     if not active.frame then active:Create() end

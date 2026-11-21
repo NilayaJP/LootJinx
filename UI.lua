@@ -49,24 +49,32 @@ local function dateLabel(run)
     return LJ:FormatTime(t, "DATE_SHORT")
 end
 
-local function savePosition()
-    if not frame then return end
-    local point, _, relPoint, x, y = frame:GetPoint(1)
-    if point and LJ.DB then
-        LJ.DB.point = point
-        LJ.DB.relPoint = relPoint or point
-        LJ.DB.x = tonumber(x) or 0
-        LJ.DB.y = tonumber(y) or 0
+function LJ:SaveDashboardPosition(window)
+    local db = self.DB
+    if not window or not db then return end
+    local point, _, relPoint, x, y = window:GetPoint(1)
+    if point then
+        db.point = point
+        db.relPoint = relPoint or point
+        db.x = tonumber(x) or 0
+        db.y = tonumber(y) or 0
     end
 end
 
-local function applyPosition()
-    if not frame or not LJ.DB then return end
-    frame:ClearAllPoints()
-    frame:SetPoint(LJ.DB.point or "CENTER", UIParent,
-        LJ.DB.relPoint or LJ.DB.point or "CENTER",
-        tonumber(LJ.DB.x) or 0, tonumber(LJ.DB.y) or -40)
-    if frame.SetClampedToScreen then frame:SetClampedToScreen(true) end
+function LJ:ApplyDashboardPosition(window)
+    local db = self.DB
+    if not window or not db then return end
+    local point = db.point or "CENTER"
+    window:ClearAllPoints()
+    window:SetPoint(point, UIParent, db.relPoint or point, db.x or 0, db.y or -40)
+end
+
+function LJ:ResetDashboardPosition(window)
+    local db = self.DB
+    if not db then return end
+    db.point, db.relPoint = "CENTER", "CENTER"
+    db.x, db.y = 0, -40
+    self:ApplyDashboardPosition(window)
 end
 
 local function applyScale()
@@ -100,7 +108,7 @@ local function dashboardAction(parent, skin, caption, width, height)
     W:StyleButton(action, skin)
     return action
 end
-function LJ:CreateDashboardHeader(owner, window, skin, save)
+function LJ:CreateDashboardHeader(owner, window, skin)
     W:StyleWindow(window, skin, 59, 30, true)
     dashboardText(window, skin, LJ.L("TITLE"), 56, -12, 480, 22, skin.text, true)
 
@@ -144,7 +152,7 @@ function LJ:CreateDashboardHeader(owner, window, skin, save)
         if not moving then return end
         window:StopMovingOrSizing()
         moving = false
-        save()
+        self:SaveDashboardPosition(window)
     end)
     return status
 end
@@ -160,7 +168,7 @@ function LJ:UpdateDashboardStatus(status, active, live, latest, skin)
 end
 
 local function createHeader()
-    statusPill = LJ:CreateDashboardHeader(UI, frame, S, savePosition)
+    statusPill = LJ:CreateDashboardHeader(UI, frame, S)
 end
 
 function LJ:CreateDashboardNeed(owner, window, skin)
@@ -702,8 +710,8 @@ local function createFrame()
     safe("Recent", createRecent)
     safe("Footer", createFooter)
     safe("Report", createReportPopup)
-    safe("Position", applyPosition)
     safe("Scale", applyScale)
+    safe("Position", function() LJ:ApplyDashboardPosition(frame) end)
 
     frame:SetScript("OnShow", function()
         UI:Refresh()
@@ -938,7 +946,7 @@ function UI:ApplyScale(scale)
     if scale > 3.00 then scale = 3.00 end
     LJ.DB.scale = scale
     applyScale()
-    applyPosition()
+    LJ:ApplyDashboardPosition(frame)
     UI:Refresh()
     if LJ.Options and LJ.Options.Refresh then pcall(LJ.Options.Refresh, LJ.Options) end
     return scale
@@ -955,12 +963,7 @@ function UI:ApplyDisplayOptions()
 end
 
 function UI:ResetPosition()
-    if not LJ.DB then return end
-    LJ.DB.point = "CENTER"
-    LJ.DB.relPoint = "CENTER"
-    LJ.DB.x = 0
-    LJ.DB.y = -40
-    applyPosition()
+    LJ:ResetDashboardPosition(frame)
 end
 
 function LJ:PrintHelp()
