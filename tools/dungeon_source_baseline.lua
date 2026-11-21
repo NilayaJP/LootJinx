@@ -1,5 +1,5 @@
 -- Reviewed ForeverDungeonJournal boss flags; update only after source review.
-return { version = "2.1.1", bosses = {
+return { version = "2.1.2", bosses = {
     ["Alcaz Prison"] = {
         ["Blazeroar"] = "rare=0 optional=0 trash=0 summon=0 npc=255702 aliases=Blazeroar prior=",
         ["Katerina the Cleaner"] = "rare=0 optional=0 trash=0 summon=0 npc=257016 aliases=Katerina,Katerina the Cleaner prior=",
@@ -25,6 +25,7 @@ return { version = "2.1.1", bosses = {
         ["Gortek the Apprentice"] = "rare=1 optional=0 trash=0 summon=0 npc=269111 aliases=Gortek,Gortek the Apprentice prior=",
         ["Impaan the Imprisoner"] = "rare=0 optional=0 trash=0 summon=0 npc=247206 aliases=Impaan,Impaan the Imprisoner prior=",
         ["Moontouched Wanderer"] = "rare=1 optional=0 trash=0 summon=0 npc=269104 aliases=Moontouched Wanderer prior=",
+        ["Sabella No-Eyes"] = "rare=1 optional=0 trash=0 summon=0 npc=269151 aliases=Sabella,Sabella No-Eyes prior=",
         ["Trash Drops"] = "rare=0 optional=0 trash=1 summon=0 npc=- aliases= prior=",
         ["Tunnelweb Matriarch"] = "rare=1 optional=0 trash=0 summon=0 npc=250034 aliases=Tunnelweb Matriarch prior=",
         ["Unbound Spirit"] = "rare=0 optional=0 trash=0 summon=0 npc=247231 aliases=Unbound Spirit prior=",
@@ -96,7 +97,7 @@ return { version = "2.1.1", bosses = {
     ["Dire Maul: West"] = {
         ["Illyanna Ravenoak"] = "rare=0 optional=0 trash=0 summon=0 npc=11488 aliases=Illyanna Ravenoak prior=",
         ["Immol'thar"] = "rare=0 optional=0 trash=0 summon=0 npc=11496 aliases=Immol'thar prior=",
-        ["Lord Hel'nurath"] = "rare=0 optional=1 trash=0 summon=0 npc=14506 aliases=Lord Hel'nurath prior=",
+        ["Lord Hel'nurath"] = "rare=1 optional=1 trash=0 summon=0 npc=14506 aliases=Lord Hel'nurath prior=",
         ["Magister Kalendris"] = "rare=0 optional=0 trash=0 summon=0 npc=11487 aliases=Magister Kalendris prior=",
         ["Prince Tortheldrin"] = "rare=0 optional=0 trash=0 summon=0 npc=11486 aliases=Prince Tortheldrin prior=",
         ["Tendris Warpwood"] = "rare=0 optional=0 trash=0 summon=0 npc=11489 aliases=Tendris Warpwood prior=",
@@ -230,13 +231,13 @@ return { version = "2.1.1", bosses = {
         ["Doctor Theolen Krastinov"] = "rare=0 optional=0 trash=0 summon=0 npc=11261 aliases=Doctor Theolen Krastinov prior=",
         ["Instructor Malicia"] = "rare=0 optional=0 trash=0 summon=0 npc=10505 aliases=Instructor Malicia prior=",
         ["Jandice Barov"] = "rare=0 optional=0 trash=0 summon=0 npc=10503 aliases=Jandice Barov prior=",
-        ["Kirtonos the Herald"] = "rare=0 optional=0 trash=0 summon=0 npc=10506 aliases=Kirtonos the Herald prior=",
+        ["Kirtonos the Herald"] = "rare=0 optional=0 trash=0 summon=0 npc=10506 aliases=Kirtonos,Kirtonos the Herald prior=",
         ["Kormok"] = "rare=1 optional=0 trash=0 summon=0 npc=16118 aliases=Kormok prior=",
         ["Lady Illucia Barov"] = "rare=0 optional=0 trash=0 summon=0 npc=10502 aliases=Lady Illucia Barov prior=",
         ["Lord Alexei Barov"] = "rare=0 optional=0 trash=0 summon=0 npc=10504 aliases=Lord Alexei Barov prior=",
         ["Lorekeeper Polkelt"] = "rare=0 optional=0 trash=0 summon=0 npc=10901 aliases=Lorekeeper Polkelt prior=",
         ["Marduk Blackpool"] = "rare=0 optional=0 trash=0 summon=0 npc=10433 aliases=Marduk Blackpool prior=",
-        ["Ras Frostwhisper"] = "rare=0 optional=0 trash=0 summon=0 npc=10508 aliases=Ras Frostwhisper prior=",
+        ["Ras Frostwhisper"] = "rare=0 optional=0 trash=0 summon=0 npc=10508 aliases=Ras Frostwhisper,Ras Frostwhisperer prior=",
         ["Rattlegore"] = "rare=0 optional=0 trash=0 summon=0 npc=11622 aliases=Rattlegore prior=",
         ["The Ravenian"] = "rare=0 optional=0 trash=0 summon=0 npc=10507 aliases=The Ravenian prior=",
         ["Trash Drops"] = "rare=0 optional=0 trash=1 summon=0 npc=- aliases= prior=",

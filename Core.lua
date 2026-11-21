@@ -106,6 +106,18 @@ local function normalizeBoss(b, fallbackAt)
     }
 end
 
+local function itemSuffix(link)
+    if type(link) ~= "string" then return nil end
+    local payload = link:match("|H(item:[^|]+)|h") or link
+    local suffix = tonumber(payload:match("^item:%d+:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:([^:]*)"))
+    return suffix and suffix ~= 0 and suffix or nil
+end
+
+function LJ.CompatibleItemVariant(first, second)
+    local a, b = itemSuffix(first), itemSuffix(second)
+    return not a or not b or a == b
+end
+
 local function normalizeDrop(d, fallbackAt)
     if type(d) ~= "table" then return nil end
     local link = type(d.link) == "string" and d.link or nil
@@ -341,6 +353,12 @@ local function normalizeRun(run, fallbackID)
         if roll then cleanRolls[#cleanRolls + 1] = roll end
     end
     run.rolls = cleanRolls
+    local function compatibleEncounter(first, second)
+        if first.bossID and second.bossID then return first.bossID == second.bossID end
+        return not first.bossName or first.bossName == "" or not second.bossName or second.bossName == ""
+            or first.bossName:lower() == second.bossName:lower()
+    end
+
     -- Old runs can contain a second chat or loot-window observation of the
     -- same keyed roll. Only coalesce it when exactly one keyed drop fits.
     local function matchingObservation(keyed, duplicate)
@@ -350,8 +368,8 @@ local function normalizeRun(run, fallbackID)
             and keyed.lootHistoryKey and keyed.rollID
             and keyed.id == duplicate.id
             and math.abs((keyed.at or 0) - (duplicate.at or 0)) <= 30
-            and (not keyed.bossID or not duplicate.bossID
-                or keyed.bossID == duplicate.bossID)
+            and compatibleEncounter(keyed, duplicate)
+            and LJ.CompatibleItemVariant(keyed.link, duplicate.link)
             and (not keyed.winner or not duplicate.winner
                 or LJ:SamePlayerName(keyed.winner, duplicate.winner))
             and (not keyed.roll or not duplicate.roll
@@ -408,7 +426,8 @@ local function normalizeRun(run, fallbackID)
         local anchor = lastWindowDrop[drop.id]
         local sighting = drop.source == "loot-window" and not drop.winner and not drop.windowSlotObserved
             and not drop.rollID and not drop.lootHistoryKey
-        if sighting and anchor and anchor.winner then
+        if sighting and anchor and anchor.winner and compatibleEncounter(anchor, drop)
+            and LJ.CompatibleItemVariant(anchor.link, drop.link) then
             local at = tonumber(drop.at) or 0
             local reference = tonumber(anchor.lastWindowAt) or tonumber(anchor.at) or 0
             if at >= reference and at - reference <= windowEchoSeconds then
@@ -446,11 +465,18 @@ local function normalizeRun(run, fallbackID)
             legacyDropsByItem[drop.id] = candidates
         end
     end
+    local suffixByID, ambiguousSuffixes = {}, {}
     for link in pairs(run.seenLinks or {}) do
         if type(link) == "string" then
             local itemID = tonumber(link:match("item:(%d+)"))
             if itemID and (not linksByID[itemID] or link:match("^|c")) then
                 linksByID[itemID] = link
+            end
+            local suffix = itemID and itemSuffix(link)
+            if suffix then
+                local previous = suffixByID[itemID]
+                if previous and previous ~= suffix then ambiguousSuffixes[itemID] = true end
+                suffixByID[itemID] = suffix
             end
         end
     end
@@ -484,9 +510,12 @@ local function normalizeRun(run, fallbackID)
     end
     for i = #cleanDrops, 1, -1 do
         local drop = cleanDrops[i]
-        if drop.source == "loot-history-recovered"
-            and observedKeys[itemHistoryKey(drop.id, drop.lootHistoryKey)] then
-            table.remove(cleanDrops, i)
+        if drop.source == "loot-history-recovered" then
+            if observedKeys[itemHistoryKey(drop.id, drop.lootHistoryKey)] then
+                table.remove(cleanDrops, i)
+            elseif ambiguousSuffixes[drop.id] then
+                drop.link = nil
+            end
         end
     end
     for _, roll in ipairs(cleanRolls) do
@@ -494,6 +523,7 @@ local function normalizeRun(run, fallbackID)
         local identity = itemHistoryKey(roll.id, key)
         local link = identity and linksByID[roll.id]
         if link and not keyedDrops[identity] then
+            if ambiguousSuffixes[roll.id] then link = nil end
             local bossID = tonumber(key:match("^(%d+):"))
             local bossName
             for _, boss in ipairs(cleanBosses) do
@@ -523,7 +553,7 @@ local function normalizedPlayerName(name)
 end
 
 local function sameSavedRoll(need, drop)
-    if need.id ~= drop.id then return false end
+    if need.id ~= drop.id or not LJ.CompatibleItemVariant(need.link, drop.link) then return false end
     if need.lootHistoryKey then return need.lootHistoryKey == drop.lootHistoryKey end
     return need.rollID and need.rollID > 0 and need.rollID == drop.rollID
 end
@@ -764,11 +794,8 @@ local function itemInfoCall(linkOrID)
         Plain(j), tonumber(Plain(k))
 end
 
--- Item-Lookups sind der Hot-Path beim Rendern der Run-Details: Dieselbe
--- Item-ID wird pro Render und über mehrere Render hinweg mehrfach aufgelöst.
--- Erfolgreiche Ergebnisse werden für die Session gecacht (Item-Daten sind pro
--- ID statisch). Ein Treffer wird bewusst NICHT gecacht, damit der nächste
--- Render es erneut versucht, sobald die Item-Daten asynchron geladen sind.
+-- Cache full item data by link payload to preserve suffixes and other variants.
+-- Instant metadata can share an ID. Unavailable results can be retried.
 local itemInfoCache = {}
 local itemInfoInstantCache = {}
 local itemLoadRequested = {}
@@ -781,10 +808,19 @@ local function itemIDKey(linkOrID)
     return nil
 end
 
+local function itemInfoKey(linkOrID)
+    if type(linkOrID) == "string" then
+        return tonumber(linkOrID) or linkOrID:match("|H(item:[^|]+)|h")
+            or (LJ:ItemID(linkOrID) and linkOrID)
+    end
+    return itemIDKey(linkOrID)
+end
+
 function LJ:ItemInfo(linkOrID)
-    local key = itemIDKey(linkOrID)
+    local key = itemInfoKey(linkOrID)
     if key and itemInfoCache[key] then return itemInfoCache[key] end
     local name, link, quality, itemLevel, requiredLevel, classID, subclassID, maxStack, equipLoc, icon, sellPrice = itemInfoCall(linkOrID)
+    local exact = classID ~= nil
     if not name and not link and not classID then
         local fn = (C_Item and C_Item.GetItemInfo) or GetItemInfo
         if type(fn) == "function" and type(linkOrID) == "string" then
@@ -810,7 +846,7 @@ function LJ:ItemInfo(linkOrID)
     }
     -- Nur vollständig geladene Einträge cachen; classID fehlt, solange der
     -- Item-Datensatz im Client noch nicht verfügbar ist.
-    if key and info.classID then itemInfoCache[key] = info end
+    if key and exact then itemInfoCache[key] = info end
     return info
 end
 
@@ -837,7 +873,7 @@ function LJ:ItemQuality(link, knownQuality)
     local quality = tonumber(knownQuality)
     if quality then return quality end
     if type(link) ~= "string" then return nil end
-    quality = tonumber(link:match("^|cnIQ(%d+):"))
+    quality = tonumber(link:match("^|cnIQ(%d+):?|Hitem:"))
     if quality then return quality end
     local color = link:match("^|cff(%x%x%x%x%x%x)")
     local colors = { ["9d9d9d"] = 0, ["ffffff"] = 1, ["1eff00"] = 2,
@@ -885,14 +921,32 @@ function LJ:ItemCount(id)
     return type(n) == "number" and n or nil
 end
 
+function LJ:ItemLoadResult(id, success)
+    local state = itemLoadRequested[id]
+    if not state then return end
+    if success then
+        itemLoadRequested[id] = "finished"
+    elseif state == "requested" and C_Timer and C_Timer.After then
+        itemLoadRequested[id] = "retry-scheduled"
+        C_Timer.After(2, function()
+            if itemLoadRequested[id] ~= "retry-scheduled" then return end
+            itemLoadRequested[id] = "finished"
+            local request = C_Item and C_Item.RequestLoadItemDataByID
+            if type(request) == "function" then pcall(request, id) end
+        end)
+    end
+end
+
 function LJ:LoadItem(link, id)
     id = tonumber(id) or self:ItemID(link)
     if not id then return end
-    if itemInfoCache[id] then return end
+    if itemInfoCache[itemInfoKey(link or id)] then return end
     if not itemLoadRequested[id] then
-        itemLoadRequested[id] = true
         local req = C_Item and C_Item.RequestLoadItemDataByID
-        if type(req) == "function" then pcall(req, id) end
+        if type(req) == "function" then
+            itemLoadRequested[id] = "requested"
+            if not pcall(req, id) then self:ItemLoadResult(id, false) end
+        end
     end
     local get = (C_Item and C_Item.GetItemInfo) or GetItemInfo
     if type(get) == "function" then pcall(get, link or id) end

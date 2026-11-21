@@ -25,8 +25,20 @@ local updateText = updates:read("*a")
 updates:close()
 local drownedLoot = assert(updateText:match("%-%- BEGIN drownedloot(.-)%-%- END drownedloot"),
     "Drowned City loot block missing from QuestUpdates.lua")
+local drowned = assert(source.DB["The Drowned City"])
+local originalDrownedItems = {}
+for _, boss in ipairs(drowned.bosses or {}) do
+    for _, item in ipairs(boss.loot or {}) do originalDrownedItems[item] = true end
+end
 assert(load("local _, FDJ = ...\n" .. drownedLoot, "@QuestUpdates.lua:drownedloot"))(
     "ForeverDungeonJournal", source)
+for _, boss in ipairs(drowned.bosses or {}) do
+    for _, item in ipairs(boss.loot or {}) do
+        if type(item) == "table" and not originalDrownedItems[item] then
+            item.reviewEvidence = "Data/QuestUpdates.lua:drownedloot"
+        end
+    end
+end
 local wowheadAdded, wowheadConflicts, wowheadSeen = assert(loadfile("tools/apply_wowhead_forever_loot.lua"))()(source)
 print(string.format("Wowhead Forever: %d reviewed references, %d added, %d conflicts", wowheadSeen, wowheadAdded, #wowheadConflicts))
 for _, conflict in ipairs(wowheadConflicts) do print("  conflict: " .. conflict) end
@@ -159,11 +171,18 @@ for _, dungeon in ipairs(source.ORDER) do
 end
 
 local oldLoot, newLoot = {}, {}
+local function addLoot(index, dungeon, id, sourceName, evidence)
+    local key = dungeon .. " / " .. id
+    local entry = index[key] or {}
+    index[key] = entry
+    entry[sourceName] = entry[sourceName] or evidence
+end
+
 for dungeon, groups in pairs(current.DungeonLootData or {}) do
     for _, group in ipairs(groups) do
         local sourceName = group[2] and "trash" or group[1]
         for _, id in ipairs(group[3] or {}) do
-            oldLoot[dungeon .. " / " .. sourceName .. " / " .. id] = "source"
+            addLoot(oldLoot, dungeon, id, sourceName, true)
         end
     end
 end
@@ -171,18 +190,50 @@ for _, dungeon in ipairs(source.ORDER) do
     for _, boss in ipairs((source.DB[dungeon] or {}).bosses or {}) do
         local sourceName = boss.trash and "trash" or boss.name
         if type(sourceName) == "string" then
-            local function add(items)
+            local function add(items, evidence)
                 for _, item in ipairs(items or {}) do
                     local id = type(item) == "table" and tonumber(item[1])
                     if id and id > 0 then
-                        newLoot[dungeon .. " / " .. sourceName .. " / " .. id] = "source"
+                        addLoot(newLoot, dungeon, id, sourceName, item.reviewEvidence or evidence)
                     end
                 end
             end
-            add(boss.loot)
-            add(source.GetBossSharedLoot and source.GetBossSharedLoot(dungeon, boss))
+            add(boss.loot, "Data/Dungeons.lua")
+            add(source.GetBossSharedLoot and source.GetBossSharedLoot(dungeon, boss), "Data/SharedLoot.lua")
         end
     end
+end
+
+local function compareLoot()
+    local keys = {}
+    for key in pairs(oldLoot) do keys[key] = true end
+    for key in pairs(newLoot) do keys[key] = true end
+    local changes = {}
+    local added, removed = 0, 0
+    for _, key in ipairs(sortedKeys(keys)) do
+        local old, new = oldLoot[key] or {}, newLoot[key] or {}
+        local evidence = {}
+        local changed = false
+        for _, name in ipairs(sortedKeys(new)) do
+            if not old[name] then
+                added = added + 1
+                changed = true
+            end
+            evidence[#evidence + 1] = name .. ": " .. new[name]
+        end
+        for name in pairs(old) do
+            if not new[name] then removed = removed + 1; changed = true end
+        end
+        if changed then
+            changes[#changes + 1] = string.format("  %s | old=%s | new=%s | evidence=%s", key,
+                next(old) and table.concat(sortedKeys(old), ", ") or "none",
+                next(new) and table.concat(sortedKeys(new), ", ") or "none",
+                #evidence > 0 and table.concat(evidence, "; ") or "no current source")
+        end
+    end
+    print(string.format("Item-source entries: +%d -%d across %d items", added, removed, #changes))
+    for _, change in ipairs(changes) do print(change) end
+    return added + removed
 end
 
 print("ForeverDungeonJournal " .. baseline.version .. " -> " .. version)
@@ -204,6 +255,6 @@ for _, mapID in ipairs(sortedKeys(sharedMaps)) do
     end
     total = total + compare("Shared map " .. mapID .. " candidates", old, new)
 end
-total = total + compare("Item-source entries", oldLoot, newLoot)
+total = total + compareLoot()
 print("Total differences: " .. total)
 print("Review every difference before running a generator with --reviewed; never commit generated catalogs solely from this report.")

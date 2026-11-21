@@ -37,7 +37,7 @@ return function(source)
                     " " .. itemName .. " (Journal: " .. other .. ")"
             else
                 target.loot = target.loot or {}
-                target.loot[#target.loot + 1] = { id, "ForeverDB.net", "", 0 }
+                target.loot[#target.loot + 1] = { id, itemName, "", 0, reviewEvidence = url }
                 added = added + 1
             end
             seen = seen + 1

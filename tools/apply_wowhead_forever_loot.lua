@@ -32,7 +32,7 @@ return function(source)
                     conflicts[#conflicts + 1] = dungeonName .. " / " .. bossName .. " / " .. id .. " (Journal: " .. other .. ")"
                 else
                     target.loot = target.loot or {}
-                    target.loot[#target.loot + 1] = { id, "Wowhead Forever", "", 0 }
+                    target.loot[#target.loot + 1] = { id, "Wowhead Forever", "", 0, reviewEvidence = url }
                     added = added + 1
                 end
             end

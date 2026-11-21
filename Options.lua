@@ -46,15 +46,26 @@ local function closeOptionsPanel()
     if panel and panel:IsShown() then panel:Hide() end
 end
 
+function O:KeepDashboardEscapeSuspended(name)
+    local main = LJ.UI and LJ.UI.frame
+    if panel and panel:IsShown() and main and main:IsShown() and main:GetName() == name then
+        suspendedName = name
+        return true
+    end
+    return false
+end
+
 local function restoreEscape(deferred)
     local restored = suspendedName
     suspendedName = nil
     if not restored or not UISpecialFrames then return end
     local function restore()
         if suspendedName == restored or (LJ.History and LJ.History.suspendedName == restored) then return end
+        if O:KeepDashboardEscapeSuspended(restored) then return end
         local main = LJ.UI and LJ.UI.frame
-        if panel:IsShown() and main and main:IsShown() and main:GetName() == restored then
-            suspendedName = restored
+        local detail = LJ.RunDetail
+        if main and main:IsShown() and main:GetName() == restored and detail and detail:IsShown() then
+            detail:SuspendParentEscape()
             return
         end
         for _, name in ipairs(UISpecialFrames) do if name == restored then return end end

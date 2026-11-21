@@ -183,10 +183,9 @@ local function localDayStart(now, daysBack, startOfWeek)
 end
 
 local function isBossClear(run)
-    if run.closedReason == "all-bosses-cleared" then return true end
-    if run.closed ~= true or run.closedReason ~= "left" or run.legacy == true then return false end
-    local progress = LJ.DungeonCompletion and LJ.DungeonCompletion:Progress(run)
-    return progress ~= nil and progress.state == "complete"
+    local completion = LJ.DungeonCompletion
+    if completion then return completion:WasCleared(run) end
+    return run.closedReason == "all-bosses-cleared"
 end
 
 function H:StatusMatches(run, status)
@@ -472,6 +471,7 @@ local function restoreDashboardEscape()
         if H.suspendedName == name or type(UISpecialFrames) ~= "table" then return end
         local dashboard = LJ.UI and LJ.UI.frame
         if LJ.RunDetail and LJ.RunDetail:IsShown() and dashboard and dashboard:GetName() == name then return end
+        if LJ.Options and LJ.Options:KeepDashboardEscapeSuspended(name) then return end
         for i = 1, #UISpecialFrames do if UISpecialFrames[i] == name then return end end
         table.insert(UISpecialFrames, name)
     end
@@ -771,6 +771,13 @@ function H:Create()
     self.summary:SetWidth(578)
     self.summary:SetWordWrap(false)
     self.mutedLabels[#self.mutedLabels + 1] = self.summary
+
+    self.streakContext = label(f, 9)
+    self.streakContext:SetPoint("TOPLEFT", 16, -124)
+    self.streakContext:SetWidth(578)
+    self.streakContext:SetWordWrap(false)
+    self.streakContext:Hide()
+    self.mutedLabels[#self.mutedLabels + 1] = self.streakContext
 
     self.headerDungeon = label(f, 8, LJ.L("HISTORY_COL_DUNGEON"))
     self.headerDungeon:SetPoint("TOPLEFT", 38, -139)
@@ -1250,8 +1257,39 @@ function H:VisibleEntries(matches, runs)
     return entries, matches
 end
 
-local function trendCounts(wins, losses, pending, rolls)
-    return LJ.L("HISTORY_TREND_COUNTS", wins, losses, pending, rolls)
+local function trendCounts(wins, losses, pending)
+    local resolved = wins + losses
+    local rate = resolved > 0 and ("%d%%"):format(math.floor(wins * 100 / resolved + 0.5)) or "–"
+    return LJ.L("HISTORY_TREND_RESULT", rate, wins, resolved, pending)
+end
+
+local function streakContext(record)
+    local first, last, missingDate
+    local runs, seen = {}, {}
+    for _, loss in ipairs(record.losses) do
+        local at = tonumber(loss.need.at)
+        if at and at > 0 then
+            first, last = math.min(first or at, at), math.max(last or at, at)
+        else
+            missingDate = true
+        end
+        if not seen[loss.run] then
+            seen[loss.run] = true
+            runs[#runs + 1] = loss.run
+        end
+    end
+    local knownIDs = knownDungeonIDs(runs, true)
+    local dungeons, count = {}, 0
+    for _, run in ipairs(runs) do
+        local key = filterKey(run, knownIDs, true)
+        if not dungeons[key] then dungeons[key], count = true, count + 1 end
+    end
+    local period = LJ.L("HISTORY_TREND_UNDATED")
+    if first and not missingDate then
+        local start, finish = LJ:FormatTime(first, "DATE_LONG"), LJ:FormatTime(last, "DATE_LONG")
+        period = start == finish and start or start .. " – " .. finish
+    end
+    return LJ.L("HISTORY_STREAK_CONTEXT", period, count)
 end
 
 local function summaryItemName(item)
@@ -1319,7 +1357,7 @@ function H:RenderEntry(row, entry)
     elseif week then
         local date = week.start > 0 and LJ:FormatTime(week.start, "DATE_LONG")
         row.label:SetText(date and LJ.L("HISTORY_TREND_WEEK", date) or LJ.L("HISTORY_TREND_UNDATED"))
-        row.trendValues:SetText(trendCounts(week.wins, week.losses, week.pending, week.rolls))
+        row.trendValues:SetText(trendCounts(week.wins, week.losses, week.pending))
     elseif boss then
         local arrow = self.bossView.expanded[boss.key] and "▼ " or "▶ "
         row.label:SetText(arrow .. boss.name)
@@ -1389,10 +1427,12 @@ function H:Refresh()
     self.cleanupButton.label:SetText(LJ.L("HISTORY_CLEANUP_BUTTON", preview.eligible))
     local summary = self:Summarize(visibleRuns)
     local trend, bossView, lossRecord = self.trend, self.bossView, self.lossRecord
+    self.streakContext:SetShown(lossRecord == true and self.record ~= nil)
     local header, empty = "HISTORY_COL_DUNGEON", "HISTORY_EMPTY"
     if unavailableDungeon then empty = "HISTORY_PRESET_NO_DUNGEON" end
     if lossRecord then
         self.summary:SetText(LJ.L("HISTORY_STREAK_TITLE", self.record and #self.record.losses or 0))
+        if self.record then self.streakContext:SetText(streakContext(self.record)) end
         header = not self.record and "HISTORY_STREAK_ITEM"
             or self.record.winner and "HISTORY_STREAK_CLOSED" or "HISTORY_STREAK_ONGOING"
         empty = "HISTORY_STREAK_EMPTY"
@@ -1402,8 +1442,7 @@ function H:Refresh()
     elseif trend then
         self.summary:SetText(LJ.L("HISTORY_TREND_TITLE", trend.name,
             LJ.L("HISTORY_DATE_" .. string.upper(self.range))))
-        self.headerDungeon:SetText(trendCounts(summary.needWins, summary.needLost, summary.needPending,
-            summary.needWins + summary.needLost + summary.needPending))
+        self.headerDungeon:SetText(trendCounts(summary.needWins, summary.needLost, summary.needPending))
     elseif self.comparing then
         self.summary:SetText(self.compareMismatch and LJ.L("HISTORY_COMPARE_SAME_DUNGEON") or
             LJ.L("HISTORY_COMPARE_PROGRESS", self.compareB and 2 or (self.compareA and 1 or 0)))
