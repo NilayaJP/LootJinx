@@ -23,20 +23,37 @@ local function bossSeen(seen, boss)
     for _, alias in ipairs(boss.aliases or {}) do
         if seen[normalized(alias)] then return true end
     end
-    return false
+    for _, implied in ipairs(boss.impliedBy or {}) do
+        if seen[normalized(implied)] then return true end
+    end
+    if not boss.members or #boss.members == 0 then return false end
+    for _, member in ipairs(boss.members) do
+        if not seen[normalized(member)] then return false end
+    end
+    return true
 end
 
 local function collectSeen(run)
-    local seen = {}
+    local seen, observedNames, observedIDs = {}, {}, {}
     for _, boss in ipairs((run and run.bosses) or {}) do
         markBoss(seen, boss.name)
+        markBoss(observedNames, boss.name)
+        local id = tonumber(boss.id)
+        if id and id > 0 then observedIDs[id] = true end
     end
     -- Ein eindeutig zugeordneter Boss-Drop belegt den Kill auch dann, wenn der
     -- Client für den Encounter kein eigenes Boss-Event liefert.
     if LJ.DungeonLoot then
         for _, drop in ipairs((run and run.drops) or {}) do
-            local kind, boss = LJ.DungeonLoot:Source(run, drop.id)
-            if kind == "boss" then markBoss(seen, boss) end
+            local sources = drop.sources or {}
+            local fromEncounter = drop.source == "encounter" or sources.encounter
+                or drop.source == "loot-history" or drop.source == "loot-history-recovered"
+            local knownEncounter = fromEncounter
+                and (observedIDs[tonumber(drop.bossID)] or observedNames[normalized(drop.bossName)])
+            if not knownEncounter then
+                local kind, boss = LJ.DungeonLoot:Source(run, drop.id)
+                if kind == "boss" then markBoss(seen, boss) end
+            end
         end
     end
     return seen
@@ -55,13 +72,7 @@ function Completion:Progress(run)
         if type(required) == "table" and #required > 0 then
             local missing = {}
             for _, boss in ipairs(required) do
-                local found = bossSeen(seen, boss)
-                if not found then
-                    for _, implied in ipairs(boss.impliedBy or {}) do
-                        if seen[normalized(implied)] then found = true break end
-                    end
-                end
-                if not found then missing[#missing + 1] = boss.name end
+                if not bossSeen(seen, boss) then missing[#missing + 1] = boss.name end
             end
             local result = {
                 dungeon = dungeon, observed = #required - #missing,

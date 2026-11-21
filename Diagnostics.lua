@@ -114,6 +114,15 @@ local function append(lines, text)
     lines[#lines + 1] = text
 end
 
+local function limitBytes(text, limit)
+    local nextByte = text:byte(limit + 1)
+    while nextByte and nextByte >= 128 and nextByte < 192 do
+        limit = limit - 1
+        nextByte = text:byte(limit + 1)
+    end
+    return text:sub(1, limit)
+end
+
 local function section(lines, key)
     lines[#lines + 1] = ""
     lines[#lines + 1] = "[" .. tostring(LJ.L(key)) .. "]"
@@ -142,7 +151,7 @@ function D:Event(kind, id, detail)
         at = now(),
         kind = kind,
         id = tonumber(id),
-        detail = detail and tostring(detail):sub(1, 60) or nil,
+        detail = detail and limitBytes(tostring(detail), 60) or nil,
     }
     while #self.events > MAX_EVENTS do table.remove(self.events, 1) end
 end
@@ -316,7 +325,7 @@ local function addBosses(lines, run)
     for i = first, #bosses do
         local boss = bosses[i]
         if type(boss) == "table" then
-            local name = tostring(boss.name or "?"):gsub("[%c]", " "):sub(1, 80)
+            local name = limitBytes(tostring(boss.name or "?"):gsub("[%c]", " "), 80)
             append(lines, ago(boss.at) .. " id=" .. idText(boss.id) .. " name=" .. name)
         end
     end

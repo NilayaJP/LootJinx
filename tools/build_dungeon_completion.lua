@@ -15,6 +15,14 @@ end
 local german = source.ContentLocales.deDE.bosses or {}
 local germanDungeons = source.ContentLocales.deDE.dungeons or {}
 
+-- These raid encounters come from LootJinx's separately reviewed raid data.
+local current = {}
+assert(loadfile("DungeonCompletionData.lua"))("LootJinx", current)
+local raids = {
+    "Molten Core", "Onyxia's Lair", "Blackwing Lair", "Zul'Gurub",
+    "Ruins of Ahn'Qiraj", "Ahn'Qiraj Temple", "Naxxramas",
+}
+
 -- Wowhead Forever journal encounter labels can combine several NPCs. Only
 -- add a shared alias when the journal explicitly presents one encounter.
 local journalAliases = {
@@ -62,16 +70,24 @@ local function appendUnique(list, value)
     list[#list + 1] = value
 end
 
-local function writeBoss(out, name, aliases, npcID, deName)
-    out:write("        { name = ", string.format("%q", name), ", aliases = { ")
-    for i, alias in ipairs(aliases) do
+local function writeList(out, key, entries)
+    out:write(", ", key, " = { ")
+    for i, entry in ipairs(entries) do
         if i > 1 then out:write(", ") end
-        out:write(string.format("%q", alias))
+        out:write(string.format("%q", entry))
     end
-    out:write(" }, npcID = ", tostring(tonumber(npcID) or "nil"))
+    out:write(" }")
+end
+
+local function writeBoss(out, name, aliases, npcID, deName, impliedBy, members)
+    out:write("        { name = ", string.format("%q", name))
+    writeList(out, "aliases", aliases)
+    out:write(", npcID = ", tostring(tonumber(npcID) or "nil"))
     if type(deName) == "string" and deName ~= "" and deName ~= name then
         out:write(", deName = ", string.format("%q", deName))
     end
+    if impliedBy then writeList(out, "impliedBy", impliedBy) end
+    if members then writeList(out, "members", members) end
     out:write(" },\n")
 end
 
@@ -83,8 +99,13 @@ for _, dungeonName in ipairs(source.ORDER or {}) do
     local dungeon = source.DB[dungeonName]
     if dungeon then
         out:write("    [", string.format("%q", dungeonName), "] = {\n")
-        local implicitKills = {}
+        local implicitKills, groupMembers = {}, {}
         for _, boss in ipairs(dungeon.bosses or {}) do
+            if boss.childOf then
+                local members = groupMembers[boss.childOf] or {}
+                appendUnique(members, boss.name)
+                groupMembers[boss.childOf] = members
+            end
             for _, prior in ipairs(boss.killedBefore or {}) do
                 if type(prior) == "string" then
                     implicitKills[prior] = implicitKills[prior] or {}
@@ -94,7 +115,7 @@ for _, dungeonName in ipairs(source.ORDER or {}) do
         end
         for _, boss in ipairs(dungeon.bosses or {}) do
             if not boss.trash and not boss.rare and not boss.optional
-                and not boss.summonItem and type(boss.name) == "string" then
+                and not boss.summonItem and not boss.childOf and type(boss.name) == "string" then
                 if dungeonName ~= "Blackrock Depths" or not arenaNames[boss.name]
                     or boss.name == "Gorosh the Dervish" then
                     local name = boss.name
@@ -122,9 +143,26 @@ for _, dungeonName in ipairs(source.ORDER or {}) do
                             appendUnique(aliases, german[killer])
                         end
                     end
-                    writeBoss(out, name, aliases, boss.npcID, german[boss.name])
+                    local impliedBy
+                    if dungeonName == "Scarlet Monastery: Cathedral" and name == "Scarlet Commander Mograine" then
+                        impliedBy = { "High Inquisitor Whitemane" }
+                    elseif dungeonName == "Sunken Temple" and name == "Altar Bosses" then
+                        -- The six altar guardians gate Jammal'an.
+                        impliedBy = { "Jammal'an the Prophet", "Jammal'an der Prophet" }
+                    end
+                    writeBoss(out, name, aliases, boss.npcID, german[boss.name], impliedBy, groupMembers[name])
                 end
             end
+        end
+        out:write("    },\n")
+    end
+end
+out:write("    -- Separately reviewed raid encounters.\n")
+for _, dungeonName in ipairs(raids) do
+    if not source.DB[dungeonName] then
+        out:write("    [", string.format("%q", dungeonName), "] = {\n")
+        for _, boss in ipairs(assert(current.DungeonCompletionData[dungeonName])) do
+            writeBoss(out, boss.name, boss.aliases, boss.npcID, boss.deName, boss.impliedBy, boss.members)
         end
         out:write("    },\n")
     end
@@ -134,6 +172,13 @@ out:write("LJ.DungeonCompletionNames = {\n")
 for _, dungeonName in ipairs(source.ORDER or {}) do
     local label = germanDungeons[dungeonName] and germanDungeons[dungeonName].name
     if type(label) == "string" and label ~= "" then
+        out:write("    [", string.format("%q", dungeonName), "] = ",
+            string.format("%q", label), ",\n")
+    end
+end
+for _, dungeonName in ipairs(raids) do
+    local label = current.DungeonCompletionNames[dungeonName]
+    if not germanDungeons[dungeonName] and label then
         out:write("    [", string.format("%q", dungeonName), "] = ",
             string.format("%q", label), ",\n")
     end

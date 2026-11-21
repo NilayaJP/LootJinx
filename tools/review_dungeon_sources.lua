@@ -12,6 +12,12 @@ assert(version, "source version missing from .toc")
 
 local source = { Constants = { ALBA_FAIRMOON_LOCATION = "" } }
 assert(loadfile(input))("ForeverDungeonJournal", source)
+local journalBosses = {}
+for _, dungeon in ipairs(source.ORDER) do
+    for _, boss in ipairs((source.DB[dungeon] or {}).bosses or {}) do
+        journalBosses[boss] = true
+    end
+end
 local shared = loadfile(root .. "/Data/SharedLoot.lua")
 if shared then shared("ForeverDungeonJournal", source) end
 local updates = assert(io.open(root .. "/Data/QuestUpdates.lua", "r"))
@@ -50,6 +56,12 @@ local function bossFlags()
                     boss.trash and 1 or 0, boss.summonItem and 1 or 0,
                     tostring(tonumber(boss.npcID) or "-"), values(boss.aliases),
                     values(boss.killedBefore))
+                if boss.childOf then
+                    result[dungeon][boss.name] = result[dungeon][boss.name] .. " parent=" .. boss.childOf
+                end
+                if boss.children then
+                    result[dungeon][boss.name] = result[dungeon][boss.name] .. " members=" .. values(boss.children)
+                end
             end
         end
     end
@@ -127,12 +139,15 @@ local arena = {
 }
 local oldRequired, newRequired = {}, {}
 for dungeon, bosses in pairs(current.DungeonCompletionData or {}) do
-    for _, boss in ipairs(bosses) do oldRequired[dungeon .. " / " .. boss.name] = "required" end
+    -- Curated raid entries outside the Journal are kept by the generator.
+    if source.DB[dungeon] then
+        for _, boss in ipairs(bosses) do oldRequired[dungeon .. " / " .. boss.name] = "required" end
+    end
 end
 for _, dungeon in ipairs(source.ORDER) do
     for _, boss in ipairs((source.DB[dungeon] or {}).bosses or {}) do
-        if type(boss.name) == "string" and not boss.trash and not boss.rare
-            and not boss.optional and not boss.summonItem then
+        if journalBosses[boss] and type(boss.name) == "string" and not boss.trash and not boss.rare
+            and not boss.optional and not boss.summonItem and not boss.childOf then
             if dungeon ~= "Blackrock Depths" or not arena[boss.name]
                 or boss.name == "Gorosh the Dervish" then
                 local name = dungeon == "Blackrock Depths" and arena[boss.name]
