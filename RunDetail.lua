@@ -41,14 +41,14 @@ local suspendedSpecialNames
 local restoreToken = 0
 local deferredRestoreFrame
 
-local function suspendDashboardEscape()
+function M:SuspendParentEscape()
     if type(UISpecialFrames) ~= "table" then return end
     local dashboard = LJ.UI and LJ.UI.frame
     local history = LJ.History and LJ.History.frame
     local historyShown = history and history.IsShown and history:IsShown()
-    local windows = { dashboard, history }
-    local names = {}
-    for _, window in ipairs(windows) do
+    local windows = { dashboard = dashboard, history = history }
+    local names = suspendedSpecialNames or {}
+    for _, window in pairs(windows) do
         local name = window and window.IsShown and window:IsShown()
             and window.GetName and window:GetName()
         if name then
@@ -60,7 +60,7 @@ local function suspendDashboardEscape()
                 end
             end
             if removed or (window == dashboard and not historyShown) then
-                names[#names + 1] = name
+                names[name] = true
             end
         end
     end
@@ -71,17 +71,20 @@ end
 local function restoreDashboardEscape()
     local names = suspendedSpecialNames
     if not names then return end
-    suspendedSpecialNames = nil
     restoreToken = restoreToken + 1
     local token = restoreToken
     local function restore()
         if token ~= restoreToken or type(UISpecialFrames) ~= "table" then return end
-        for _, name in ipairs(names) do
+        suspendedSpecialNames = nil
+        local history = LJ.History
+        for name in pairs(names) do
             local found = false
             for i = 1, #UISpecialFrames do
                 if UISpecialFrames[i] == name then found = true break end
             end
-            if not found then table.insert(UISpecialFrames, name) end
+            if not found and not (history and history.suspendedName == name) then
+                table.insert(UISpecialFrames, name)
+            end
         end
     end
     -- CloseSpecialWindows iterates this table; restore after its ESC pass ends.
@@ -267,7 +270,8 @@ local function dropRollText(run, drop)
     if not value then return nil end
     if kind == "transmog" then return LJ.L("DETAIL_ROLL_TRANSMOG", value) end
     if kind == "greed" then return LJ.L("DETAIL_ROLL_GREED", value) end
-    return LJ.L("DETAIL_ROLL_NEED", value)
+    if kind == "need" then return LJ.L("DETAIL_ROLL_NEED", value) end
+    return LJ.L("DETAIL_ROLL_UNKNOWN", value)
 end
 
 local function bossIndexFor(run, drop, bosses, catalogKind, catalogBoss)
@@ -354,6 +358,8 @@ local function bossLootQuality(drop)
 end
 
 local function completionDungeonName(dungeon)
+    local names = (LJ.DungeonNames or {})[dungeon]
+    if names and names[LJ.lang] then return names[LJ.lang] end
     if LJ.lang == "de" then
         return (LJ.DungeonCompletionNames or {})[dungeon] or dungeon
     end
@@ -636,10 +642,11 @@ local function rowTooltip(row)
             local roll = rolls[i]
             local kind = roll.kind == "transmog" and LJ.L("DETAIL_ROLL_KIND_TRANSMOG")
                 or roll.kind == "greed" and LJ.L("DETAIL_ROLL_KIND_GREED")
-                or LJ.L("DETAIL_ROLL_KIND_NEED")
+                or roll.kind == "need" and LJ.L("DETAIL_ROLL_KIND_NEED")
+                or LJ.L("DETAIL_ROLL_KIND_UNKNOWN")
             local name = roll.name
             if LJ:IsMe(name) then name = LJ.L("DETAIL_YOU") end
-            local text = LJ.L("DETAIL_ROLL_LINE", kind, name, tonumber(roll.value) or 0)
+            local text = LJ.L("DETAIL_ROLL_LINE", kind, name, tonumber(roll.value))
             if roll.kind ~= "need" then
                 GameTooltip:AddLine(text, 0.70, 0.75, 0.80)
             else
@@ -1075,7 +1082,7 @@ function M:Show(run, theme)
         LJ:Print(LJ.L("ERROR_PART", "Run-Details", tostring(err)))
         return false
     end
-    if not frame:IsShown() then suspendDashboardEscape() end
+    if not frame:IsShown() then self:SuspendParentEscape() end
     frame:Show()
     return true
 end

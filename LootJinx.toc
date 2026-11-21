@@ -13,7 +13,7 @@
 ## Notes-zhCN: 追踪需求掷骰、连续拾取和地下城纪录。
 ## Notes-zhTW: 追蹤需求擲骰、連續拾取和地城紀錄。
 ## Author: Zenyx
-## Version: 1.7.2
+## Version: 1.7.3
 ## IconTexture: Interface\AddOns\LootJinx\Media\LootJinxIcon
 ## SavedVariables: LootJinxDB
 ## SavedVariablesPerCharacter: LootJinxCharDB

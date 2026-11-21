@@ -12,21 +12,25 @@ return function(source)
                 "invalid ForeverDB review row: " .. line)
             local dungeon = assert(source.DB[dungeonName], "unknown ForeverDB dungeon: " .. dungeonName)
             local id = tonumber(idText)
-            local target, other = nil, nil
+            local target, other, presentAtTarget = nil, nil, false
             for _, boss in ipairs(dungeon.bosses or {}) do
                 if boss.name == sourceName then target = boss end
-                for _, item in ipairs(boss.loot or {}) do
-                    if tonumber(item[1]) == id then
-                        other = boss.trash and "trash" or boss.name
+                local shared = source.GetBossSharedLoot and source.GetBossSharedLoot(dungeonName, boss)
+                for _, items in ipairs({ boss.loot or {}, shared or {} }) do
+                    for _, item in ipairs(items) do
+                        if tonumber(item[1]) == id then
+                            if target == boss then
+                                presentAtTarget = true
+                            else
+                                other = boss.trash and "trash" or boss.name
+                            end
+                            break
+                        end
                     end
                 end
             end
             assert(target, "unknown ForeverDB source: " .. dungeonName .. " / " .. sourceName)
-            local has = false
-            for _, item in ipairs(target.loot or {}) do
-                if tonumber(item[1]) == id then has = true end
-            end
-            if has then
+            if presentAtTarget then
                 present = present + 1
             elseif other then
                 conflicts[#conflicts + 1] = dungeonName .. " / " .. sourceName .. " / " .. id ..

@@ -51,8 +51,21 @@ local function button(parent, text, width, height)
     end)
     return b
 end
+-- WoW's Lua lowercases ASCII. Fold uppercase letters used in the supported
+-- Latin and Cyrillic locales so they work in case-insensitive searches too.
+local UTF8_LETTER = "[\194-\244][\128-\191]+"
+local lowerCase = {}
+do
+    local lowerLetters = ("àáâãäåæçèéêëìíîïñòóôõöøœùúûüýÿšžß"
+        .. "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"):gmatch(UTF8_LETTER)
+    for upper in ("ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØŒÙÚÛÜÝŸŠŽẞ"
+        .. "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"):gmatch(UTF8_LETTER) do
+        lowerCase[upper] = lowerLetters()
+    end
+end
+
 local function normalized(text)
-    return string.lower(tostring(text or ""))
+    return (string.lower(tostring(text or "")):gsub(UTF8_LETTER, lowerCase))
 end
 
 local function hex(c)
@@ -153,11 +166,16 @@ local function dungeonIdentity(run, includeWing)
     local instanceID = tonumber(run and run.instanceID)
     if instanceID and instanceID > 0 then
         local key = tostring(instanceID)
-        if includeWing and LJ.DungeonCompletion and LJ.DungeonCompletion.Progress then
-            local progress = LJ.DungeonCompletion:Progress(run)
-            if progress and progress.dungeon then
-                key = key .. ":" .. progress.dungeon
+        if includeWing then
+            local candidates = LJ.DungeonLoot and LJ.DungeonLoot:Candidates(run)
+            local wing
+            if candidates and #candidates == 1 then
+                wing = candidates[1]
+            elseif LJ.DungeonCompletion and (not candidates or #candidates > 1) then
+                local progress = LJ.DungeonCompletion:Progress(run)
+                wing = progress and progress.dungeon
             end
+            if wing then key = key .. ":" .. wing end
         end
         return key
     end
@@ -302,14 +320,17 @@ function H:Filter(runs, query, dungeon, range, now, status, dungeonKey, focus)
     now = tonumber(now) or (LJ.Now and LJ.Now()) or 0
     local daysBack = ({ today = 0, week = 6, month = 29 })[range]
     local cutoff = daysBack and localDayStart(now, daysBack) or nil
-    local searchIDs, nameMatches = {}, {}
+    local searchMaps, searchIDs, nameMatches = {}, {}, {}
     if needle ~= "" then
         for _, candidate in ipairs(runs or {}) do
             if type(candidate) == "table" then
                 local recordedMatch = normalized(candidate.name):find(needle, 1, true)
                 if recordedMatch then
                     local key = dungeonIdentity(candidate)
-                    if key then searchIDs[key] = true end
+                    if key then
+                        searchMaps[key] = true
+                        searchIDs[dungeonIdentity(candidate, true)] = true
+                    end
                 end
                 nameMatches[candidate] = recordedMatch
                     or normalized(LJ:DungeonName(candidate)):find(needle, 1, true)
@@ -327,7 +348,7 @@ function H:Filter(runs, query, dungeon, range, now, status, dungeonKey, focus)
         if type(run) == "table" and (not dungeon or (selectedKey
             and filterKey(run, knownIDs) == selectedKey))
             and (needle == "" or nameMatches[run]
-                or searchIDs[dungeonIdentity(run)]
+                or (searchMaps[dungeonIdentity(run)] and searchIDs[dungeonIdentity(run, true)])
                 or needTextMatches(run, needle))
             and (not daysBack or (cutoff and started and started >= cutoff and started <= now))
             and (not focused or focused[run])
@@ -438,10 +459,10 @@ local function restoreDashboardEscape()
     local name = H.suspendedName
     if not name then return end
     H.suspendedName = nil
-    H.restoreToken = (H.restoreToken or 0) + 1
-    local token = H.restoreToken
     local function restore()
-        if token ~= H.restoreToken or type(UISpecialFrames) ~= "table" then return end
+        if H.suspendedName == name or type(UISpecialFrames) ~= "table" then return end
+        local dashboard = LJ.UI and LJ.UI.frame
+        if LJ.RunDetail and LJ.RunDetail:IsShown() and dashboard and dashboard:GetName() == name then return end
         for i = 1, #UISpecialFrames do if UISpecialFrames[i] == name then return end end
         table.insert(UISpecialFrames, name)
     end
@@ -772,7 +793,12 @@ function H:Create()
         self.compareValues[i] = column
     end
     self.comparePanel:Hide()
-    f:SetScript("OnShow", function() suspendDashboardEscape(); H:Refresh() end)
+    f:Hide()
+    f:SetScript("OnShow", function()
+        suspendDashboardEscape()
+        if LJ.RunDetail and LJ.RunDetail:IsShown() then LJ.RunDetail:SuspendParentEscape() end
+        H:Refresh()
+    end)
     f:SetScript("OnHide", function()
         H.menu:Hide()
         H.dateMenu:Hide()
@@ -789,7 +815,6 @@ function H:Create()
         end
         if not found then table.insert(UISpecialFrames, escapeName) end
     end
-    f:Hide()
     LJ:RegisterRefresh(function() if f:IsShown() then H:Refresh() end end)
     return f
 end
@@ -836,7 +861,6 @@ function H:ShowComparison(first, second)
     if not data or not self.comparePanel then return false end
     self.compareTitle:SetText(LJ.L("HISTORY_COMPARE_TITLE",
         W:Truncate(LJ:DungeonName(first), 37)))
-    self:ApplyTheme()
     for i, run in ipairs({ data.first, data.second }) do
         local column = self.compareValues[i]
         local when = LJ:FormatTime(run.started, "DATE_TIME")
@@ -867,7 +891,6 @@ function H:SelectForComparison(run)
         self.comparePanel:Hide()
     else
         self.compareB = run
-        self:ShowComparison(self.compareA, self.compareB)
     end
     self:Refresh()
     return true
@@ -887,6 +910,17 @@ end
 function H:Refresh()
     if not self.frame or not LJ.Tracker then return end
     local runs = LJ.Tracker:GetRuns()
+    if self.compareA then
+        local foundA, foundB = false, false
+        for _, run in ipairs(runs) do
+            if run == self.compareA then foundA = true end
+            if run == self.compareB then foundB = true end
+        end
+        if not foundA or (self.compareB and
+            (not foundB or not self:ShowComparison(self.compareA, self.compareB))) then
+            self:ClearComparison()
+        end
+    end
     if self.dungeon then
         local key = self:ResolveDungeonKey(self.dungeon, runs, self.dungeonKey)
         if key then

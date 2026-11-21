@@ -1,4 +1,4 @@
--- Curated item ID/source index from ForeverDungeonJournal 2.1.0 (WoW Forever 1.60.1).
+-- Curated item ID/source index from ForeverDungeonJournal 2.1.1 (WoW Forever 1.60.1).
 -- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, tools/wowhead_forever_loot.tsv,
 -- and reviewed tools/foreverdb_loot_reviewed.tsv (Data from ForeverDB.net — https://foreverdb.net).
 -- Reference data only: observations and client events decide whether an item actually dropped.
@@ -39,7 +39,7 @@ LJ.DungeonLootData = {
         { "Captain Greenskin", false, { 5201, 10403, 5200 } },
         { "Edwin VanCleef", false, { 5193, 5202, 10399, 5191, 2874, 252799, 252800, 252801, 252803, 253938, 253948, 251345, 251346, 251347, 251348, 251349, 251383, 252792, 252793, 252794, 252795, 252796, 252797, 253940, 253942, 253944, 253946 } },
         { "Cookie", false, { 5198, 5197, 273298, 251360, 252778, 252779, 253910, 253912, 273102 } },
-        { "Trash Drops", true, { 10402, 10401, 10400, 1951, 1929, 1934, 1936, 1943, 1930, 1944, 1945 } },
+        { "Trash Drops", true, { 10402, 10401, 10400, 1951, 1929, 1934, 1936, 1943, 1930, 1944, 1945, 1925 } },
     },
     ["Wailing Caverns"] = {
         { "Lord Cobrahn", false, { 6460, 10410, 6465, 252782 } },
@@ -303,11 +303,12 @@ LJ.DungeonLootData = {
         { "Trash Drops", true, { 16696, 16713, 16735, 16717, 16673, 16680, 16703, 16683, 16685, 16736, 16681, 16710, 16716, 13260, 16247 } },
     },
     ["Dire Maul: East"] = {
-        { "Pusillin", false, { 18316, 18267 } },
-        { "Zevrim Thornhoof", false, { 18313, 18323, 18319 } },
+        { "Pusillin", false, { 18316, 18320, 18267 } },
+        { "Zevrim Thornhoof", false, { 18313, 18323, 18319, 18308, 18306 } },
         { "Hydrospawn", false, { 18322, 18317, 18324, 18305, 18307, 7091 } },
-        { "Lethtendris", false, { 18325, 18311, 18302, 18354 } },
+        { "Lethtendris", false, { 18325, 18311, 18301, 18302, 18354 } },
         { "Alzzin the Wildshaper", false, { 18309, 18310, 18312, 18314, 18315, 18318, 18321, 18326, 18327, 18328 } },
+        { "Isalien", false, { 22314, 22472, 22315, 22304, 22401, 22345, 21984, 22046 } },
         { "Trash Drops", true, { 18296, 18289, 18298, 18295 } },
     },
     ["Dire Maul: West"] = {
@@ -372,8 +373,8 @@ LJ.DungeonLootData = {
         { "Kirtonos the Herald", false, { 13960, 13967, 13969, 14024, 13957, 16734, 13955, 13956, 13983 } },
         { "Jandice Barov", false, { 16701, 14545, 14541, 14548, 18690, 18689, 22394 } },
         { "Rattlegore", false, { 16711, 14528, 14531, 14537, 14538, 14539, 18686 } },
-        { "Marduk Blackpool", false, { 14576, 18692 } },
-        { "Vectus", false, { 14577, 18691, 273121 } },
+        { "Marduk Blackpool", false, { 14576, 18692, 276069, 276071 } },
+        { "Vectus", false, { 14577, 18691, 276073, 276072, 273121 } },
         { "Ras Frostwhisper", false, { 16689, 14487, 14502, 18694, 18696, 13952, 14340, 14522, 14525, 18693, 13314, 14503, 18695, 13521, 273112 } },
         { "Instructor Malicia", false, { 16710, 23201, 23200, 18680, 14614, 14616, 14615, 14611, 14612, 18681, 14637, 14636, 14640, 14638, 14641, 14624, 14622, 14620, 14623, 14621, 18684, 18682, 18683, 14631, 14629, 14632, 14633, 14626 } },
         { "Doctor Theolen Krastinov", false, { 16684, 14617, 23201, 23200, 18680, 14614, 14616, 14615, 14611, 14612, 18681, 14637, 14636, 14640, 14638, 14641, 14624, 14622, 14620, 14623, 14621, 18684, 18682, 18683, 14631, 14629, 14632, 14633, 14626, 273118 } },

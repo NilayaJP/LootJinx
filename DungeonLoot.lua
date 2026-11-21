@@ -71,28 +71,6 @@ local function indexData()
     end
 end
 
-local function candidates(run)
-    if type(run) ~= "table" then return nil end
-    local value = BY_INSTANCE[tonumber(run.instanceID)]
-    local name = type(run.name) == "string" and byLowerName[run.name:lower()] or nil
-    if type(value) == "string" then return { value } end
-    if type(value) == "table" then
-        if name then
-            for _, candidate in ipairs(value) do
-                if candidate == name then return { name } end
-            end
-        end
-        return value
-    end
-    if name then return { name } end
-    return nil
-end
-
-function Catalog:Candidates(run)
-    indexData()
-    return candidates(run)
-end
-
 local displayKeys
 local function displayKey(name)
     if not displayKeys then
@@ -103,7 +81,7 @@ local function displayKey(name)
             if previous == nil then displayKeys[label] = key
             elseif previous ~= key then displayKeys[label] = false end
         end
-        for key, translations in pairs(LJ.DungeonNames) do
+        for key, translations in pairs(LJ.DungeonNames or {}) do
             index(key, key)
             for _, label in pairs(translations) do index(label, key) end
         end
@@ -111,6 +89,30 @@ local function displayKey(name)
         index("Temple of Atal'Hakkar", "Sunken Temple")
     end
     return displayKeys[(name:gsub("’", "'"):lower())]
+end
+
+local function candidates(run)
+    if type(run) ~= "table" then return nil end
+    local value = BY_INSTANCE[tonumber(run.instanceID)]
+    if type(value) == "string" then return { value } end
+    local name
+    if type(run.name) == "string" then
+        local localizedKey = displayKey(run.name)
+        name = byLowerName[run.name:lower()]
+            or (localizedKey and byLowerName[localizedKey:lower()])
+    end
+    if type(value) == "table" then
+        for _, candidate in ipairs(value) do
+            if candidate == name then return { name } end
+        end
+        return value
+    end
+    if name then return { name } end
+end
+
+function Catalog:Candidates(run)
+    indexData()
+    return candidates(run)
 end
 
 function Catalog:DisplayName(run, language)

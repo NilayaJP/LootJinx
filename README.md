@@ -2,7 +2,7 @@
 
 LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: lost Need rolls, unlucky streaks, missing loot, and personal records. Tracking starts automatically in dungeons, raids, and scenarios. Available in all supported client languages, with **Classic** and **Dungeon Journal** designs.
 
-**Current version:** 1.7.2 · **Interface:** 16001 · **Dependencies:** None
+**Current version:** 1.7.3 · **Interface:** 16001 · **Dependencies:** None
 
 ## What it tracks
 
@@ -43,7 +43,7 @@ Version 1.7.1 added smooth corner drag-resizing (40% to 300%) with right-click r
 
 The loot catalog is curated from ForeverDungeonJournal and reviewed against Wowhead Forever and [ForeverDB.net](https://foreverdb.net). The build-time importer uses the ForeverDB API for the instance list and the public dungeon pages for observed drops. Reviewed item sources are bundled with the addon.
 
-To refresh the review snapshot, set `FOREVERDB_API_KEY` in the repository's `.env` or in your environment, then run `python tools/fetch_foreverdb_loot.py <path-to-ForeverDungeonJournal/Data/Dungeons.lua>` and `lua tools/review_foreverdb_loot.lua` from the repository root. Check the item pages for direct NPC sources before accepting dungeon-page observations into the catalog.
+To refresh the review snapshot, set `FOREVERDB_API_KEY` in the repository's `.env` or in your environment, then run `python tools/fetch_foreverdb_loot.py <path-to-ForeverDungeonJournal/Data/Dungeons.lua>` and `lua tools/review_foreverdb_loot.lua --all` from the repository root. The report includes dungeon loot and loot from unmatched bosses, with the evidence label from ForeverDB. Check the item pages for direct NPC sources before accepting dungeon-page observations into the catalog.
 
 [Data from ForeverDB.net](https://foreverdb.net). History and run details display a copyable link to the source.
 

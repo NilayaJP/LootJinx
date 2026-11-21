@@ -1,4 +1,4 @@
--- Required boss names from ForeverDungeonJournal 2.0.5 with available German names and reviewed Wowhead Forever encounter labels. Rare, optional, summoned, and trash entries excluded.
+-- Required boss names from ForeverDungeonJournal 2.1.1 with available German names and reviewed Wowhead Forever encounter labels. Rare, optional, summoned, and trash entries excluded.
 local ADDON, ns = ...
 local LJ = ns or _G.LootJinx
 if not LJ then return end
@@ -18,10 +18,10 @@ LJ.DungeonCompletionData = {
     ["Ruins of Lordaeron"] = {
         { name = "The Baron", aliases = { "The Baron", "The Butcher", "Der Baron" }, npcID = 250660, deName = "Der Baron" },
         { name = "Witherfang", aliases = { "Witherfang", "Welkzahn" }, npcID = 250483, deName = "Welkzahn" },
+        { name = "Viktor the Vile", aliases = { "Viktor the Vile", "Viktor der Üble" }, npcID = 256035, deName = "Viktor der Üble" },
         { name = "The Abandoned", aliases = { "The Abandoned", "Der Verlassene" }, npcID = 250631, deName = "Der Verlassene" },
         { name = "Bjork", aliases = { "Bjork" }, npcID = 256097 },
         { name = "Rath'mael", aliases = { "Rath'mael", "Rath’mael" }, npcID = 250657 },
-        { name = "Viktor the Vile", aliases = { "Viktor the Vile", "Viktor der Üble" }, npcID = 256035, deName = "Viktor der Üble" },
     },
     ["The Deadmines"] = {
         { name = "Rhahk'Zor", aliases = { "Rhahk'Zor" }, npcID = 644 },
@@ -45,7 +45,6 @@ LJ.DungeonCompletionData = {
     },
     ["Shadowfang Keep"] = {
         { name = "Rethilgore", aliases = { "Rethilgore", "Rotkralle" }, npcID = 3914, deName = "Rotkralle" },
-        { name = "Fel Steed / Shadow Charger", aliases = { "Fel Steed / Shadow Charger", "Fel Steed", "Shadow Charger", "Teufelsross / Schattenstürmer", "Fel Steeds / Shadow Charger" }, npcID = 3864, deName = "Teufelsross / Schattenstürmer" },
         { name = "Razorclaw the Butcher", aliases = { "Razorclaw the Butcher", "Klingenklaue der Metzger" }, npcID = 3886, deName = "Klingenklaue der Metzger" },
         { name = "Baron Silverlaine", aliases = { "Baron Silverlaine", "Baron Silberlein" }, npcID = 3887, deName = "Baron Silberlein" },
         { name = "Commander Springvale", aliases = { "Commander Springvale", "Kommandant Springvale" }, npcID = 4278, deName = "Kommandant Springvale" },
@@ -64,17 +63,17 @@ LJ.DungeonCompletionData = {
         { name = "Twilight Lord Kelris", aliases = { "Twilight Lord Kelris", "Twilight-Lord Kelris" }, npcID = 4832, deName = "Twilight-Lord Kelris" },
         { name = "Aku'mai", aliases = { "Aku'mai", "Aku’mai" }, npcID = 4829 },
     },
-    ["Excavation Site: Wetlands"] = {
-        { name = "Saltspine", aliases = { "Saltspine", "Salzrücken" }, npcID = 260322, deName = "Salzrücken" },
-        { name = "Shadetooth", aliases = { "Shadetooth", "Schemenzahn" }, npcID = 260325, deName = "Schemenzahn" },
-        { name = "Relic Guardian", aliases = { "Relic Guardian", "Reliktwächter" }, npcID = 260326, deName = "Reliktwächter" },
-    },
     ["The Stockade"] = {
         { name = "Targorr the Dread", aliases = { "Targorr the Dread", "Targorr der Schreckliche" }, npcID = 1696, deName = "Targorr der Schreckliche" },
         { name = "Kam Deepfury", aliases = { "Kam Deepfury", "Kam Tiefenzorn" }, npcID = 1666, deName = "Kam Tiefenzorn" },
         { name = "Hamhock", aliases = { "Hamhock" }, npcID = 1717 },
         { name = "Dextren Ward", aliases = { "Dextren Ward" }, npcID = 1663 },
         { name = "Bazil Thredd", aliases = { "Bazil Thredd" }, npcID = 1716 },
+    },
+    ["Excavation Site: Wetlands"] = {
+        { name = "Saltspine", aliases = { "Saltspine", "Salzrücken" }, npcID = 260322, deName = "Salzrücken" },
+        { name = "Shadetooth", aliases = { "Shadetooth", "Schemenzahn" }, npcID = 260325, deName = "Schemenzahn" },
+        { name = "Relic Guardian", aliases = { "Relic Guardian", "Reliktwächter" }, npcID = 260326, deName = "Reliktwächter" },
     },
     ["City of Dalaran"] = {
         { name = "Atrexis the Grave Knight", aliases = { "Atrexis the Grave Knight", "Atrexis der Grabritter" }, npcID = 247126, deName = "Atrexis der Grabritter" },
@@ -130,6 +129,14 @@ LJ.DungeonCompletionData = {
         { name = "Glutton", aliases = { "Glutton", "Nimmersatt" }, npcID = 8567, deName = "Nimmersatt" },
         { name = "Amnennar the Coldbringer", aliases = { "Amnennar the Coldbringer", "Amnennar", "Amnennar der Kältebringer" }, npcID = 7358, deName = "Amnennar der Kältebringer" },
     },
+    ["Krol'dok Stronghold"] = {
+        { name = "Slavecrusher Grox", aliases = { "Slavecrusher Grox", "Sklavenbrecher Grox" }, npcID = 258966, deName = "Sklavenbrecher Grox" },
+        { name = "Twilight Commander Zarmok", aliases = { "Twilight Commander Zarmok", "Zarmok", "Twilight-Kommandant Zarmok" }, npcID = 258972, deName = "Twilight-Kommandant Zarmok" },
+        { name = "War Handler Ashka", aliases = { "War Handler Ashka", "Handler Ashka", "Kriegswärterin Ashka" }, npcID = 259281, deName = "Kriegswärterin Ashka" },
+        { name = "Nar'gurk", aliases = { "Nar'gurk", "Nar'guk" }, npcID = 258964, deName = "Nar'guk" },
+        { name = "Bossman Toof", aliases = { "Bossman Toof", "Boss Kof", "Bossmann Toof" }, npcID = 264773, deName = "Bossmann Toof" },
+        { name = "Overlord Mugg", aliases = { "Overlord Mugg", "Overseer Mugg", "Oberanführer Mugg" }, npcID = 258968, deName = "Oberanführer Mugg" },
+    },
     ["Uldaman"] = {
         { name = "Revelosh", aliases = { "Revelosh" }, npcID = 6910 },
         { name = "The Lost Dwarves", aliases = { "The Lost Dwarves", "Baelog", "Eric \"The Swift\"", "Olaf", "Die verschollenen Zwerge" }, npcID = 6906, deName = "Die verschollenen Zwerge" },
@@ -139,14 +146,6 @@ LJ.DungeonCompletionData = {
         { name = "Galgann Firehammer", aliases = { "Galgann Firehammer", "Galgann Feuerhammer" }, npcID = 7291, deName = "Galgann Feuerhammer" },
         { name = "Grimlok", aliases = { "Grimlok" }, npcID = 4854 },
         { name = "Archaedas", aliases = { "Archaedas" }, npcID = 2748 },
-    },
-    ["Krol'dok Stronghold"] = {
-        { name = "Slavecrusher Grox", aliases = { "Slavecrusher Grox", "Sklavenbrecher Grox" }, npcID = 258966, deName = "Sklavenbrecher Grox" },
-        { name = "Twilight Commander Zarmok", aliases = { "Twilight Commander Zarmok", "Zarmok", "Twilight-Kommandant Zarmok" }, npcID = 258972, deName = "Twilight-Kommandant Zarmok" },
-        { name = "War Handler Ashka", aliases = { "War Handler Ashka", "Handler Ashka", "Kriegswärterin Ashka" }, npcID = 259281, deName = "Kriegswärterin Ashka" },
-        { name = "Nar'gurk", aliases = { "Nar'gurk", "Nar'guk" }, npcID = 258964, deName = "Nar'guk" },
-        { name = "Bossman Toof", aliases = { "Bossman Toof", "Boss Kof", "Bossmann Toof" }, npcID = 264773, deName = "Bossmann Toof" },
-        { name = "Overlord Mugg", aliases = { "Overlord Mugg", "Overseer Mugg", "Oberanführer Mugg" }, npcID = 258968, deName = "Oberanführer Mugg" },
     },
     ["Zul'Farrak"] = {
         { name = "Theka the Martyr", aliases = { "Theka the Martyr", "Theka der Märtyrer" }, npcID = 7272, deName = "Theka der Märtyrer" },
@@ -178,6 +177,7 @@ LJ.DungeonCompletionData = {
         { name = "Blazeroar", aliases = { "Blazeroar" }, npcID = 255702 },
     },
     ["Sunken Temple"] = {
+        { name = "Altar Bosses", aliases = { "Altar Bosses", "Altarbosse" }, npcID = nil, deName = "Altarbosse", impliedBy = { "Jammal'an the Prophet", "Jammal'an der Prophet" }, members = { "Gasher", "Hukku", "Loro", "Mijan", "Zolo", "Zul'Lor" } },
         { name = "Atal'alarion", aliases = { "Atal'alarion" }, npcID = 8580 },
         { name = "Morphaz & Hazzas", aliases = { "Morphaz & Hazzas", "Morphaz", "Морфаз", "몰파즈", "摩弗拉斯" }, npcID = 5719 },
         { name = "Jammal'an the Prophet", aliases = { "Jammal'an the Prophet", "Jammal'an der Prophet" }, npcID = 5710, deName = "Jammal'an der Prophet" },
@@ -301,7 +301,7 @@ LJ.DungeonCompletionData = {
         { name = "Izha'Rel and Tor'Rel", aliases = { "Izha'Rel and Tor'Rel", "Izha'Rel", "Tor'Rel", "Izha'Rel & Tor'Rel" }, npcID = 253218, deName = "Izha'Rel & Tor'Rel" },
         { name = "Nanaya", aliases = { "Nanaya" }, npcID = 261809 },
     },
-    -- Raids (Bossnamen aus AHledger, Encounter-Reihenfolge; optional/summoned ausgelassen)
+    -- Separately reviewed raid encounters.
     ["Molten Core"] = {
         { name = "Lucifron", aliases = { "Lucifron" }, npcID = nil },
         { name = "Magmadar", aliases = { "Magmadar" }, npcID = nil },
@@ -379,8 +379,8 @@ LJ.DungeonCompletionNames = {
     ["Wailing Caverns"] = "Höhlen des Wehklagens",
     ["Shadowfang Keep"] = "Burg Schattenfang",
     ["Blackfathom Deeps"] = "Tiefschwarze Grotte",
-    ["Excavation Site: Wetlands"] = "Ausgrabungsstätte: Sumpfland",
     ["The Stockade"] = "Das Verlies",
+    ["Excavation Site: Wetlands"] = "Ausgrabungsstätte: Sumpfland",
     ["City of Dalaran"] = "Dalaran",
     ["Gnomeregan"] = "Gnomeregan",
     ["Razorfen Kraul"] = "Kral der Klingenhauer",
@@ -390,8 +390,8 @@ LJ.DungeonCompletionNames = {
     ["Scarlet Monastery: Armory"] = "Scharlachrotes Kloster - Waffenkammer",
     ["Scarlet Monastery: Cathedral"] = "Scharlachrotes Kloster - Kathedrale",
     ["Razorfen Downs"] = "Hügel der Klingenhauer",
-    ["Uldaman"] = "Uldaman",
     ["Krol'dok Stronghold"] = "Feste Krol'dok",
+    ["Uldaman"] = "Uldaman",
     ["Zul'Farrak"] = "Zul'Farrak",
     ["Maraudon"] = "Maraudon",
     ["Alcaz Prison"] = "Gefängnis von Alcaz",

@@ -121,6 +121,21 @@ function R:Cancel()
     queue = {}
 end
 
+local function isGroupReport()
+    return reportChannel == "PARTY" or reportChannel == "RAID"
+end
+
+local rosterFrame = CreateFrame and CreateFrame("Frame")
+if rosterFrame then
+    rosterFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
+    rosterFrame:SetScript("OnEvent", function()
+        if isGroupReport() and #queue > 0 then
+            R:Cancel()
+            LJ:Print(LJ.L("REPORT_SEND_FAILED"))
+        end
+    end)
+end
+
 local function finishReport()
     if reportChannel == "WHISPER" then
         LJ:Print(LJ.L("REPORT_SENT_WHISPER", reportDisplay or reportTarget or "?"))
@@ -140,6 +155,13 @@ local function sendNextLine(currentSession)
         timer = nil
         finishReport()
         return true
+    end
+    if isGroupReport() then
+        local channel, inGroup = groupChat()
+        if not inGroup or channel ~= reportChannel then
+            queue, timer = {}, nil
+            return false
+        end
     end
     local sent, accepted
     if reportChannel == "BN_WHISPER" then

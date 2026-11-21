@@ -90,7 +90,7 @@ local function selectLanguage(code)
     StaticPopup_Show("LOOTJINX_RELOAD", nil, nil, code)
 end
 
-local function createCheck(parent, key, labelText, hintText, y)
+local function createCheck(parent, key, labelText, hintText, y, rowWidth)
     local check = CreateFrame("CheckButton", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     check:SetSize(18, 18)
     check:SetPoint("TOPLEFT", 14, y)
@@ -117,7 +117,7 @@ local function createCheck(parent, key, labelText, hintText, y)
 
     local hint = W:Font(parent, 8, C.dim, "")
     hint:SetPoint("TOPLEFT", 40, y - 14)
-    hint:SetWidth(500)
+    hint:SetWidth(rowWidth or 500)
     hint:SetText(hintText)
 
     local function highlight(active)
@@ -141,7 +141,7 @@ local function createCheck(parent, key, labelText, hintText, y)
     -- Die gesamte Zeile ist klickbar, nicht nur die kleine Checkbox.
     local hit = CreateFrame("Button", nil, parent)
     hit:SetPoint("TOPLEFT", 40, y + 4)
-    hit:SetSize(510, 30)
+    hit:SetSize(rowWidth or 510, 30)
     hit:SetFrameLevel(check:GetFrameLevel() + 1)
     hit:SetScript("OnEnter", function() highlight(true) end)
     hit:SetScript("OnLeave", function() highlight(false) end)
@@ -205,7 +205,7 @@ local function buildPanel()
     windowTitle:SetPoint("TOPLEFT", 14, -10)
     windowTitle:SetText(LJ.L("OPT_WINDOW"))
 
-    controls.compact = createCheck(window, "compact", LJ.L("OPT_COMPACT"), LJ.L("OPT_COMPACT_HINT"), -28)
+    controls.compact = createCheck(window, "compact", LJ.L("OPT_COMPACT"), LJ.L("OPT_COMPACT_HINT"), -28, 354)
 
     local reset = W:Button(window, LJ.L("OPT_RESET_POS"), 150, 22)
     reset:SetPoint("TOPRIGHT", -14, -28)

@@ -34,13 +34,19 @@ local function loadRows(path)
 end
 
 local function loadUnmapped(path)
-    local pages, bosses = {}, {}
+    local pages, bosses, items = {}, {}, {}
     local file = io.open(path, "r")
-    if not file then return pages, bosses end
+    if not file then return pages, bosses, items end
     for line in file:lines() do
         if line ~= "" and line:sub(1, 1) ~= "#" then
-            local page, boss, reason, url = line:match("^([^\t]+)\t([^\t]+)\t([^\t]*)\t([^\t]+)$")
-            if page then
+            local page, boss, reason, url, id, name, drops, kills, evidence =
+                line:match("^([^\t]+)\t([^\t]+)\t([^\t]*)\t([^\t]+)\t(%d+)\t([^\t]+)\t(%d*)\t(%d*)\t([^\t]*)$")
+            if id then
+                items[#items + 1] = { page = page, boss = boss, reason = reason, url = url,
+                    id = tonumber(id), name = name, drops = tonumber(drops), kills = tonumber(kills), evidence = evidence }
+            else
+                page, boss, reason, url = line:match("^([^\t]+)\t([^\t]+)\t([^\t]*)\t([^\t]+)$")
+                assert(page, "invalid unresolved ForeverDB row: " .. line)
                 if boss == "-" then
                     pages[#pages + 1] = { page = page, reason = reason, url = url }
                 else
@@ -50,7 +56,7 @@ local function loadUnmapped(path)
         end
     end
     file:close()
-    return pages, bosses
+    return pages, bosses, items
 end
 
 local function set()
@@ -328,14 +334,23 @@ print(string.format("  Total: %d catalog items never observed; %d with a meaning
     onlyTotal, onlyStrict))
 
 -- 4. Unresolved ForeverDB pages and bosses.
-local pages, bosses = loadUnmapped(UNMAPPED)
+local pages, bosses, items = loadUnmapped(UNMAPPED)
 print("")
-print(string.format("Unresolved ForeverDB content: %d pages, %d bosses", #pages, #bosses))
+print(string.format("Unresolved ForeverDB content: %d pages, %d bosses, %d item references",
+    #pages, #bosses, #items))
 for _, page in ipairs(pages) do
     print(string.format("  page: %s — %s", page.page, page.reason))
 end
 for _, boss in ipairs(bosses) do
     print(string.format("  boss: %s / %s — %s", boss.page, boss.boss, boss.reason))
+end
+if showAll then
+    for _, row in ipairs(items) do
+        print(string.format("  unassigned: [%s] %s / %d %s — %s — %s — %s",
+            row.page, row.boss, row.id, row.name, row.reason, row.evidence, row.url))
+    end
+elseif #items > 0 then
+    print("  Use --all to list item references without a unique source.")
 end
 
 print("")

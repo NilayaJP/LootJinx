@@ -52,6 +52,8 @@ BOSS_ALIASES = {
 }
 
 BOSS_LOOT = re.compile(r"<h4\b[^>]*>\s*Loot\s*</h4>\s*<ul\b[^>]*>(.*?)</ul>", re.I | re.S)
+DUNGEON_LOOT = re.compile(
+    r"<h2\b[^>]*>\s*Loot from the dungeon\s*</h2>(.*?)(?=<h2\b|\Z)", re.I | re.S)
 BOSS_HEADING = re.compile(r"<h3\b[^>]*>\s*\d+\.\s*(.*?)\s*</h3>", re.I | re.S)
 ITEM_ROW = re.compile(
     r'<li\b[^>]*>\s*<a\b[^>]*href="/item/(\d+)"[^>]*>(.*?)</a>(.*?)</li>', re.I | re.S)
@@ -182,7 +184,7 @@ def dungeon_candidates(page_name, order):
         by_key[normalize(dungeon)] = dungeon
         by_key[normalize(without_the(dungeon))] = dungeon
     if key in DUNGEON_ALIASES:
-        return [DUNGEON_ALIASES[key]]
+        return [DUNGEON_ALIASES[key]] if DUNGEON_ALIASES[key] in order else []
     if key in by_key:
         return [by_key[key]]
     for prefix_key, prefixes in WING_PREFIXES.items():
@@ -204,19 +206,24 @@ def page_bosses(page):
     return bosses
 
 
-def parse_loot(block):
-    loot = BOSS_LOOT.search(block)
-    if not loot:
-        return []
-    items = []
-    for item in ITEM_ROW.finditer(loot.group(1)):
+def parse_items(block):
+    for item in ITEM_ROW.finditer(block):
         item_id = int(item.group(1))
         name = text(item.group(2))
         note = text(item.group(3))
         rate = DROP_RATE.search(note)
         drops, kills = (int(rate.group(1)), int(rate.group(2))) if rate else (None, None)
-        items.append((item_id, name, drops, kills, bool(rate)))
-    return items
+        yield item_id, name, drops, kills, note
+
+
+def parse_loot(block):
+    for loot in BOSS_LOOT.finditer(block):
+        yield from parse_items(loot.group(1))
+
+
+def queue_items(queue, page_name, boss_name, reason, url, items):
+    for item_id, name, drops, kills, note in items:
+        queue.append((page_name, boss_name, reason, url, item_id, name, drops, kills, note))
 
 
 def main():
@@ -229,6 +236,7 @@ def main():
 
     rows = {}
     unmapped = []
+    items_for_review = []
     pages_without_dungeon = []
     failed = []
     observed_bosses = {}
@@ -243,6 +251,9 @@ def main():
             failed.append(str(error))
             continue
         candidates = dungeon_candidates(page_name, order)
+        for loot in DUNGEON_LOOT.finditer(page):
+            queue_items(items_for_review, page_name, "-", "dungeon loot without a unique source",
+                        url, parse_items(loot.group(1)))
         bosses = page_bosses(page)
         if not bosses:
             if candidates:
@@ -254,6 +265,7 @@ def main():
             pages_without_dungeon.append((page_name, url, len(bosses)))
         for boss_name, block in bosses:
             target = None
+            reason = "no DungeonJournal dungeon"
             if candidates:
                 hits = [hit for hit in aliases.get(normalize(boss_name), []) if hit[0] in candidates]
                 if not hits:
@@ -264,20 +276,21 @@ def main():
                 if len(hits) == 1:
                     target = hits[0]
                 elif len(hits) > 1:
-                    unmapped.append((page_name, boss_name,
-                                     "ambiguous: " + ", ".join(f"{d} / {b}" for d, b in hits), url))
+                    reason = "ambiguous: " + ", ".join(f"{d} / {b}" for d, b in hits)
                 else:
                     elsewhere = aliases.get(normalize(boss_name), [])
                     reason = ("mapped elsewhere: " + ", ".join(f"{d} / {b}" for d, b in elsewhere)
                               if elsewhere else "no DungeonJournal boss")
-                    unmapped.append((page_name, boss_name, reason, url))
             if not target:
+                if candidates:
+                    unmapped.append((page_name, boss_name, reason, url))
+                queue_items(items_for_review, page_name, boss_name, reason, url, parse_loot(block))
                 continue
             dungeon, boss = target
             covered_dungeons.add(dungeon)
             observed_bosses[(dungeon, boss)] = observed_bosses.get((dungeon, boss), 0) + 1
-            for item_id, name, drops, kills, has_rate in parse_loot(block):
-                if not has_rate:
+            for item_id, name, drops, kills, _ in parse_loot(block):
+                if drops is None:
                     no_rate += 1
                 rows.setdefault((dungeon, boss, item_id), (dungeon, boss, item_id, name,
                                                           drops, kills, url))
@@ -307,12 +320,14 @@ def main():
         content.append("\t".join("" if value is None else str(value) for value in row))
     OUT.write_text("\n".join(content) + "\n", encoding="utf-8")
 
-    lines = ["# Page\tBoss\tReason\tForeverDB URL"]
+    lines = ["# Page\tBoss\tReason\tForeverDB URL\tItem ID\tItem\tDrops\tKills\tEvidence"]
     for page_name, url, count in pages_without_dungeon:
         detail = "no Bosses section" if count is None else f"{count} bosses"
         lines.append(f"{page_name}\t-\tno DungeonJournal dungeon ({detail})\t{url}")
     for page_name, boss, reason, url in unmapped:
         lines.append(f"{page_name}\t{boss}\t{reason}\t{url}")
+    for row in items_for_review:
+        lines.append("\t".join("" if value is None else str(value) for value in row))
     UNMAPPED_OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     dungeons = {row[0] for row in rows.values()}
@@ -324,6 +339,7 @@ def main():
     print("  no ForeverDB page:", ", ".join(missing_dungeons) or "none")
     if unmapped:
         print(f"  {len(unmapped)} bosses without a unique match (see {UNMAPPED_OUT})")
+    print(f"  {len(items_for_review)} item references without a unique source (see {UNMAPPED_OUT})")
     if no_rate:
         print(f"  {no_rate} items had no observed drop rate")
     print(f"Total: {len(rows)} references at {len(observed_bosses)} bosses in {len(dungeons)} dungeons")

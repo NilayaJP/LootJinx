@@ -91,7 +91,7 @@ function LJ:AddOnVersion()
         local ok, version = pcall(getter, "LootJinx", "Version")
         if ok and type(version) == "string" and version ~= "" then return version end
     end
-    return "1.7.2"
+    return "1.7.3"
 end
 
 local function normalizeBoss(b, fallbackAt)
@@ -144,13 +144,14 @@ local function normalizeRoll(r, fallbackAt)
     local name = type(r.name) == "string" and r.name or nil
     if not id or not value or not name then return nil end
     local kind = r.kind
-    if kind ~= "need" and kind ~= "greed" and kind ~= "transmog" then kind = "need" end
+    if kind ~= "need" and kind ~= "greed" and kind ~= "transmog" then kind = nil end
     return {
         id = id,
         name = name,
         kind = kind,
         value = value,
         at = tonumber(r.at) or fallbackAt or 0,
+        rollID = tonumber(r.rollID),
         lootHistoryKey = type(r.lootHistoryKey) == "string" and r.lootHistoryKey or nil,
         chatSeen = r.chatSeen == true,
     }
@@ -200,6 +201,15 @@ end
 
 local function itemHistoryKey(id, key)
     if key and key ~= "" then return id .. ":" .. key end
+end
+
+local function noteUniqueMatch(matches, key, value)
+    local previous = matches[key]
+    if previous == nil then
+        matches[key] = value
+    elseif previous ~= value then
+        matches[key] = false
+    end
 end
 
 local function normalizeRun(run, fallbackID)
@@ -331,29 +341,6 @@ local function normalizeRun(run, fallbackID)
         if roll then cleanRolls[#cleanRolls + 1] = roll end
     end
     run.rolls = cleanRolls
-    local function sameObservedDrop(a, b)
-        if a.id ~= b.id or math.abs((a.at or 0) - (b.at or 0)) > 900 then
-            return false
-        end
-        return not (a.bossID and b.bossID and a.bossID ~= b.bossID)
-    end
-    -- An older recovery pass could append a synthetic drop beside one that
-    -- was already observed but had not yet received its Loot History key.
-    for i = #cleanDrops, 1, -1 do
-        local recovered = cleanDrops[i]
-        if recovered.source == "loot-history-recovered" then
-            for j = 1, #cleanDrops do
-                local observed = cleanDrops[j]
-                if i ~= j and observed.source ~= "loot-history-recovered"
-                    and (not observed.lootHistoryKey
-                        or observed.lootHistoryKey == recovered.lootHistoryKey)
-                    and sameObservedDrop(recovered, observed) then
-                    table.remove(cleanDrops, i)
-                    break
-                end
-            end
-        end
-    end
     -- Old runs can contain a second chat or loot-window observation of the
     -- same keyed roll. Only coalesce it when exactly one keyed drop fits.
     local function matchingObservation(keyed, duplicate)
@@ -446,10 +433,18 @@ local function normalizeRun(run, fallbackID)
     -- Older versions trimmed the earliest drops in long runs. Loot History's
     -- keyed rolls and a link observed in that run can restore the missing item
     -- without inventing a winner or a roll result.
-    local keyedDrops, linksByID = {}, {}
+    local keyedDrops, observedKeys, legacyDropsByItem, linksByID = {}, {}, {}, {}
     for _, drop in ipairs(cleanDrops) do
         local identity = itemHistoryKey(drop.id, drop.lootHistoryKey)
-        if identity then keyedDrops[identity] = true end
+        if identity then
+            keyedDrops[identity] = true
+            if drop.source ~= "loot-history-recovered" then observedKeys[identity] = true end
+        elseif not drop.rollID and not drop.windowSlotObserved
+            and drop.winner and drop.roll and drop.at > 0 then
+            local candidates = legacyDropsByItem[drop.id] or {}
+            candidates[#candidates + 1] = drop
+            legacyDropsByItem[drop.id] = candidates
+        end
     end
     for link in pairs(run.seenLinks or {}) do
         if type(link) == "string" then
@@ -459,23 +454,46 @@ local function normalizeRun(run, fallbackID)
             end
         end
     end
+    -- Match unkeyed legacy observations only when a nearby winner and roll
+    -- identify a single history drop, with no competing observation for it.
+    local dropsByHistoryKey, historyKeysByDrop, keysByIdentity = {}, {}, {}
+    for _, roll in ipairs(cleanRolls) do
+        local key = roll.lootHistoryKey
+        local identity = itemHistoryKey(roll.id, key)
+        local candidates = legacyDropsByItem[roll.id]
+        if identity and candidates and roll.kind and roll.at > 0 then
+            local bossID = tonumber(key:match("^(%d+):"))
+            keysByIdentity[identity] = key
+            for _, drop in ipairs(candidates) do
+                if drop.roll == roll.value and (not drop.rollKind or drop.rollKind == roll.kind)
+                    and math.abs(drop.at - roll.at) <= 30
+                    and (not drop.bossID or not bossID or bossID == 0 or drop.bossID == bossID)
+                    and LJ:SamePlayerName(drop.winner, roll.name) then
+                    noteUniqueMatch(dropsByHistoryKey, identity, drop)
+                    noteUniqueMatch(historyKeysByDrop, drop, identity)
+                end
+            end
+        end
+    end
+    for identity, drop in pairs(dropsByHistoryKey) do
+        if drop and historyKeysByDrop[drop] == identity and not observedKeys[identity] then
+            drop.lootHistoryKey = keysByIdentity[identity]
+            observedKeys[identity] = true
+            keyedDrops[identity] = true
+        end
+    end
+    for i = #cleanDrops, 1, -1 do
+        local drop = cleanDrops[i]
+        if drop.source == "loot-history-recovered"
+            and observedKeys[itemHistoryKey(drop.id, drop.lootHistoryKey)] then
+            table.remove(cleanDrops, i)
+        end
+    end
     for _, roll in ipairs(cleanRolls) do
         local key = roll.lootHistoryKey
         local identity = itemHistoryKey(roll.id, key)
         local link = identity and linksByID[roll.id]
-        local alreadyObserved = false
         if link and not keyedDrops[identity] then
-            local at = tonumber(roll.at) or 0
-            local bossID = tonumber(key:match("^(%d+):"))
-            for _, drop in ipairs(cleanDrops) do
-                if not drop.lootHistoryKey and sameObservedDrop(
-                    { id = roll.id, at = at, bossID = bossID }, drop) then
-                    alreadyObserved = true
-                    break
-                end
-            end
-        end
-        if link and not keyedDrops[identity] and not alreadyObserved then
             local bossID = tonumber(key:match("^(%d+):"))
             local bossName
             for _, boss in ipairs(cleanBosses) do

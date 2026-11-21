@@ -1,5 +1,5 @@
 -- Reviewed ForeverDungeonJournal boss flags; update only after source review.
-return { version = "2.0.8", bosses = {
+return { version = "2.1.1", bosses = {
     ["Alcaz Prison"] = {
         ["Blazeroar"] = "rare=0 optional=0 trash=0 summon=0 npc=255702 aliases=Blazeroar prior=",
         ["Katerina the Cleaner"] = "rare=0 optional=0 trash=0 summon=0 npc=257016 aliases=Katerina,Katerina the Cleaner prior=",
@@ -76,6 +76,7 @@ return { version = "2.0.8", bosses = {
     ["Dire Maul: East"] = {
         ["Alzzin the Wildshaper"] = "rare=0 optional=0 trash=0 summon=0 npc=11492 aliases=Alzzin the Wildshaper prior=",
         ["Hydrospawn"] = "rare=0 optional=0 trash=0 summon=0 npc=13280 aliases=Hydrospawn prior=",
+        ["Isalien"] = "rare=1 optional=0 trash=0 summon=0 npc=16097 aliases=Isalien prior=",
         ["Lethtendris"] = "rare=0 optional=0 trash=0 summon=0 npc=14327 aliases=Lethtendris prior=",
         ["Pusillin"] = "rare=0 optional=0 trash=0 summon=0 npc=14354 aliases=Pusillin prior=",
         ["Trash Drops"] = "rare=0 optional=0 trash=1 summon=0 npc=- aliases= prior=",
@@ -99,6 +100,7 @@ return { version = "2.0.8", bosses = {
         ["Magister Kalendris"] = "rare=0 optional=0 trash=0 summon=0 npc=11487 aliases=Magister Kalendris prior=",
         ["Prince Tortheldrin"] = "rare=0 optional=0 trash=0 summon=0 npc=11486 aliases=Prince Tortheldrin prior=",
         ["Tendris Warpwood"] = "rare=0 optional=0 trash=0 summon=0 npc=11489 aliases=Tendris Warpwood prior=",
+        ["Trash Drops"] = "rare=0 optional=0 trash=1 summon=0 npc=- aliases= prior=",
         ["Tsu'zee"] = "rare=1 optional=0 trash=0 summon=0 npc=11467 aliases=Tsu'zee prior=",
     },
     ["Excavation Site: Wetlands"] = {
@@ -134,11 +136,13 @@ return { version = "2.0.8", bosses = {
     },
     ["Lower Blackrock Spire"] = {
         ["Bannok Grimaxe"] = "rare=1 optional=0 trash=0 summon=0 npc=9596 aliases=Bannok Grimaxe prior=",
+        ["Burning Felguard"] = "rare=1 optional=0 trash=0 summon=0 npc=10263 aliases=Burning Felguard prior=",
         ["Crystal Fang"] = "rare=1 optional=0 trash=0 summon=0 npc=10376 aliases=Crystal Fang prior=",
         ["Ghok Bashguud"] = "rare=1 optional=0 trash=0 summon=0 npc=9718 aliases=Ghok Bashguud prior=",
         ["Gizrul the Slavener"] = "rare=0 optional=0 trash=0 summon=0 npc=10268 aliases=Gizrul the Slavener prior=",
         ["Halycon"] = "rare=0 optional=0 trash=0 summon=0 npc=10220 aliases=Halycon prior=",
         ["Highlord Omokk"] = "rare=0 optional=0 trash=0 summon=0 npc=9196 aliases=Highlord Omokk prior=",
+        ["Mor Grayhoof"] = "rare=1 optional=0 trash=0 summon=0 npc=16080 aliases=Mor Grayhoof prior=",
         ["Mother Smolderweb"] = "rare=0 optional=0 trash=0 summon=0 npc=10596 aliases=Mother Smolderweb prior=",
         ["Overlord Wyrmthalak"] = "rare=0 optional=0 trash=0 summon=0 npc=9568 aliases=Overlord Wyrmthalak prior=",
         ["Quartermaster Zigris"] = "rare=0 optional=0 trash=0 summon=0 npc=9736 aliases=Quartermaster Zigris prior=",
@@ -271,6 +275,7 @@ return { version = "2.0.8", bosses = {
         ["Cannon Master Willey"] = "rare=0 optional=0 trash=0 summon=0 npc=10997 aliases=Cannon Master Willey prior=",
         ["Ezra Grimm"] = "rare=0 optional=1 trash=0 summon=0 npc=11058 aliases=Ezra Grimm,Fras Siabi prior=",
         ["Hearthsinger Forresten"] = "rare=1 optional=0 trash=0 summon=0 npc=10558 aliases=Hearthsinger Forresten prior=",
+        ["Jarien and Sothos"] = "rare=1 optional=0 trash=0 summon=0 npc=16101 aliases=Jarien,Jarien and Sothos,Sothos prior=",
         ["Malor the Zealous"] = "rare=0 optional=1 trash=0 summon=0 npc=11032 aliases=Malor the Zealous prior=",
         ["Postmaster Malown"] = "rare=0 optional=1 trash=0 summon=0 npc=11143 aliases=Postmaster Malown prior=",
         ["Skul"] = "rare=1 optional=0 trash=0 summon=0 npc=10393 aliases=Skul prior=",
@@ -289,21 +294,21 @@ return { version = "2.0.8", bosses = {
         ["Trash Drops"] = "rare=0 optional=0 trash=1 summon=0 npc=- aliases= prior=",
     },
     ["Sunken Temple"] = {
-        ["Altar Bosses"] = "rare=0 optional=0 trash=0 summon=0 npc=- aliases= prior=",
+        ["Altar Bosses"] = "rare=0 optional=0 trash=0 summon=0 npc=- aliases= prior= members=5712,5713,5714,5715,5716,5717",
         ["Atal'alarion"] = "rare=0 optional=0 trash=0 summon=0 npc=8580 aliases=Atal'alarion prior=",
         ["Avatar of Hakkar"] = "rare=0 optional=0 trash=0 summon=0 npc=8443 aliases=Avatar of Hakkar prior=",
         ["Dreamscythe & Weaver"] = "rare=0 optional=0 trash=0 summon=0 npc=5721 aliases=Darquimeros,Dreamscythe,Fauche-rêve,Guadañasueños,Traumsense,Жнец Снов,德姆塞卡尔,德姆塞卡爾,드림사이드 prior=",
-        ["Gasher"] = "rare=0 optional=0 trash=0 summon=0 npc=5713 aliases=Gasher prior=",
-        ["Hukku"] = "rare=0 optional=0 trash=0 summon=0 npc=5715 aliases=Hukku prior=",
+        ["Gasher"] = "rare=0 optional=0 trash=0 summon=0 npc=5713 aliases=Gasher prior= parent=Altar Bosses",
+        ["Hukku"] = "rare=0 optional=0 trash=0 summon=0 npc=5715 aliases=Hukku prior= parent=Altar Bosses",
         ["Jammal'an the Prophet"] = "rare=0 optional=0 trash=0 summon=0 npc=5710 aliases=Jammal'an the Prophet prior=",
-        ["Loro"] = "rare=0 optional=0 trash=0 summon=0 npc=5714 aliases=Loro prior=",
-        ["Mijan"] = "rare=0 optional=0 trash=0 summon=0 npc=5717 aliases=Mijan prior=",
+        ["Loro"] = "rare=0 optional=0 trash=0 summon=0 npc=5714 aliases=Loro prior= parent=Altar Bosses",
+        ["Mijan"] = "rare=0 optional=0 trash=0 summon=0 npc=5717 aliases=Mijan prior= parent=Altar Bosses",
         ["Morphaz & Hazzas"] = "rare=0 optional=0 trash=0 summon=0 npc=5719 aliases=Morphaz,Морфаз,摩弗拉斯,몰파즈 prior=",
         ["Ogom the Wretched"] = "rare=0 optional=0 trash=0 summon=0 npc=5711 aliases=Ogom the Wretched prior=",
         ["Shade of Eranikus"] = "rare=0 optional=0 trash=0 summon=0 npc=5709 aliases=Shade of Eranikus prior=",
         ["Trash Drops"] = "rare=0 optional=0 trash=1 summon=0 npc=- aliases= prior=",
-        ["Zolo"] = "rare=0 optional=0 trash=0 summon=0 npc=5712 aliases=Zolo prior=",
-        ["Zul'Lor"] = "rare=0 optional=0 trash=0 summon=0 npc=5716 aliases=Zul'Lor prior=",
+        ["Zolo"] = "rare=0 optional=0 trash=0 summon=0 npc=5712 aliases=Zolo prior= parent=Altar Bosses",
+        ["Zul'Lor"] = "rare=0 optional=0 trash=0 summon=0 npc=5716 aliases=Zul'Lor prior= parent=Altar Bosses",
     },
     ["The Deadmines"] = {
         ["Captain Greenskin"] = "rare=0 optional=0 trash=0 summon=0 npc=647 aliases=Captain Greenskin prior=",
