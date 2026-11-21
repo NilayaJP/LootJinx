@@ -91,7 +91,7 @@ function LJ:AddOnVersion()
         local ok, version = pcall(getter, "LootJinx", "Version")
         if ok and type(version) == "string" and version ~= "" then return version end
     end
-    return "1.7.3"
+    return (self.ChangelogData and self.ChangelogData.version) or "1.7.4"
 end
 
 local function normalizeBoss(b, fallbackAt)
@@ -597,6 +597,10 @@ function LJ:InitDB()
     db.seenWelcome = db.seenWelcome == true
     db.locked = db.locked == true
     db.showWelcome = db.showWelcome == true
+    db.hideChangelog = db.hideChangelog == true
+    db.historyGrouped = db.historyGrouped == true
+    db.historyPresets = type(db.historyPresets) == "table" and db.historyPresets or {}
+    db.characterStats = type(db.characterStats) == "table" and db.characterStats or {}
     db.compact = db.compact == true
     db.announceRecords = db.announceRecords == true
     db.layoutPreview = db.layoutPreview == "journal" and "journal" or "classic"
@@ -912,7 +916,9 @@ local loader = CreateFrame and CreateFrame("Frame") or nil
 if loader then
     loader:RegisterEvent("ADDON_LOADED")
     loader:RegisterEvent("PLAYER_LOGIN")
-    loader:SetScript("OnEvent", function(_, event, arg1)
+    loader:RegisterEvent("PLAYER_ENTERING_WORLD")
+    loader:RegisterEvent("PLAYER_LOGOUT")
+    loader:SetScript("OnEvent", function(_, event, arg1, arg2)
         if event == "ADDON_LOADED" and arg1 == LJ.name then
             local ok, err = pcall(LJ.InitDB, LJ)
             if not ok then
@@ -928,6 +934,8 @@ if loader then
             if LJ.UI then pcall(LJ.UI.Create, LJ.UI) end
             if LJ.Minimap then pcall(LJ.Minimap.Create, LJ.Minimap) end
             if LJ.Options then pcall(LJ.Options.Create, LJ.Options) end
+            if LJ.CharacterOverview then pcall(LJ.CharacterOverview.Snapshot, LJ.CharacterOverview) end
+            if LJ.Changelog then LJ.Changelog:InitializeVersion() end
             LJ:Print(LJ.L("CHAT_LOADED", LJ:AddOnVersion()))
             local welcome = not LJ.DB.seenWelcome or LJ.DB.showWelcome == true
             if not LJ.DB.seenWelcome then LJ.DB.seenWelcome = true end
@@ -935,6 +943,10 @@ if loader then
                 C_Timer.After(4, function() LJ:Print(LJ.L("CHAT_WELCOME")) end)
             end
             LJ:Changed()
+        elseif event == "PLAYER_ENTERING_WORLD" and LJ.dbReady and arg1 == true and arg2 == false then
+            if LJ.Changelog then pcall(LJ.Changelog.ShowOnLogin, LJ.Changelog) end
+        elseif event == "PLAYER_LOGOUT" and LJ.dbReady and LJ.CharacterOverview then
+            LJ.CharacterOverview:Snapshot()
         end
     end)
 end

@@ -6,9 +6,29 @@ _G.LootJinx = LJ
 local W = {}
 LJ.Widgets = W
 
-local C = LJ.COLORS
+local C = LJ.COLORS or {}
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
+W.skins = {
+    classic = {
+        bg = { .057, .064, .087, .98 }, surface = { .084, .098, .13, .98 },
+        border = { .192, .214, .27, 1 }, hover = { .133, .141, .207, 1 },
+        text = C.text, muted = C.muted, accent = { .72, .59, .95, 1 },
+        progress = { .43, .82, .93, 1 }, track = { .153, .169, .223, 1 },
+    },
+    journal = {
+        bg = { .137, .100, .081, .98 }, surface = { .180, .134, .102, .98 },
+        border = { .340, .255, .181, 1 }, hover = { .248, .183, .126, 1 },
+        text = { .950, .900, .815, 1 }, muted = { .82, .75, .66, 1 },
+        accent = { .90, .74, .49, 1 }, progress = { .80, .61, .35, 1 },
+        track = { .255, .184, .126, 1 }, displayFont = "Fonts\\MORPHEUS.TTF",
+    },
+}
+
+function W:Skin(layout)
+    return self.skins[layout or (LJ.DB and LJ.DB.layoutPreview)] or self.skins.classic
+end
+
 -- The selected addon language can use a different script from the client.
 local SCRIPT_FONTS = {
     ko = "Fonts\\2002.TTF",
@@ -19,6 +39,18 @@ local SCRIPT_FONTS = {
 
 local function c4(c)
     return c[1], c[2], c[3], c[4] or 1
+end
+
+function W:Paint(frame, color, edge)
+    if not frame or not frame.SetBackdrop then return end
+    frame:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+    frame:SetBackdropColor(c4(color))
+    frame:SetBackdropBorderColor(c4(edge))
+end
+
+function W:ColorText(region, color)
+    region:SetTextColor(c4(color))
 end
 
 function W:ColorTexture(tex, c)
@@ -37,6 +69,60 @@ function W:SetGradient(tex, horizontal, c1, c2)
         if ok then return end
     end
     tex:SetColorTexture(c4(c1))
+end
+
+function W:AccentLine(parent)
+    local line = parent:CreateTexture(nil, "ARTWORK")
+    line:SetPoint("TOPLEFT", 1, -1)
+    line:SetPoint("TOPRIGHT", -1, -1)
+    line:SetHeight(2)
+    return line
+end
+
+function W:StyleAccent(line, skin)
+    if skin.displayFont then
+        self:ColorTexture(line, skin.progress)
+    else
+        self:SetGradient(line, true, skin.accent, skin.progress)
+    end
+end
+
+local popupLayers = setmetatable({}, { __mode = "k" })
+
+function W:StylePopup(definition)
+    local show, hide = definition.OnShow, definition.OnHide
+    definition.OnShow = function(dialog, ...)
+        local parent = dialog.BG
+        if parent and parent.CreateTexture then
+            local layers = popupLayers[dialog]
+            if not layers then
+                local fill = parent:CreateTexture(nil, "BACKGROUND", nil, -3)
+                fill:SetPoint("TOPLEFT", 4, -4)
+                fill:SetPoint("BOTTOMRIGHT", -4, 4)
+                local line = parent:CreateTexture(nil, "BACKGROUND", nil, -2)
+                line:SetPoint("TOPLEFT", 4, -4)
+                line:SetPoint("TOPRIGHT", -4, -4)
+                line:SetHeight(2)
+                layers = { fill = fill, line = line }
+                popupLayers[dialog] = layers
+            end
+            local skin = W:Skin()
+            W:ColorTexture(layers.fill, skin.bg)
+            W:StyleAccent(layers.line, skin)
+            layers.fill:Show()
+            layers.line:Show()
+        end
+        if show then show(dialog, ...) end
+    end
+    definition.OnHide = function(dialog, ...)
+        local layers = popupLayers[dialog]
+        if layers then
+            layers.fill:Hide()
+            layers.line:Hide()
+        end
+        if hide then hide(dialog, ...) end
+    end
+    return definition
 end
 
 local function tryFont(region, path, size, flags)
@@ -128,6 +214,29 @@ function W:Bar(parent, height, gradientFrom, gradientTo)
     return bar
 end
 
+local defaultButtonFill, defaultButtonHover = { .10, .11, .14, .96 }, { .16, .13, .20, .98 }
+local function buttonColors(button, hovering)
+    local skin = button.ljSkin
+    local fill = skin and (hovering and skin.hover or skin.surface)
+        or (hovering and defaultButtonHover or defaultButtonFill)
+    local edge = hovering and (skin and skin.accent or C.accent) or (skin and skin.border or C.border)
+    if button.SetBackdropColor then button:SetBackdropColor(c4(fill)) end
+    if button.SetBackdropBorderColor then button:SetBackdropBorderColor(c4(edge)) end
+    W:ColorText(button.label, skin and (button.ljSelected and skin.accent or skin.text)
+        or (hovering and C.text or C.muted))
+end
+
+function W:StyleButton(button, skin, selected)
+    button.ljSkin = skin
+    button.ljSelected = selected
+    buttonColors(button, false)
+end
+
+function W:StyleCheck(control, skin, mark)
+    self:Paint(control, skin.bg, skin.border)
+    if mark and mark.SetVertexColor then mark:SetVertexColor(c4(skin.progress)) end
+end
+
 function W:Button(parent, text, width, height)
     local b = CreateFrame("Button", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     b:SetSize(width or 64, height or 20)
@@ -147,15 +256,9 @@ function W:Button(parent, text, width, height)
     local function restLabel(self)
         self.label:SetPoint("CENTER", 0, 0)
     end
-    b:SetScript("OnEnter", function(self)
-        if self.SetBackdropBorderColor then self:SetBackdropBorderColor(c4(C.accent)) end
-        if self.SetBackdropColor then self:SetBackdropColor(0.16, 0.13, 0.20, 0.98) end
-        self.label:SetTextColor(c4(C.text))
-    end)
+    b:SetScript("OnEnter", function(self) buttonColors(self, true) end)
     b:SetScript("OnLeave", function(self)
-        if self.SetBackdropBorderColor then self:SetBackdropBorderColor(c4(C.border)) end
-        if self.SetBackdropColor then self:SetBackdropColor(0.10, 0.11, 0.14, 0.96) end
-        self.label:SetTextColor(c4(C.muted))
+        buttonColors(self, false)
         -- Wird die Maustaste außerhalb des Buttons losgelassen, feuert kein
         -- OnMouseUp. Das versetzte Label muss auch hier zurück.
         restLabel(self)
@@ -166,10 +269,10 @@ function W:Button(parent, text, width, height)
     return b
 end
 
-function W:Pill(parent, width, height)
+function W:Pill(parent, width, height, flat)
     local p = CreateFrame("Frame", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     p:SetSize(width or 112, height or 22)
-    if p.SetBackdrop then
+    if not flat and p.SetBackdrop then
         p:SetBackdrop({
             bgFile = WHITE,
             edgeFile = WHITE,
@@ -181,7 +284,7 @@ function W:Pill(parent, width, height)
     end
     p.dot = p:CreateTexture(nil, "ARTWORK")
     p.dot:SetSize(6, 6)
-    p.dot:SetPoint("LEFT", 10, 0)
+    p.dot:SetPoint("LEFT", flat and 1 or 10, 0)
     p.dot:SetColorTexture(c4(C.green))
     p.label = self:Font(p, 9, C.green, "OUTLINE")
     p.label:SetPoint("LEFT", p.dot, "RIGHT", 6, 0)
@@ -193,7 +296,7 @@ function W:Pill(parent, width, height)
         self.label:SetText(text or "")
         self.label:SetTextColor(c4(color or C.green))
         self.dot:SetColorTexture(c4(dotColor or color or C.green))
-        if self.SetBackdropBorderColor then
+        if not flat and self.SetBackdropBorderColor then
             self:SetBackdropBorderColor(dotColor and dotColor[1] * 0.55 or 0.2,
                 dotColor and dotColor[2] * 0.55 or 0.28,
                 dotColor and dotColor[3] * 0.55 or 0.24, 1)
@@ -225,14 +328,15 @@ function W:Tooltip(frame, title, lines)
         if prevEnter then prevEnter(self, ...) end
         local data = self.__ljTooltip
         if not data or not GameTooltip then return end
+        local skin = self.ljSkin or W:Skin()
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine(data.title, c4(C.accent))
+        GameTooltip:AddLine(data.title, skin.accent[1], skin.accent[2], skin.accent[3])
         for i = 1, #(data.lines or {}) do
             local line = data.lines[i]
             if type(line) == "table" then
                 GameTooltip:AddLine(line[1], line[2], line[3], line[4], true)
             else
-                GameTooltip:AddLine(tostring(line), 0.86, 0.87, 0.90, true)
+                GameTooltip:AddLine(tostring(line), skin.text[1], skin.text[2], skin.text[3], true)
             end
         end
         GameTooltip:Show()
@@ -265,7 +369,7 @@ function W:ForeverDBCredit(parent, onEscape)
     end)
     link:SetScript("OnEscapePressed", function(self)
         self:ClearFocus()
-        onEscape()
+        if onEscape then onEscape() end
     end)
     link:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
     link:SetScript("OnHide", function(self) self:ClearFocus() end)
@@ -274,6 +378,20 @@ function W:ForeverDBCredit(parent, onEscape)
     link.label:SetText(LJ.L("FOREVERDB_CREDIT"))
     self:Tooltip(link, "ForeverDB.net", { LJ.L("FOREVERDB_COPY") })
     return link
+end
+
+function W:StyleCredit(link, skin)
+    self:ColorText(link, skin.accent)
+    self:ColorText(link.label, skin.muted)
+end
+
+function W:AddDashboardCredit(frame, linkColor)
+    local link = self:ForeverDBCredit(frame)
+    link.label:ClearAllPoints()
+    link.label:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 16, 5)
+    link:SetPoint("LEFT", link.label, "RIGHT", 4, 0)
+    link:SetTextColor(c4(linkColor))
+    frame.creditLink = link
 end
 
 function W:Truncate(text, maxChars)
@@ -298,6 +416,30 @@ function W:FadeIn(frame, duration)
     if UIFrameFadeIn then
         pcall(UIFrameFadeIn, frame, duration or 0.15, 0.05, 1)
     end
+end
+
+function W:DragHeader(window, height, rightInset)
+    window:SetMovable(true)
+    local handle = CreateFrame("Frame", nil, window)
+    handle:SetPoint("TOPLEFT", window, "TOPLEFT", 8, 0)
+    handle:SetSize(window:GetWidth() - 8 - rightInset, height)
+    handle:SetFrameLevel(window:GetFrameLevel() + 1)
+    handle:EnableMouse(true)
+    handle:RegisterForDrag("LeftButton")
+
+    local moving = false
+    handle:SetScript("OnDragStart", function()
+        window:StartMoving()
+        moving = true
+    end)
+    local function stopMoving()
+        if moving then
+            window:StopMovingOrSizing()
+            moving = false
+        end
+    end
+    handle:SetScript("OnDragStop", stopMoving)
+    return stopMoving
 end
 
 function W:ResizeGrip(parent, onScaleChanged, onReset)

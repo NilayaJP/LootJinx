@@ -6,68 +6,7 @@ if not LJ then return end
 local J = { fields = {}, recentRows = {}, miniCards = {} }
 LJ.JournalUI = J
 local W = LJ.Widgets
-local WHITE = "Interface\\Buttons\\WHITE8X8"
-local MEDIA = "Interface\\AddOns\\LootJinx\\Media\\"
-local P = {
-    leather = { 0.141, 0.102, 0.102, 0.98 },
-    page = { 0.190, 0.145, 0.133, 0.98 },
-    inset = { 0.114, 0.086, 0.082, 0.96 },
-    bronze = { 0.545, 0.384, 0.267, 1 },
-    gold = { 1.000, 0.820, 0.380, 1 },
-    parchment = { 0.960, 0.910, 0.830, 1 },
-    muted = { 0.820, 0.760, 0.670, 1 },
-    red = { 0.900, 0.420, 0.340, 1 },
-}
-local function rgba(c) return c[1], c[2], c[3], c[4] or 1 end
-local function backdrop(f, bg)
-    if not f.SetBackdrop then return end
-    f:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 2,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 } })
-    f:SetBackdropColor(rgba(bg or P.page))
-    f:SetBackdropBorderColor(rgba(P.bronze))
-end
-local function card(parent, x, y, width, height)
-    local f = CreateFrame("Frame", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    f:SetPoint("TOPLEFT", x, y)
-    f:SetSize(width, height)
-    backdrop(f)
-    return f
-end
-local function font(parent, size, color, flagsOrText)
-    local flags = ""
-    local text = ""
-    if flagsOrText == "OUTLINE" or flagsOrText == "THINOUTLINE" then
-        flags = flagsOrText
-    elseif type(flagsOrText) == "string" then
-        text = flagsOrText
-    end
-    local f = W:Font(parent, size, color or P.parchment, flags)
-    if text ~= "" then f:SetText(text) end
-    return f
-end
-local function heading(parent, size, text)
-    local f = W:Font(parent, size, P.gold, nil, "Fonts\\MORPHEUS.TTF")
-    f:SetText(text)
-    return f
-end
-local function button(parent, label, width, height)
-    local b = CreateFrame("Button", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    b:SetSize(width, height)
-    b:RegisterForClicks("LeftButtonUp")
-    backdrop(b, P.inset)
-    b.label = font(b, 10, P.parchment, label)
-    b.label:SetPoint("CENTER", 0, 0)
-    b:SetScript("OnEnter", function(self) self:SetBackdropColor(rgba(P.page)) end)
-    b:SetScript("OnLeave", function(self) self:SetBackdropColor(rgba(P.inset)) end)
-    return b
-end
-local function icon(parent, texture, x, y, size)
-    local t = parent:CreateTexture(nil, "ARTWORK")
-    t:SetTexture(MEDIA .. texture)
-    t:SetPoint("TOPLEFT", x, y)
-    t:SetSize(size, size)
-    return t
-end
+local S = W:Skin("journal")
 local function position()
     local db = LJ.DB
     if not J.frame or not db then return end
@@ -85,132 +24,13 @@ local function savePosition()
         LJ.DB.journalY = tonumber(y) or -40
     end
 end
-local function metric(parent, title, texture)
-    icon(parent, texture, 14, -9, 36)
-    local label = heading(parent, 12, title)
-    label:SetPoint("TOPLEFT", 62, -10)
-    local value = heading(parent, 28, "0")
-    value:SetPoint("TOPLEFT", 62, -26)
-    local sub = font(parent, 11, P.muted, "")
-    sub:SetPoint("TOPLEFT", 117, -35)
-    local extra = font(parent, 11, P.parchment, "")
-    extra:SetPoint("TOPLEFT", 63, -56)
-
-    local bar = W:Bar(parent, 6, P.bronze, P.gold)
-    bar:SetPoint("TOPLEFT", 62, -78)
-    bar:SetWidth(372)
-
-    local pct = font(parent, 11, P.gold, "OUTLINE")
-    pct:SetPoint("TOPLEFT", 63, -89)
-    pct:SetText(LJ.L("NO_DATA"))
-
-    local streak = font(parent, 11, P.parchment, "")
-    streak:SetPoint("TOPRIGHT", -108, -86)
-    local record = font(parent, 11, P.gold, "")
-    record:SetPoint("TOPRIGHT", -14, -86)
-    return { title = label, value = value, sub = sub, extra = extra,
-        bar = bar, pct = pct, streak = streak, record = record }
-end
-local function mini(parent, x, title, texture)
-    local f = card(parent, x, -194, 192, 108)
-    icon(f, texture, 150, -8, 30)
-    f.title = heading(f, 11, title)
-    f.title:SetPoint("TOPLEFT", 12, -10)
-    f.value = heading(f, 26, "0")
-    f.value:SetPoint("TOPLEFT", 12, -28)
-    f.sub = font(f, 10, P.parchment, "")
-    f.sub:SetPoint("TOPLEFT", 12, -62)
-    f.sub:SetWidth(168)
-    f.footer = font(f, 10, P.gold, "")
-    f.footer:SetPoint("TOPLEFT", 12, -87)
-    f.footer:SetWidth(168)
-    return f
-end
-local function makeRecent(f)
-    local recent = card(f, 16, -312, 608, 148)
-    J.recentPanel = recent
-    local title = heading(recent, 13, LJ.L("RECENT"))
-    title:SetPoint("TOPLEFT", 14, -8)
-    J.fields.recentEmpty = font(recent, 11, P.muted, LJ.L("RECENT_EMPTY"))
-    J.fields.recentEmpty:SetPoint("CENTER", 0, -6)
-    for i = 1, 4 do
-        local row = button(recent, "", 584, 24)
-        row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * 25)
-        row.label:Hide()
-        row.name = font(row, 11, P.parchment, "")
-        row.name:SetPoint("LEFT", 10, 0)
-        row.name:SetWidth(260)
-        row.name:SetWordWrap(false)
-        row.badges = font(row, 10, P.parchment, "")
-        row.badges:SetPoint("LEFT", 274, 0)
-        row.badges:SetWidth(220)
-        row.badges:SetWordWrap(false)
-        row.date = font(row, 10, P.muted, "")
-        row.date:SetPoint("RIGHT", 0, 0)
-        row.date:SetWidth(62)
-        row.date:SetJustifyH("RIGHT")
-        row:SetScript("OnEnter", function(self)
-            self:SetBackdropColor(rgba(P.page))
-            if self.run then LJ:ShowRecentTooltip(self, self.run) end
-        end)
-        row:SetScript("OnLeave", function(self)
-            self:SetBackdropColor(rgba(P.inset))
-            if GameTooltip then GameTooltip:Hide() end
-        end)
-        row:SetScript("OnClick", function(self)
-            if self.run and self.run.legacy ~= true and LJ.RunDetail then
-                LJ.RunDetail:Show(self.run, "journal")
-            end
-        end)
-        row:Hide()
-        J.recentRows[i] = row
-    end
-end
 local function makeReport(f)
-    local popup = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    popup:SetSize(320, 150)
-    popup:SetPoint("CENTER", f, "CENTER", 0, 10)
-    popup:SetFrameLevel(f:GetFrameLevel() + 20)
-    backdrop(popup)
-    J.reportPopup = popup
-    local title = heading(popup, 13, LJ.L("REPORT_TITLE"))
-    title:SetPoint("TOPLEFT", 14, -10)
-    local close = button(popup, "×", 20, 20)
-    close:SetPoint("TOPRIGHT", -10, -8)
-    close:SetScript("OnClick", function() popup:Hide() end)
-    local targetLabel = font(popup, 10, P.muted, LJ.L("REPORT_WHISPER_LABEL"))
-    targetLabel:SetPoint("TOPLEFT", 14, -48)
-    local edit = CreateFrame("EditBox", nil, popup, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    edit:SetSize(196, 24)
-    edit:SetPoint("TOPLEFT", 108, -42)
-    backdrop(edit, P.inset)
-    edit:SetAutoFocus(false)
-    edit:SetMaxLetters(64)
-    W:SetTextFont(edit, 10)
-    edit:SetTextInsets(8, 8, 0, 0)
-    J.shareTarget = edit
-    J.fields.shareError = font(popup, 9, P.red, "")
-    J.fields.shareError:SetPoint("TOPLEFT", 14, -73)
-    J.fields.shareError:SetWidth(290)
-    local function send(channel, target)
-        local sent, reason = LJ.Report:Send(channel, target)
-        J.fields.shareError:SetText(reason and LJ.L(reason) or "")
-        if sent then popup:Hide(); edit:ClearFocus() end
-        return sent
-    end
-    edit:SetScript("OnEnterPressed", function() send("WHISPER", edit:GetText()) end)
-    edit:SetScript("OnEscapePressed", function() edit:ClearFocus(); popup:Hide() end)
-    local party = button(popup, LJ.L("REPORT_PARTY"), 90, 22)
-    party:SetPoint("BOTTOMLEFT", 14, 14)
-    party:SetScript("OnClick", function() send("PARTY") end)
-    local whisper = button(popup, LJ.L("REPORT_WHISPER"), 90, 22)
-    whisper:SetPoint("BOTTOMLEFT", 114, 14)
-    whisper:SetScript("OnClick", function() send("WHISPER", edit:GetText()) end)
-    local cancel = button(popup, LJ.L("REPORT_CANCEL"), 90, 22)
-    cancel:SetPoint("BOTTOMRIGHT", -14, 14)
-    cancel:SetScript("OnClick", function() popup:Hide() end)
-    J.shareParty, J.shareWhisper = party, whisper
-    popup:Hide()
+    J.reportPopup, J.shareTarget, J.fields.shareError, J.shareParty, J.shareWhisper =
+        LJ:CreateDashboardReport(f, S, function(channel, target)
+            local sent, reason = LJ.Report:Send(channel, target)
+            J.fields.shareError:SetText(reason and LJ.L(reason) or "")
+            if sent then J.reportPopup:Hide() end
+        end)
 end
 function J:Create()
     if self.frame then return self.frame end
@@ -225,87 +45,16 @@ function J:Create()
     f:SetMovable(true)
     f:EnableMouse(true)
     if f.SetClampedToScreen then f:SetClampedToScreen(true) end
-    backdrop(f, P.leather)
+    W:Paint(f, S.bg, S.border)
     position()
-    local top = f:CreateTexture(nil, "ARTWORK")
-    top:SetPoint("TOPLEFT", 1, -1)
-    top:SetPoint("TOPRIGHT", -1, -1)
-    top:SetHeight(2)
-    top:SetColorTexture(rgba(P.gold))
-    icon(f, "LootJinxIcon", 16, -12, 38)
-    local title = heading(f, 20, LJ.L("TITLE"))
-    title:SetPoint("TOPLEFT", 64, -12)
-    local subtitle = font(f, 10, P.muted, LJ.L("SUBTITLE"))
-    subtitle:SetPoint("TOPLEFT", 65, -35)
-    self.fields.status = font(f, 10, P.gold, "")
-    self.fields.status:SetPoint("TOPRIGHT", -68, -20)
-    local settings = button(f, "", 22, 22)
-    settings:SetPoint("TOPRIGHT", -40, -14)
-    local gear = settings:CreateTexture(nil, "ARTWORK")
-    gear:SetSize(14, 14)
-    gear:SetPoint("CENTER", 0, 0)
-    gear:SetTexture("Interface\\Icons\\INV_Misc_Gear_01")
-    settings:SetScript("OnClick", function() if LJ.Options then LJ.Options:Open() end end)
-    self.settingsButton = settings
-    local close = button(f, "×", 22, 22)
-    close:SetPoint("TOPRIGHT", -14, -14)
-    close:SetScript("OnClick", function() J:Hide() end)
-    local drag = CreateFrame("Frame", nil, f)
-    drag:SetPoint("TOPLEFT", 0, 0)
-    drag:SetSize(300, 58)
-    drag:EnableMouse(true)
-    drag:RegisterForDrag("LeftButton")
-    drag:SetScript("OnDragStart", function() if not LJ.DB.locked then f:StartMoving() end end)
-    drag:SetScript("OnDragStop", function() f:StopMovingOrSizing(); savePosition() end)
-
-    self.needCard = card(f, 16, -68, 608, 116)
-    local need = metric(self.needCard, LJ.L("CARD_NEED"), "NeedRolls")
-    need.sub:ClearAllPoints()
-    need.sub:SetPoint("LEFT", need.value, "RIGHT", 12, -2)
-    self.needCard.metric = need
-    self.miniCards[1] = mini(f, 16, LJ.L("MINI_NO_WIN"), "NoNeedWin")
-    self.miniCards[2] = mini(f, 224, LJ.L("MINI_NO_LOOT"), "NoLoot")
-    self.miniCards[3] = mini(f, 432, LJ.L("MINI_SINCE"), "SinceNeedWin")
-    W:Tooltip(self.needCard, LJ.L("TT_NEED_TITLE"), {
-        LJ.L("TT_NEED_1"), LJ.L("TT_NEED_2"), LJ.L("TT_NEED_3"),
-    })
-    local function miniTooltip(card, title, lines, focus)
-        local list = {}
-        for i = 1, #lines do list[i] = lines[i] end
-        list[#list + 1] = " "
-        list[#list + 1] = LJ.L("TT_MINI_HISTORY")
-        -- Sichtbarer Hinweis, dass die Karte den passenden Verlauf oeffnet.
-        card.hint = font(card, 9, P.gold, LJ.L("MINI_HISTORY_LINK"))
-        card.hint:SetPoint("TOPRIGHT", -12, -40)
-        card.hint:SetJustifyH("RIGHT")
-        card.hint:SetAlpha(0.75)
-        card:SetScript("OnEnter", function(self)
-            if self.SetBackdropBorderColor then self:SetBackdropBorderColor(rgba(P.gold)) end
-            if self.hint then self.hint:SetAlpha(1) end
-        end)
-        card:SetScript("OnLeave", function(self)
-            if self.SetBackdropBorderColor then self:SetBackdropBorderColor(rgba(P.bronze)) end
-            if self.hint then self.hint:SetAlpha(0.75) end
-        end)
-        W:Tooltip(card, title, list)
-        -- Karten sind Frames, keine Buttons: OnClick waere im Client nicht
-        -- erlaubt, OnMouseUp funktioniert bei aktivierter Maus dagegen schon.
-        card:EnableMouse(true)
-        card:SetScript("OnMouseUp", function()
-            if LJ.History then LJ.History:Show(focus) end
-        end)
-    end
-    miniTooltip(self.miniCards[1], LJ.L("TT_NO_WIN_TITLE"), {
-        LJ.L("TT_NO_WIN_1"), LJ.L("TT_NO_WIN_2"), LJ.L("TT_NO_WIN_3"),
-    }, "noNeedWin")
-    miniTooltip(self.miniCards[2], LJ.L("TT_NO_LOOT_TITLE"), {
-        LJ.L("TT_NO_LOOT_1"), LJ.L("TT_NO_LOOT_2"),
-    }, "noLoot")
-    miniTooltip(self.miniCards[3], LJ.L("TT_SINCE_TITLE"), {
-        LJ.L("TT_SINCE_1"), LJ.L("TT_SINCE_2"), LJ.L("TT_SINCE_3"),
-    }, "sinceNeedWin")
-    makeRecent(f)
-    self.fields.needLostCurrent = need.streak
+    W:StyleAccent(W:AccentLine(f), S)
+    self.statusPill = LJ:CreateDashboardHeader(self, f, S, savePosition)
+    self.fields.status = self.statusPill.label
+    self.needCard = LJ:CreateDashboardNeed(self, f, S)
+    self.miniCards = LJ:CreateDashboardMinis(self, f, S)
+    self.recentPanel, self.recentRows = LJ:CreateDashboardRecent(self, f, S, "journal")
+    self.fields.recentEmpty = self.recentPanel.empty
+    self.fields.needLostCurrent = self.needCard.metric.streak
     self.fields.noNeedWinCurrent = self.miniCards[1].value
     self.fields.noLootCurrent = self.miniCards[2].value
     self.fields.sinceWinCurrent = self.miniCards[3].value
@@ -314,42 +63,34 @@ function J:Create()
     divider:SetPoint("BOTTOMLEFT", 16, 42)
     divider:SetPoint("BOTTOMRIGHT", -16, 42)
     divider:SetHeight(1)
-    divider:SetColorTexture(rgba(P.bronze))
-    self.footer = font(f, 9, P.muted, LJ.L("FOOTER_HINT"))
-    self.footer:SetPoint("BOTTOMLEFT", 16, 16)
+    W:ColorTexture(divider, S.border)
+    self.footer = W:Font(f, 9, S.muted, "")
+    self.footer:SetText(LJ.L("FOOTER_HINT"))
+    self.footer:SetPoint("BOTTOMLEFT", 16, 25)
     self.footer:SetWidth(230)
+    W:AddDashboardCredit(f, S.accent)
     self.compactLatest = CreateFrame("Button", nil, f)
     self.compactLatest:SetSize(230, 20)
-    self.compactLatest:SetPoint("BOTTOMLEFT", 16, 14)
+    self.compactLatest:SetPoint("BOTTOMLEFT", 16, 21)
     self.compactLatest:RegisterForClicks("LeftButtonUp")
-    self.compactLatest.label = font(self.compactLatest, 10, P.parchment, "")
+    self.compactLatest.label = W:Font(self.compactLatest, 10, S.text, "")
     self.compactLatest.label:SetPoint("LEFT", 0, 0)
     self.compactLatest.label:SetWidth(230)
     self.compactLatest.label:SetWordWrap(false)
     self.compactLatest:SetScript("OnEnter", function(button)
-        button.label:SetTextColor(P.gold[1], P.gold[2], P.gold[3])
+        W:ColorText(button.label, S.accent)
         if button.run then LJ:ShowRecentTooltip(button, button.run) end
     end)
     self.compactLatest:SetScript("OnLeave", function(button)
-        button.label:SetTextColor(P.parchment[1], P.parchment[2], P.parchment[3])
+        W:ColorText(button.label, S.text)
         if GameTooltip then GameTooltip:Hide() end
     end)
     self.compactLatest:SetScript("OnClick", function(button)
+        if self.moreMenu then self.moreMenu:Hide() end
         LJ:OpenCompactRun(button.run, "journal")
     end)
     self.compactLatest:Hide()
-    self.historyButton = button(f, LJ.L("HISTORY"), 72, 20)
-    self.historyButton:SetPoint("BOTTOMRIGHT", -236, 14)
-    self.historyButton:SetScript("OnClick", function() if LJ.History then LJ.History:Show() end end)
-    self.reportButton = button(f, LJ.L("REPORT"), 72, 20)
-    self.reportButton:SetPoint("BOTTOMRIGHT", -156, 14)
-    self.reportButton:SetScript("OnClick", function() J:ShowReport() end)
-    self.helpButton = button(f, LJ.L("HELP"), 58, 20)
-    self.helpButton:SetPoint("BOTTOMRIGHT", -90, 14)
-    self.helpButton:SetScript("OnClick", function() LJ:PrintHelp() end)
-    self.resetButton = button(f, LJ.L("RESET"), 58, 20)
-    self.resetButton:SetPoint("BOTTOMRIGHT", -24, 14)
-    self.resetButton:SetScript("OnClick", function() if LJ.UI then LJ.UI:ConfirmReset() end end)
+    LJ:CreateDashboardFooterActions(self, f, S)
     self.resizeGrip = W:ResizeGrip(f, function(scale)
         if LJ.UI and LJ.UI.ApplyScale then
             LJ.UI:ApplyScale(scale)
@@ -365,6 +106,7 @@ function J:Create()
     end)
     makeReport(f)
     f:SetScript("OnHide", function()
+        self.moreMenu:Hide()
         self.reportPopup:Hide()
         if LJ.History then LJ.History:Hide() end
         if LJ.RunDetail then LJ.RunDetail:Hide() end
@@ -396,72 +138,15 @@ function J:Refresh()
     if latest then self.compactLatest.label:SetText(LJ:CompactLatestText(latest)) end
     self.compactLatest:SetShown(LJ.DB.compact == true and latest ~= nil)
     self.footer:SetShown(LJ.DB.compact ~= true or latest == nil)
-    local statusText = LJ.L("STATUS_READY")
-    if active and live then
-        statusText = LJ.L("STATUS_LIVE")
-    elseif (active and active.paused) or (latest and not latest.closed and latest.paused) then
-        statusText = LJ.L("STATUS_IDLE")
-    end
-    self.fields.status:SetText(statusText)
-    local need = self.needCard.metric
-    need.value:SetText(tostring(stats.needRolls or 0))
-    need.sub:SetText(LJ.L("CARD_OF_RUNS", stats.totalDungeons or 0))
-    if stats.needRolls and stats.needRolls > 0 then
-        need.extra:SetText(LJ.L("CARD_NEED_BREAKDOWN", stats.needWins or 0,
-            stats.needLost or 0, stats.needPending or 0))
-        local rate = math.floor((stats.winRate or 0) + 0.5)
-        if need.pct then need.pct:SetText(LJ.L("CARD_NEED_WINRATE", rate)) end
-        if need.bar then need.bar:SetValue((stats.winRate or 0) / 100) end
-    else
-        need.extra:SetText(LJ.L("CARD_NEED_NO_DATA"))
-        if need.pct then need.pct:SetText(LJ.L("NO_DATA")) end
-        if need.bar then need.bar:SetValue(0) end
-    end
-    need.streak:SetText(LJ.L("JOURNAL_CURRENT_VALUE", stats.lostNeedCurrent or 0))
-    need.record:SetText(LJ.L("JOURNAL_RECORD_VALUE", stats.lostNeedMax or 0))
-    local values = {
-        { stats.noNeedWinDungeons, stats.noNeedWinCurrent, stats.noNeedWinMax,
-            LJ.L("JOURNAL_NO_WIN_TOTAL", stats.noNeedWinDungeons or 0, stats.needDungeons or 0) },
-        { stats.noLootDungeons, stats.noLootCurrent, stats.noLootMax,
-            LJ.L("JOURNAL_NO_LOOT_TOTAL", stats.noLootDungeons or 0, stats.totalDungeons or 0) },
-        { stats.sinceNeedWinCurrent, stats.sinceNeedWinCurrent, stats.sinceNeedWinMax,
-            LJ.L("JOURNAL_SINCE_NOTE") },
-    }
-    for i = 1, 3 do
-        local m, v = self.miniCards[i], values[i]
-        m.value:SetText(tostring(v[1] or 0))
-        m.sub:SetText(v[4])
-        m.footer:SetText(LJ.L("JOURNAL_CURRENT_VALUE", v[2] or 0)
-            .. " · " .. LJ.L("JOURNAL_RECORD_VALUE", v[3] or 0))
-    end
-    self.fields.recentEmpty:SetShown(#runs == 0)
-    for i = 1, 4 do
-        local row = self.recentRows[i]
-        local run = runs[#runs - i + 1]
-        row.run = run
-        row:SetShown(run ~= nil)
-        if run then
-            local totalNeeds, wins = 0, 0
-            for _, n in ipairs(run.needs or {}) do
-                totalNeeds = totalNeeds + 1
-                if n.result == "won" then wins = wins + 1 end
-            end
-            local badges = ""
-            if totalNeeds > 0 then badges = LJ.L("BADGE_NEED", wins, totalNeeds) end
-            if run.legacy then badges = badges .. (badges ~= "" and " · " or "") .. LJ.L("JOURNAL_LEGACY") end
-            local marker = LJ:RunStatusMarker(run)
-            local name = W:Truncate(LJ:DungeonName(run), marker and 24 or 36)
-            row.name:SetText(marker and (name .. " · " .. marker) or name)
-            local rolls = LJ.RecentRolls:Summary(run)
-            if rolls then badges = badges .. (badges ~= "" and " · " or "") .. rolls end
-            row.badges:SetText(badges)
-            row.date:SetText(LJ:FormatTime(run.started, "DATE_LONG"))
-        end
-    end
+    LJ:UpdateDashboardStatus(self.statusPill, active, live, latest, S)
+    LJ:UpdateDashboardNeed(self.needCard.metric, stats)
+    LJ:UpdateDashboardMinis(self.miniCards, stats)
+    LJ:UpdateDashboardRecent(self.recentPanel, self.recentRows, runs)
 end
 function J:ShowReport()
     if not self.frame then self:Create() end
     if not self.frame then return end
+    self.moreMenu:Hide()
     self:Show()
     self.shareTarget:SetText(LJ.Report:GetTargetName() or "")
     self.fields.shareError:SetText("")

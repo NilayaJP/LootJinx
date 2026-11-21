@@ -23,6 +23,7 @@ end
 local function syncFrame()
     R.frame = view().frame
     R.historyButton = view().historyButton
+    R.lossRecordButton = view().lossRecordButton
     R.settingsButton = view().settingsButton
     R.resizeGrip = view().resizeGrip
 end
@@ -34,6 +35,7 @@ end
 function R:SetLayout(id)
     id = valid(id)
     if not LJ.DB then return id end
+    if self.frame and LJ.DB.layoutPreview == id and self.frame == view().frame then return id end
     local old = self.frame
     local wasVisible = old and old:IsShown()
     if old then
@@ -45,6 +47,7 @@ function R:SetLayout(id)
     LJ.DB.layoutPreview = id
     self:Create()
     if LJ.Diagnostics and LJ.Diagnostics.ApplyTheme then LJ.Diagnostics:ApplyTheme() end
+    if LJ.Changelog then LJ.Changelog:ApplyTheme() end
     if wasVisible then self:Show() end
     if LJ.Options and LJ.Options.Refresh then LJ.Options:Refresh() end
     return id

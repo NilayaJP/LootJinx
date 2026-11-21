@@ -27,7 +27,14 @@ local function sortedNeeds(run)
     return list
 end
 
-function Stats.Compute(runs)
+local function recordLossSeries(best, losses, winner)
+    if #losses > 0 and (not best or #losses >= #best.losses) then
+        return { losses = losses, winner = winner }
+    end
+    return best
+end
+
+function Stats.Compute(runs, includeLossSeries)
     runs = type(runs) == "table" and runs or {}
 
     local out = {
@@ -59,6 +66,8 @@ function Stats.Compute(runs)
     }
 
     local seenNeed = false
+    local losses = includeLossSeries and {} or nil
+    local best
     for _, run in ipairs(runs) do
         if type(run) == "table" then
             out.totalDungeons = out.totalDungeons + 1
@@ -85,12 +94,17 @@ function Stats.Compute(runs)
                 hasNeed = true
                 out.needRolls = out.needRolls + 1
                 if n.result == "won" then
+                    if losses then
+                        best = recordLossSeries(best, losses, { run = run, need = n })
+                        losses = {}
+                    end
                     hasWin = true
                     out.needWins = out.needWins + 1
                     out.lostNeedCurrent = 0
                     out.lastNeedWin = run
                     out.lastNeedWinNeed = n
                 elseif n.result == "lost" then
+                    if losses then losses[#losses + 1] = { run = run, need = n } end
                     out.needLost = out.needLost + 1
                     out.lostNeedCurrent = out.lostNeedCurrent + 1
                     out.lostNeedMax = max(out.lostNeedMax, out.lostNeedCurrent)
@@ -123,6 +137,7 @@ function Stats.Compute(runs)
         end
     end
 
+    if losses then out.longestLossSeries = recordLossSeries(best, losses) end
     out.resolvedNeeds = out.needWins + out.needLost
     if out.resolvedNeeds > 0 then
         out.winRate = (out.needWins / out.resolvedNeeds) * 100

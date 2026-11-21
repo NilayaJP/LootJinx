@@ -27,6 +27,7 @@
 - Run `lua tests/load_stub.lua`, `lua tests/stats_spec.lua`, `lua tests/history_spec.lua`, `lua tests/evidence_spec.lua`, `lua tests/storage_spec.lua`, and `lua tests/report_format_spec.lua` when their covered behavior changes. Run `luac -p` on changed Lua files and `git diff --check` before committing.
 - `tests/`, `docs/`, and `dist/` are intentionally ignored by Git. Do not force-add generated files or local tests without an explicit request.
 - A stub test cannot prove behavior in the WoW client. Report any client-specific behavior that remains unverified.
+- After each verified addon change, update the installed test copy at `D:\World of Warcraft\_forever_\Interface\AddOns\LootJinx`. Copy the TOC, its listed Lua files and required runtime assets, and leave SavedVariables untouched.
 
 ## Changelog
 

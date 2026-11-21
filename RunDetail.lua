@@ -7,23 +7,8 @@ local M = {}
 LJ.RunDetail = M
 
 local W = LJ.Widgets
-local CLASSIC = LJ.COLORS
-local JOURNAL = {
-    bg = { 0.141, 0.102, 0.102, 0.98 },
-    card = { 0.190, 0.145, 0.133, 0.98 },
-    border = { 0.545, 0.384, 0.267, 1 },
-    accent = { 0.918, 0.769, 0.494, 1 },
-    cyan = { 0.906, 0.835, 0.729, 1 },
-    gold = { 0.918, 0.769, 0.494, 1 },
-    green = { 0.560, 0.800, 0.500, 1 },
-    red = { 0.900, 0.420, 0.340, 1 },
-    orange = { 0.910, 0.600, 0.340, 1 },
-    text = { 0.906, 0.835, 0.729, 1 },
-    muted = { 0.690, 0.608, 0.510, 1 },
-    dim = { 0.545, 0.460, 0.380, 1 },
-}
-local C = CLASSIC
-local WHITE = "Interface\\Buttons\\WHITE8X8"
+local C = LJ.COLORS
+local skin = W:Skin("classic")
 local UNKNOWN_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local WIDTH, HEIGHT = 560, 560
@@ -102,7 +87,7 @@ local function restoreDashboardEscape()
 end
 
 local function hex(c)
-    c = c or C.text
+    c = c or skin.text
     return string.format("|cff%02x%02x%02x",
         math.floor((c[1] or 1) * 255),
         math.floor((c[2] or 1) * 255),
@@ -116,13 +101,13 @@ end
 local function qualityColor(quality)
     local c = _G.ITEM_QUALITY_COLORS and _G.ITEM_QUALITY_COLORS[tonumber(quality) or 1]
     if c then return { c.r or 1, c.g or 1, c.b or 1 } end
-    return C.text
+    return skin.text
 end
 
 local function classColor(classFile)
     local c = classFile and _G.RAID_CLASS_COLORS and _G.RAID_CLASS_COLORS[classFile]
     if c then return { c.r or 1, c.g or 1, c.b or 1 } end
-    return C.text
+    return skin.text
 end
 
 local function formatDate(run)
@@ -186,7 +171,7 @@ local function needStatusText(need, drop)
     elseif result == "lost" then
         status, color = LJ.L("DETAIL_NEED_LOST"), C.red
     else
-        status, color = LJ.L("DETAIL_NEED_OPEN"), C.muted
+        status, color = LJ.L("DETAIL_NEED_OPEN"), skin.muted
     end
     local value = need and tonumber(need.roll) or nil
     if not value and observedSelfWinner then
@@ -216,7 +201,7 @@ local function itemText(link, id)
     if type(link) == "string" and link ~= "" then
         return link, icon, qualityColor(info and info.quality)
     end
-    return LJ.L("DETAIL_ITEM_UNKNOWN", tonumber(id) or 0), icon, C.muted
+    return LJ.L("DETAIL_ITEM_UNKNOWN", tonumber(id) or 0), icon, skin.muted
 end
 
 local function legacyRollNear(roll, item)
@@ -307,6 +292,110 @@ local function bossIndexFor(run, drop, bosses, catalogKind, catalogBoss)
         end
     end
     return nil
+end
+
+local NEED_MATCH_FIELDS = { "rollID", "lootHistoryKey" }
+
+local function itemCounts(entries)
+    local totals, exact = {}, {}
+    for _, entry in ipairs(entries) do
+        local id = tonumber(entry.id)
+        if id then
+            totals[id] = (totals[id] or 0) + 1
+            for _, field in ipairs(NEED_MATCH_FIELDS) do
+                if entry[field] then
+                    local key = id .. ":" .. field .. ":" .. entry[field]
+                    exact[key] = (exact[key] or 0) + 1
+                end
+            end
+        end
+    end
+    return totals, exact
+end
+
+function M:BossStatistics(runs)
+    local rows, groups, knownIDs = {}, {}, {}
+    for _, run in ipairs(runs) do
+        for _, boss in ipairs(run.bosses or {}) do
+            local id, name = tonumber(boss.id), type(boss.name) == "string" and boss.name:lower()
+            if id and id > 0 and name then
+                local known = knownIDs[name]
+                if known == nil then knownIDs[name] = id
+                elseif known ~= id then knownIDs[name] = false end
+            end
+        end
+    end
+    for _, run in ipairs(runs) do
+        local bosses = run.bosses or {}
+        local byIndex, seen, used = {}, {}, {}
+        for index, boss in ipairs(bosses) do
+            local name = boss.name or LJ.L("DETAIL_UNKNOWN_BOSS")
+            local id = tonumber(boss.id)
+            if not id or id <= 0 then id = knownIDs[name:lower()] end
+            local key = id and ("id:" .. id) or ("name:" .. name:lower())
+            local data = groups[key]
+            if not data then
+                data = { key = key, name = name, visits = 0, drops = 0, won = 0, lost = 0, pending = 0,
+                    items = {}, byItem = {} }
+                rows[#rows + 1], groups[key] = data, data
+            end
+            if not seen[data] then data.visits, seen[data] = data.visits + 1, true end
+            byIndex[index] = data
+        end
+        if #bosses > 0 then
+            local drops, needs = run.drops or {}, run.needs or {}
+            local dropCount, dropExact = itemCounts(drops)
+            local needCount, needExact = itemCounts(needs)
+            for _, drop in ipairs(drops) do
+                local id = tonumber(drop.id)
+                if id then
+                    local kind, name
+                    if LJ.DungeonLoot then kind, name = LJ.DungeonLoot:Source(run, id) end
+                    local index = bossIndexFor(run, drop, bosses, kind, name)
+                    local observedID = index and tonumber(bosses[index].id)
+                    local explicitID = tonumber(drop.bossID)
+                    local conflict = explicitID and explicitID > 0 and observedID and observedID > 0 and explicitID ~= observedID
+                    local boss = not conflict and byIndex[index]
+                    if boss then
+                        local item = boss.byItem[id]
+                        if not item then
+                            item = { id = id, count = 0, won = 0, lost = 0, pending = 0 }
+                            boss.byItem[id], boss.items[#boss.items + 1] = item, item
+                        end
+                        item.link = item.link or drop.link
+                        boss.drops, item.count = boss.drops + 1, item.count + 1
+                        local need = findNeed(run, drop, used)
+                        if need then
+                            local dropAt, needAt = tonumber(drop.at) or 0, tonumber(need.at) or 0
+                            local unique = dropCount[id] == 1 and needCount[id] == 1
+                                and dropAt > 0 and needAt > 0 and legacyRollNear(need, drop)
+                            for _, field in ipairs(NEED_MATCH_FIELDS) do
+                                if drop[field] and drop[field] == need[field] then
+                                    local key = id .. ":" .. field .. ":" .. drop[field]
+                                    unique = unique or (dropExact[key] == 1 and needExact[key] == 1)
+                                end
+                            end
+                            if unique then
+                                local outcome = need.result == "won" and "won" or need.result == "lost" and "lost" or "pending"
+                                boss[outcome], item[outcome], used[need] = boss[outcome] + 1, item[outcome] + 1, true
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    for _, boss in ipairs(rows) do
+        table.sort(boss.items, function(a, b)
+            if a.count ~= b.count then return a.count > b.count end
+            return a.id < b.id
+        end)
+    end
+    table.sort(rows, function(a, b)
+        if a.visits ~= b.visits then return a.visits > b.visits end
+        return a.name < b.name
+    end)
+    return rows
 end
 
 local function otherLootReason(run, drop, catalogKind)
@@ -661,7 +750,7 @@ local function configureRow(row, line)
     row.line = line
     row.link = nil
     row.baseAlpha = 0
-    row.bg:SetColorTexture(1, 1, 1, 0)
+    row.bg:SetColorTexture(skin.surface[1], skin.surface[2], skin.surface[3], 0)
     row.bar:Hide()
     row.icon:Hide()
     row.recipient:SetText("")
@@ -674,16 +763,16 @@ local function configureRow(row, line)
         row.name:ClearAllPoints()
         row.name:SetPoint("LEFT", 10, 0)
         row.name:SetWidth(380)
-        local color = line.kind == "section" and C.cyan or (line.other and C.gold or C.accent)
+        local color = line.kind == "section" and skin.progress or (line.other and skin.progress or skin.accent)
         row.name:SetText(colored(color, line.name))
         if line.count then
             row.recipient:ClearAllPoints()
             row.recipient:SetPoint("RIGHT", -8, 0)
             row.recipient:SetWidth(140)
-            row.recipient:SetText(colored(C.muted, LJ.L("DETAIL_BOSS_ITEMS", line.count)))
+            row.recipient:SetText(colored(skin.muted, LJ.L("DETAIL_BOSS_ITEMS", line.count)))
         end
-        row.bg:SetColorTexture(1, 1, 1, line.kind == "section" and 0.02 or 0.035)
-        row.baseAlpha = line.kind == "section" and 0.02 or 0.035
+        row.baseAlpha = line.kind == "section" and .65 or .88
+        row.bg:SetColorTexture(skin.surface[1], skin.surface[2], skin.surface[3], row.baseAlpha)
         row.bar:SetColorTexture(color[1], color[2], color[3], 1)
         row.bar:Show()
         return
@@ -694,7 +783,7 @@ local function configureRow(row, line)
         row.name:ClearAllPoints()
         row.name:SetPoint("LEFT", 10, 0)
         row.name:SetWidth(500)
-        row.name:SetText(colored(line.accent and C.orange or C.muted, line.text))
+        row.name:SetText(colored(line.accent and C.orange or skin.muted, line.text))
         return
     end
 
@@ -734,10 +823,10 @@ local function configureRow(row, line)
         recipientColor = classColor(drop.winnerClass)
     elseif drop.passed then
         recipientText = LJ.L("DETAIL_NOBODY")
-        recipientColor = C.muted
+        recipientColor = skin.muted
     else
         recipientText = LJ.L("DETAIL_RECIPIENT_UNKNOWN")
-        recipientColor = C.muted
+        recipientColor = skin.muted
     end
     row.recipient:ClearAllPoints()
     row.recipient:SetPoint("RIGHT", -8, 4)
@@ -749,7 +838,7 @@ local function configureRow(row, line)
         local meta, metaColor = needStatusText(need, drop)
         row.meta:SetText(colored(metaColor, meta))
     elseif drop.passed and not drop.winner then
-        row.meta:SetText(colored(C.muted, LJ.L("DETAIL_PASSED")))
+        row.meta:SetText(colored(skin.muted, LJ.L("DETAIL_PASSED")))
     end
     row.meta:ClearAllPoints()
     row.meta:SetPoint("LEFT", 32, -7)
@@ -759,7 +848,7 @@ local function configureRow(row, line)
     row.roll:ClearAllPoints()
     row.roll:SetPoint("RIGHT", -8, -7)
     row.roll:SetWidth(190)
-    if roll then row.roll:SetText(colored(C.gold, roll)) end
+    if roll then row.roll:SetText(colored(skin.progress, roll)) end
 
     row.bar:SetColorTexture(color[1], color[2], color[3], 0.9)
     row.bar:Show()
@@ -784,19 +873,6 @@ local function renderPage()
     M.page = page
 end
 
-local function applyBackdrop(f)
-    if f.SetBackdrop then
-        f:SetBackdrop({
-            bgFile = WHITE,
-            edgeFile = WHITE,
-            edgeSize = 1,
-            insets = { left = 1, right = 1, top = 1, bottom = 1 },
-        })
-        f:SetBackdropColor(C.bg[1], C.bg[2], C.bg[3], C.bg[4] or 1)
-        f:SetBackdropBorderColor(C.border[1], C.border[2], C.border[3], 1)
-    end
-end
-
 function M:Create()
     if frame then return frame end
     if type(CreateFrame) ~= "function" then return nil end
@@ -812,20 +888,20 @@ function M:Create()
     f:SetToplevel(true)
     f:EnableMouse(true)
     if f.SetClampedToScreen then f:SetClampedToScreen(true) end
-    applyBackdrop(f)
+    local stopDragging = W:DragHeader(f, 66, 46)
 
-    eyebrow = W:Font(f, 8, C.accent, "OUTLINE")
+    eyebrow = W:Font(f, 8, skin.accent, "OUTLINE")
     eyebrow:SetPoint("TOPLEFT", 20, -12)
     eyebrow:SetText(LJ.L("DETAIL_TITLE"))
 
-    title = W:Font(f, 17, C.text, "OUTLINE")
-    title:SetPoint("TOPLEFT", 20, -24)
+    title = W:Font(f, 17, skin.text, "OUTLINE")
+    title:SetPoint("TOPLEFT", 20, -25)
     title:SetWidth(470)
     title:SetWordWrap(false)
 
-    subtitle = W:Font(f, 9, C.muted, "")
+    subtitle = W:Font(f, 9, skin.muted, "")
     M.subtitle = subtitle
-    subtitle:SetPoint("TOPLEFT", 21, -47)
+    subtitle:SetPoint("TOPLEFT", 21, -51)
     subtitle:SetWidth(470)
     subtitle:SetWordWrap(false)
 
@@ -840,7 +916,7 @@ function M:Create()
     M.summaryPanel = summaryPanel
     summaryPanel:SetPoint("TOPLEFT", 16, -70)
     summaryPanel:SetSize(528, 34)
-    summary = W:Font(summaryPanel, 10, C.text, "")
+    summary = W:Font(summaryPanel, 10, skin.text, "")
     M.summary = summary
     summary:SetPoint("LEFT", 12, 0)
     summary:SetWidth(400)
@@ -870,6 +946,9 @@ function M:Create()
         row.bg = row:CreateTexture(nil, "BACKGROUND")
         row.bg:SetAllPoints()
         row.bg:SetColorTexture(1, 1, 1, 0)
+        row.separator = W:Divider(row)
+        row.separator:SetPoint("BOTTOMLEFT")
+        row.separator:SetPoint("BOTTOMRIGHT")
 
         row.bar = row:CreateTexture(nil, "ARTWORK")
         row.bar:SetSize(2, 18)
@@ -882,23 +961,23 @@ function M:Create()
         row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         row.icon:Hide()
 
-        row.name = W:Font(row, 11, C.text, "")
+        row.name = W:Font(row, 11, skin.text, "")
         row.name:SetPoint("LEFT", 32, 5)
         row.name:SetWidth(280)
         row.name:SetWordWrap(false)
 
-        row.recipient = W:Font(row, 10, C.text, "")
+        row.recipient = W:Font(row, 10, skin.text, "")
         row.recipient:SetPoint("RIGHT", -8, 4)
         row.recipient:SetWidth(190)
         row.recipient:SetJustifyH("RIGHT")
         row.recipient:SetWordWrap(false)
 
-        row.meta = W:Font(row, 9, C.muted, "")
+        row.meta = W:Font(row, 9, skin.muted, "")
         row.meta:SetPoint("LEFT", 32, -7)
         row.meta:SetWidth(300)
         row.meta:SetWordWrap(false)
 
-        row.roll = W:Font(row, 9, C.gold, "")
+        row.roll = W:Font(row, 9, skin.progress, "")
         row.roll:SetPoint("RIGHT", -8, -7)
         row.roll:SetWidth(190)
         row.roll:SetJustifyH("RIGHT")
@@ -906,12 +985,12 @@ function M:Create()
 
         row:SetScript("OnEnter", function(self)
             if self.line and (self.line.kind == "item" or self.line.kind == "need") then
-                self.bg:SetColorTexture(1, 1, 1, 0.045)
+                W:ColorTexture(self.bg, skin.hover)
                 rowTooltip(self)
             end
         end)
         row:SetScript("OnLeave", function(self)
-            self.bg:SetColorTexture(1, 1, 1, self.baseAlpha or 0)
+            self.bg:SetColorTexture(skin.surface[1], skin.surface[2], skin.surface[3], self.baseAlpha or 0)
             if GameTooltip then GameTooltip:Hide() end
         end)
 
@@ -924,14 +1003,15 @@ function M:Create()
     separator:SetPoint("BOTTOMLEFT", 16, 48)
     separator:SetPoint("BOTTOMRIGHT", -16, 48)
     separator:SetHeight(1)
+    self.separator = separator
 
-    hint = W:Font(f, 8, C.dim, "")
+    hint = W:Font(f, 8, skin.muted, "")
     hint:SetPoint("BOTTOMLEFT", 16, 28)
     hint:SetText(LJ.L("DETAIL_HINT"))
     self.creditLink = W:ForeverDBCredit(f, function() M:Hide() end)
     self.creditLink:SetPoint("BOTTOMRIGHT", -16, 31)
 
-    pageText = W:Font(f, 9, C.muted, "")
+    pageText = W:Font(f, 9, skin.muted, "")
     pageText:SetPoint("BOTTOMLEFT", 132, 10)
     pageText:SetText("")
 
@@ -949,14 +1029,10 @@ function M:Create()
     nextButton:SetPoint("BOTTOMRIGHT", -16, 10)
     nextButton:SetScript("OnClick", function() M:Page(1) end)
 
-    topAccent = f:CreateTexture(nil, "ARTWORK")
-    topAccent:SetPoint("TOPLEFT", 1, -1)
-    topAccent:SetPoint("TOPRIGHT", -1, -1)
-    topAccent:SetHeight(2)
-    topAccent:SetColorTexture(JOURNAL.accent[1], JOURNAL.accent[2], JOURNAL.accent[3], 1)
-    topAccent:Hide()
+    topAccent = W:AccentLine(f)
 
     f:SetScript("OnHide", function()
+        stopDragging()
         if GameTooltip then GameTooltip:Hide() end
         restoreDashboardEscape()
     end)
@@ -971,7 +1047,7 @@ function M:Create()
     end
 
     if type(StaticPopupDialogs) == "table" then
-        StaticPopupDialogs.LOOTJINX_FINISH_RUN = {
+        StaticPopupDialogs.LOOTJINX_FINISH_RUN = W:StylePopup({
             text = LJ.L("RUN_FINISH_CONFIRM"),
             button1 = LJ.L("RUN_FINISH_ACCEPT"),
             button2 = LJ.L("REPORT_CANCEL"),
@@ -988,87 +1064,37 @@ function M:Create()
             whileDead = true,
             hideOnEscape = true,
             preferredIndex = 3,
-        }
+        })
     end
 
     return f
 end
 
-local function tintButton(button, journal)
-    if not button then return end
-    if not button.classicOnEnter then
-        button.classicOnEnter = button:GetScript("OnEnter")
-        button.classicOnLeave = button:GetScript("OnLeave")
-    end
-    if journal then
-        if button.SetBackdropColor then button:SetBackdropColor(0.114, 0.086, 0.082, 0.96) end
-        if button.SetBackdropBorderColor then
-            button:SetBackdropBorderColor(JOURNAL.border[1], JOURNAL.border[2], JOURNAL.border[3], 1)
-        end
-        button.label:SetTextColor(JOURNAL.text[1], JOURNAL.text[2], JOURNAL.text[3], 1)
-        button:SetScript("OnEnter", function(self)
-            if self.SetBackdropColor then
-                self:SetBackdropColor(JOURNAL.card[1], JOURNAL.card[2], JOURNAL.card[3], 1)
-            end
-            if self.SetBackdropBorderColor then
-                self:SetBackdropBorderColor(JOURNAL.accent[1], JOURNAL.accent[2], JOURNAL.accent[3], 1)
-            end
-        end)
-        button:SetScript("OnLeave", function(self)
-            if self.SetBackdropColor then self:SetBackdropColor(0.114, 0.086, 0.082, 0.96) end
-            if self.SetBackdropBorderColor then
-                self:SetBackdropBorderColor(JOURNAL.border[1], JOURNAL.border[2], JOURNAL.border[3], 1)
-            end
-        end)
-    else
-        if button.SetBackdropColor then button:SetBackdropColor(0.10, 0.11, 0.14, 0.96) end
-        if button.SetBackdropBorderColor then
-            button:SetBackdropBorderColor(CLASSIC.border[1], CLASSIC.border[2], CLASSIC.border[3], 1)
-        end
-        button.label:SetTextColor(CLASSIC.muted[1], CLASSIC.muted[2], CLASSIC.muted[3], 1)
-        button:SetScript("OnEnter", button.classicOnEnter)
-        button:SetScript("OnLeave", button.classicOnLeave)
-    end
-end
-
 function M:ApplyTheme(theme)
-    theme = theme == "journal" and "journal" or "classic"
-    C = theme == "journal" and JOURNAL or CLASSIC
-    self.theme = theme
+    skin = W:Skin(theme)
+    self.theme = skin.displayFont and "journal" or "classic"
     if not frame then return end
-    applyBackdrop(frame)
-    if summaryPanel and summaryPanel.SetBackdropColor then
-        summaryPanel:SetBackdropColor(C.card[1], C.card[2], C.card[3], C.card[4] or 1)
-        summaryPanel:SetBackdropBorderColor(C.border[1], C.border[2], C.border[3], 1)
+    W:Paint(frame, skin.bg, skin.border)
+    W:Paint(summaryPanel, skin.surface, skin.border)
+    W:StyleAccent(topAccent, skin)
+    W:SetTextFont(title, 20, "", skin.displayFont)
+    W:ColorText(title, skin.text)
+    W:ColorText(eyebrow, skin.accent)
+    for _, label in ipairs({ subtitle, hint, pageText }) do W:ColorText(label, skin.muted) end
+    W:ColorText(summary, skin.text)
+    W:StyleCredit(self.creditLink, skin)
+    W:ColorTexture(self.separator, skin.border)
+    for _, row in ipairs(rows) do
+        W:ColorText(row.name, skin.text)
+        W:ColorText(row.recipient, skin.text)
+        W:ColorText(row.meta, skin.muted)
+        W:ColorText(row.roll, skin.progress)
+        row.separator:SetColorTexture(skin.border[1], skin.border[2], skin.border[3], .60)
     end
-    eyebrow:SetTextColor(C.accent[1], C.accent[2], C.accent[3], 1)
-    title:SetTextColor(C.text[1], C.text[2], C.text[3], 1)
-    if theme == "journal" then
-        W:SetTextFont(title, 19, "", "Fonts\\MORPHEUS.TTF")
-    else
-        W:SetTextFont(title, 17, "OUTLINE")
+    for _, button in ipairs({ closeButton, finishButton, self.timelineButton, prevButton, nextButton }) do
+        W:StyleButton(button, skin)
     end
-    subtitle:SetTextColor(C.muted[1], C.muted[2], C.muted[3], 1)
-    summary:SetTextColor(C.text[1], C.text[2], C.text[3], 1)
-    hint:SetTextColor(C.dim[1], C.dim[2], C.dim[3], 1)
-    self.creditLink.label:SetTextColor(C.muted[1], C.muted[2], C.muted[3], 1)
-    self.creditLink:SetTextColor(C.accent[1], C.accent[2], C.accent[3], 1)
-    pageText:SetTextColor(C.muted[1], C.muted[2], C.muted[3], 1)
-    for i = 1, #rows do
-        local row = rows[i]
-        row.name:SetTextColor(C.text[1], C.text[2], C.text[3], 1)
-        row.recipient:SetTextColor(C.text[1], C.text[2], C.text[3], 1)
-        row.meta:SetTextColor(C.muted[1], C.muted[2], C.muted[3], 1)
-        row.roll:SetTextColor(C.gold[1], C.gold[2], C.gold[3], 1)
-    end
-    tintButton(closeButton, theme == "journal")
-    tintButton(finishButton, theme == "journal")
-    tintButton(self.timelineButton, theme == "journal")
-    tintButton(prevButton, theme == "journal")
-    tintButton(nextButton, theme == "journal")
-    topAccent:SetShown(theme == "journal")
 end
-
 function M:Show(run, theme)
     if type(run) ~= "table" then return false end
     if not frame then self:Create() end
@@ -1124,7 +1150,9 @@ function M:Refresh()
     if run.closedReason == "manual" then
         status = LJ.L("RUN_FINISH_MANUAL")
     end
-    subtitle:SetText(formatDate(run) .. " · " .. status)
+    local counted = LJ.Tracker:IsCounted(run)
+    local tracking = LJ.L(counted and "DETAIL_STAT_COUNTED" or "DETAIL_STAT_NO_ACTIVITY")
+    subtitle:SetText(formatDate(run) .. " · " .. status .. " · " .. tracking)
     if finishButton then finishButton:SetShown(active == run) end
 
     local bossCount = #(run.bosses or {})
