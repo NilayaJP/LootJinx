@@ -118,3 +118,10 @@ function Completion:Match(run)
     end
     return nil, progress.observed, progress.required
 end
+
+function Completion:WasCleared(run, progress)
+    if run.closedReason == "all-bosses-cleared" then return true end
+    if run.closed ~= true or run.closedReason ~= "left" then return false end
+    if run.clearObserved == true then return true end
+    return run.legacy ~= true and (progress or self:Progress(run)).state == "complete"
+end

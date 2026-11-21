@@ -1,4 +1,4 @@
--- Curated item ID/source index from ForeverDungeonJournal 2.1.1 (WoW Forever 1.60.1).
+-- Curated item ID/source index from ForeverDungeonJournal 2.1.2 (WoW Forever 1.60.1).
 -- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, tools/wowhead_forever_loot.tsv,
 -- and reviewed tools/foreverdb_loot_reviewed.tsv (Data from ForeverDB.net — https://foreverdb.net).
 -- Reference data only: observations and client events decide whether an item actually dropped.
@@ -338,12 +338,13 @@ LJ.DungeonLootData = {
         { "Moontouched Wanderer", false, { 280080, 280079 } },
         { "Gortek the Apprentice", false, { 280077, 280078 } },
         { "Tunnelweb Matriarch", false, { 280085, 280086 } },
+        { "Sabella No-Eyes", false, { 280083, 280084 } },
         { "Withermaw", false, { 280063, 280062, 280064 } },
         { "Elder Shaman Bloodmane", false, { 280070, 280069, 280068 } },
         { "Blackmaw Behemoth", false, { 280065, 280066, 280067 } },
         { "Unbound Spirit", false, { 280072, 280073, 280071 } },
         { "Varrox Bleakhoof", false, { 280076, 280075, 280074 } },
-        { "Trash Drops", true, { 287032, 251453, 287034, 287028, 287036, 287029, 287030, 287033, 252893 } },
+        { "Trash Drops", true, { 287032, 251453, 287034, 287028, 287036, 287029, 287030, 287033, 252893, 287031, 287035 } },
     },
     ["Stratholme: Living"] = {
         { "Skul", false, { 13394, 13396, 13395 } },

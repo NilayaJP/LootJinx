@@ -44,6 +44,10 @@ function S:Clean(runs, active, now)
                 end
             end
             run.needs = needs
+            if run.closedReason == "left" and LJ.DungeonCompletion
+                and LJ.DungeonCompletion:WasCleared(run) then
+                run.clearObserved = true
+            end
             run.bosses, run.drops, run.rolls = {}, {}, {}
             run.timeline, run.timelineOmitted = nil, nil
             run.seenLinks, run.pending, run.greeds = {}, {}, {}

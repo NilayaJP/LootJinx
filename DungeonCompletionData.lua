@@ -1,4 +1,4 @@
--- Required boss names from ForeverDungeonJournal 2.1.1 with available German names and reviewed Wowhead Forever encounter labels. Rare, optional, summoned, and trash entries excluded.
+-- Required boss names from ForeverDungeonJournal 2.1.2 with available German names and reviewed Wowhead Forever encounter labels. Rare, optional, summoned, and trash entries excluded.
 local ADDON, ns = ...
 local LJ = ns or _G.LootJinx
 if not LJ then return end
@@ -275,12 +275,12 @@ LJ.DungeonCompletionData = {
         { name = "Baron Rivendare", aliases = { "Baron Rivendare" }, npcID = 10440 },
     },
     ["Scholomance"] = {
-        { name = "Kirtonos the Herald", aliases = { "Kirtonos the Herald", "Kirtonos der Herold" }, npcID = 10506, deName = "Kirtonos der Herold" },
+        { name = "Kirtonos the Herald", aliases = { "Kirtonos the Herald", "Kirtonos", "Kirtonos der Herold" }, npcID = 10506, deName = "Kirtonos der Herold" },
         { name = "Jandice Barov", aliases = { "Jandice Barov" }, npcID = 10503 },
         { name = "Rattlegore", aliases = { "Rattlegore", "Blutrippe" }, npcID = 11622, deName = "Blutrippe" },
         { name = "Marduk Blackpool", aliases = { "Marduk Blackpool" }, npcID = 10433 },
         { name = "Vectus", aliases = { "Vectus" }, npcID = 10432 },
-        { name = "Ras Frostwhisper", aliases = { "Ras Frostwhisper", "Ras Frostraunen" }, npcID = 10508, deName = "Ras Frostraunen" },
+        { name = "Ras Frostwhisper", aliases = { "Ras Frostwhisper", "Ras Frostwhisperer", "Ras Frostraunen" }, npcID = 10508, deName = "Ras Frostraunen" },
         { name = "Instructor Malicia", aliases = { "Instructor Malicia", "Instrukteurin Malicia" }, npcID = 10505, deName = "Instrukteurin Malicia" },
         { name = "Doctor Theolen Krastinov", aliases = { "Doctor Theolen Krastinov", "Doktor Theolen Krastinov" }, npcID = 11261, deName = "Doktor Theolen Krastinov" },
         { name = "Lorekeeper Polkelt", aliases = { "Lorekeeper Polkelt", "Hüter des Wissens Polkelt" }, npcID = 10901, deName = "Hüter des Wissens Polkelt" },

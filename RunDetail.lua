@@ -21,6 +21,7 @@ local summaryPanel, hint, closeButton, finishButton, topAccent
 local rows = {}
 local pages = {}
 local currentRun
+local collapsedGroups = {}
 local page = 1
 local suspendedSpecialNames
 local restoreToken = 0
@@ -67,7 +68,8 @@ local function restoreDashboardEscape()
             for i = 1, #UISpecialFrames do
                 if UISpecialFrames[i] == name then found = true break end
             end
-            if not found and not (history and history.suspendedName == name) then
+            if not found and not (history and history.suspendedName == name)
+                and not (LJ.Options and LJ.Options:KeepDashboardEscapeSuspended(name)) then
                 table.insert(UISpecialFrames, name)
             end
         end
@@ -132,27 +134,94 @@ local function sortedNeeds(run)
     return out
 end
 
-local function findNeed(run, drop, used)
-    local found, nearest
+local function legacyRollNear(roll, item)
+    local at = tonumber(item.at) or 0
+    local rollAt = tonumber(roll.at) or 0
+    local window = item.lootHistoryKey and 30 or 300
+    local distance = math.abs(rollAt - at)
+    return at == 0 or distance <= window, at > 0 and rollAt > 0 and distance or nil
+end
+
+local function canPairNeed(need, drop)
+    return need.id == drop.id and LJ.CompatibleItemVariant(need.link, drop.link)
+        and (not need.rollID or not drop.rollID or need.rollID == drop.rollID)
+        and (not need.lootHistoryKey or not drop.lootHistoryKey or need.lootHistoryKey == drop.lootHistoryKey)
+end
+
+local function legacyNeedDistance(need, drop)
+    if drop.winner and need.result
+        and need.result ~= (LJ:IsMe(drop.winner) and "won" or "lost") then return nil end
+    local near, distance = legacyRollNear(need, drop)
+    if near then return distance end
+end
+
+local function findNeed(run, drop, used, exactOnly)
+    if drop.rollKind and drop.rollKind ~= "need" then return nil end
+    local exact, found, nearest, tied
     for i = 1, #(run.needs or {}) do
         local n = run.needs[i]
-        if n.id == drop.id and not used[n]
-            and (not n.rollID or not drop.rollID or n.rollID == drop.rollID)
-            and (not n.lootHistoryKey or not drop.lootHistoryKey
-                or n.lootHistoryKey == drop.lootHistoryKey) then
-            if drop.rollID and n.rollID == drop.rollID then return n end
-            if drop.lootHistoryKey and n.lootHistoryKey == drop.lootHistoryKey then return n end
-            local selfWon = drop.winner and LJ:IsMe(drop.winner)
-            local compatible = not drop.winner or not n.result
-                or (selfWon and n.result == "won")
-                or (not selfWon and n.result == "lost")
-            local distance = math.abs((tonumber(drop.at) or 0) - (tonumber(n.at) or 0))
-            if compatible and (not nearest or distance < nearest) then
-                found, nearest = n, distance
+        if not used[n] and canPairNeed(n, drop) then
+            if (drop.rollID and n.rollID == drop.rollID)
+                or (drop.lootHistoryKey and n.lootHistoryKey == drop.lootHistoryKey) then
+                if exact then return false end
+                exact = n
+            elseif not exactOnly then
+                local distance = legacyNeedDistance(n, drop)
+                if distance then
+                    if not nearest or distance < nearest then
+                        found, nearest, tied = n, distance, false
+                    elseif distance == nearest then
+                        tied = true
+                    end
+                end
             end
         end
     end
-    return found
+    if exact then return exact end
+    if not tied then return found end
+end
+
+local function recordNearest(matches, from, to, distance)
+    local closest = matches[from]
+    if not closest or distance < closest.distance then
+        matches[from] = { candidate = to, distance = distance }
+    elseif distance == closest.distance then
+        closest.candidate = nil
+    end
+end
+
+local function matchDetailNeeds(run, drops)
+    local byDrop, exactCounts, used = {}, {}, {}
+    for _, drop in ipairs(drops) do
+        local need = findNeed(run, drop, used, true)
+        byDrop[drop] = need
+        if need then exactCounts[need] = (exactCounts[need] or 0) + 1 end
+    end
+    for need in pairs(exactCounts) do used[need] = true end
+    local nearestNeeds, nearestDrops = {}, {}
+    for _, drop in ipairs(drops) do
+        local need = byDrop[drop]
+        if need == nil then
+            if not drop.rollKind or drop.rollKind == "need" then
+                for _, candidate in ipairs(run.needs or {}) do
+                    if not used[candidate] and canPairNeed(candidate, drop) then
+                        local distance = legacyNeedDistance(candidate, drop)
+                        if distance then
+                            recordNearest(nearestNeeds, drop, candidate, distance)
+                            recordNearest(nearestDrops, candidate, drop, distance)
+                        end
+                    end
+                end
+            end
+        elseif need == false or exactCounts[need] > 1 then
+            byDrop[drop] = nil
+        end
+    end
+    for drop, closest in pairs(nearestNeeds) do
+        local need = closest.candidate
+        if need and nearestDrops[need].candidate == drop then byDrop[drop] = need end
+    end
+    return byDrop
 end
 
 local function observedNeedWinner(need, drop)
@@ -191,24 +260,19 @@ local function needStatusText(need, drop)
 end
 
 local function itemText(link, id)
-    if link then LJ:LoadItem(link, id) end
-    local info = link and LJ:ItemInfo(link) or nil
-    local instant = link and LJ:ItemInfoInstant(link) or nil
+    local item = link or tonumber(id)
+    if item then LJ:LoadItem(link, id) end
+    local info = item and LJ:ItemInfo(item)
+    local instant = item and LJ:ItemInfoInstant(item)
     local icon = (info and info.icon) or (instant and instant.icon) or UNKNOWN_ICON
     if info and type(info.name) == "string" and info.name ~= "" then
-        return colored(qualityColor(info.quality), info.name), icon, qualityColor(info.quality)
+        local color = qualityColor(info.quality)
+        return colored(color, info.name), icon, color, info.link
     end
     if type(link) == "string" and link ~= "" then
         return link, icon, qualityColor(info and info.quality)
     end
     return LJ.L("DETAIL_ITEM_UNKNOWN", tonumber(id) or 0), icon, skin.muted
-end
-
-local function legacyRollNear(roll, item)
-    local at = tonumber(item.at) or 0
-    local rollAt = tonumber(roll.at) or 0
-    local window = item.lootHistoryKey and 30 or 300
-    return at == 0 or math.abs(rollAt - at) <= window
 end
 
 local function rollMatch(roll, item, peers)
@@ -232,10 +296,9 @@ local function dropRollText(run, drop)
     local value = tonumber(drop.roll)
     local kind = drop.rollKind
     if not value and drop.winner then
-        local name = tostring(drop.winner):lower()
         local matches = {}
         for _, roll in ipairs(run.rolls or {}) do
-            if type(roll.name) == "string" and roll.name:lower() == name then
+            if LJ:SamePlayerName(roll.name, drop.winner) then
                 local match = rollMatch(roll, drop, run.drops)
                 if match then
                     local previous = matches[match]
@@ -364,7 +427,7 @@ function M:BossStatistics(runs)
                         end
                         item.link = item.link or drop.link
                         boss.drops, item.count = boss.drops + 1, item.count + 1
-                        local need = (not drop.rollKind or drop.rollKind == "need") and findNeed(run, drop, used)
+                        local need = findNeed(run, drop, used)
                         if need then
                             local dropAt, needAt = tonumber(drop.at) or 0, tonumber(need.at) or 0
                             local unique = dropCount[id] == 1 and needCount[id] == 1
@@ -435,15 +498,7 @@ local function bossLootQuality(drop)
         local ok, quality = pcall(getQuality, drop.id)
         if ok and tonumber(LJ.Plain(quality)) then return tonumber(LJ.Plain(quality)) end
     end
-    local modernQuality = type(drop.link) == "string"
-        and tonumber(drop.link:match("^|cnIQ(%d+):")) or nil
-    if modernQuality and modernQuality >= 0 and modernQuality <= 7 then
-        return modernQuality
-    end
-    local color = type(drop.link) == "string" and drop.link:match("^|cff(%x%x%x%x%x%x)")
-    local qualities = { ["9d9d9d"] = 0, ["ffffff"] = 1, ["1eff00"] = 2,
-        ["0070dd"] = 3, ["a335ee"] = 4, ["ff8000"] = 5 }
-    return color and qualities[color:lower()] or nil
+    return linkQuality
 end
 
 local function completionDungeonName(dungeon)
@@ -455,13 +510,12 @@ local function completionDungeonName(dungeon)
     return dungeon
 end
 
-local function addCompletionLines(lines, run)
+local function addCompletionLines(lines, run, progress)
     lines[#lines + 1] = { kind = "section", name = LJ.L("DETAIL_COMPLETION_SECTION") }
     if run.legacy == true then
         lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_COMPLETION_LEGACY"), muted = true }
         return
     end
-    local progress = LJ.DungeonCompletion and LJ.DungeonCompletion:Progress(run)
     if not progress or progress.state == "unavailable" then
         lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_COMPLETION_UNAVAILABLE"), muted = true }
         return
@@ -545,9 +599,8 @@ local function buildTimelineLines(run)
     return lines
 end
 
-local function buildLines(run)
+local function buildLines(run, progress)
     local lines = {}
-    addCompletionLines(lines, run)
     -- Need-Ergebnisse direkt oben zeigen; einzelne Drops verlinken ihre Need
     -- weiterhin zusaetzlich in der Boss-Liste.
     local needs = sortedNeeds(run)
@@ -562,33 +615,28 @@ local function buildLines(run)
     local trash = {}
     local other = {}
     local otherReasons = {}
-    local needByDrop = {}
-    local usedNeeds = {}
-    local dropCount = 0
-
-    for i = 1, #(run.drops or {}) do
-        local drop = run.drops[i]
+    local visibleDrops = {}
+    for _, drop in ipairs(run.drops or {}) do
         if (bossLootQuality(drop) or 0) >= 2 then
-            local need = findNeed(run, drop, usedNeeds)
-            if need then
-                needByDrop[drop] = need
-                usedNeeds[need] = true
-            end
-            local catalogKind, catalogBoss
-            if LJ.DungeonLoot then
-                catalogKind, catalogBoss = LJ.DungeonLoot:Source(run, drop.id)
-            end
-            local index = bossIndexFor(run, drop, bosses, catalogKind, catalogBoss)
-            if index then
-                byBoss[index] = byBoss[index] or {}
-                byBoss[index][#byBoss[index] + 1] = drop
-            elseif catalogKind == "trash" then
-                trash[#trash + 1] = drop
-            else
-                other[#other + 1] = drop
-                otherReasons[drop] = otherLootReason(run, drop, catalogKind)
-            end
-            dropCount = dropCount + 1
+            visibleDrops[#visibleDrops + 1] = drop
+        end
+    end
+    local needByDrop = matchDetailNeeds(run, visibleDrops)
+    local dropCount = #visibleDrops
+    for _, drop in ipairs(visibleDrops) do
+        local catalogKind, catalogBoss
+        if LJ.DungeonLoot then
+            catalogKind, catalogBoss = LJ.DungeonLoot:Source(run, drop.id)
+        end
+        local index = bossIndexFor(run, drop, bosses, catalogKind, catalogBoss)
+        if index then
+            byBoss[index] = byBoss[index] or {}
+            byBoss[index][#byBoss[index] + 1] = drop
+        elseif catalogKind == "trash" then
+            trash[#trash + 1] = drop
+        else
+            other[#other + 1] = drop
+            otherReasons[drop] = otherLootReason(run, drop, catalogKind)
         end
     end
 
@@ -598,13 +646,15 @@ local function buildLines(run)
         lines[#lines + 1] = {
             kind = "boss",
             name = boss.name or LJ.L("DETAIL_UNKNOWN_BOSS"),
-            count = #items,
+            count = #items, group = boss, collapsed = collapsedGroups[boss] == true,
         }
-        if #items == 0 then
-            lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_BOSS_EMPTY"), muted = true }
-        else
-            for j = 1, #items do
-                lines[#lines + 1] = { kind = "item", drop = items[j], need = needByDrop[items[j]] }
+        if not collapsedGroups[boss] then
+            if #items == 0 then
+                lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_BOSS_EMPTY"), muted = true }
+            else
+                for j = 1, #items do
+                    lines[#lines + 1] = { kind = "item", drop = items[j], need = needByDrop[items[j]] }
+                end
             end
         end
     end
@@ -612,19 +662,25 @@ local function buildLines(run)
     if #trash > 0 then
         lines[#lines + 1] = {
             kind = "boss", name = LJ.L("DETAIL_TRASH"), count = #trash, other = true,
+            group = "trash", collapsed = collapsedGroups.trash == true,
         }
-        for i = 1, #trash do
-            lines[#lines + 1] = { kind = "item", drop = trash[i], need = needByDrop[trash[i]] }
+        if not collapsedGroups.trash then
+            for i = 1, #trash do
+                lines[#lines + 1] = { kind = "item", drop = trash[i], need = needByDrop[trash[i]] }
+            end
         end
     end
 
     if #other > 0 then
         lines[#lines + 1] = {
             kind = "boss", name = LJ.L("DETAIL_OTHER"), count = #other, other = true,
+            group = "other", collapsed = collapsedGroups.other == true,
         }
-        for i = 1, #other do
-            lines[#lines + 1] = { kind = "item", drop = other[i], need = needByDrop[other[i]],
-                attributionReason = otherReasons[other[i]] }
+        if not collapsedGroups.other then
+            for i = 1, #other do
+                lines[#lines + 1] = { kind = "item", drop = other[i], need = needByDrop[other[i]],
+                    attributionReason = otherReasons[other[i]] }
+            end
         end
     end
 
@@ -636,15 +692,12 @@ local function buildLines(run)
                 lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_EMPTY"), muted = true }
             end
         end
-        local needs = sortedNeeds(run)
         if #needs == 0 then
             lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_NO_NEEDS"), muted = true }
         end
     end
 
-    if #lines == 0 then
-        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_EMPTY"), muted = true }
-    end
+    addCompletionLines(lines, run, progress)
     return lines, dropCount
 end
 
@@ -659,17 +712,9 @@ local function paginate(lines)
     end
     for i = 1, #lines do
         local line = lines[i]
-        if line.kind == "boss" and #current >= ROWS_PER_PAGE - 1 then flush() end
+        if line.group and not line.collapsed and #current == ROWS_PER_PAGE - 1 then flush() end
         current[#current + 1] = line
-        if #current >= ROWS_PER_PAGE then
-            if line.kind == "boss" and #current > 1 then
-                local header = table.remove(current)
-                flush()
-                current[#current + 1] = header
-            else
-                flush()
-            end
-        end
+        if #current >= ROWS_PER_PAGE then flush() end
     end
     flush()
     if #out == 0 then
@@ -697,13 +742,12 @@ local function rowTooltip(row)
     local link = row.link
     if not line or not GameTooltip then return end
     local need = line.need
-    if not link and not need then return end
     GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
     local shown = false
     if link and GameTooltip.SetHyperlink then
         shown = pcall(GameTooltip.SetHyperlink, GameTooltip, link)
     end
-    if link and not shown then GameTooltip:AddLine(link, 0.92, 0.93, 0.96) end
+    if not shown then GameTooltip:AddLine(link or row.name:GetText(), 0.92, 0.93, 0.96) end
     if line.kind == "item" and line.drop and LJ.Evidence then
         local level, reason = LJ.Evidence:ClassifyDrop(line.drop)
         GameTooltip:AddLine(LJ.L("EVIDENCE_DROP_TOOLTIP", LJ.L("EVIDENCE_" .. string.upper(level))),
@@ -764,7 +808,8 @@ local function configureRow(row, line)
         row.name:SetPoint("LEFT", 10, 0)
         row.name:SetWidth(380)
         local color = line.kind == "section" and skin.progress or (line.other and skin.progress or skin.accent)
-        row.name:SetText(colored(color, line.name))
+        local arrow = line.group and (line.collapsed and "▶ " or "▼ ") or ""
+        row.name:SetText(colored(color, arrow .. line.name))
         if line.count then
             row.recipient:ClearAllPoints()
             row.recipient:SetPoint("RIGHT", -8, 0)
@@ -796,8 +841,8 @@ local function configureRow(row, line)
         link, id = drop and drop.link, drop and drop.id
     end
     row:Show()
-    local text, icon, color = itemText(link, id)
-    row.link = link
+    local text, icon, color, resolvedLink = itemText(link, id)
+    row.link = link or resolvedLink
     row.icon:SetTexture(icon)
     row.icon:Show()
     row.name:ClearAllPoints()
@@ -863,6 +908,7 @@ local function renderPage()
             if list[i] then
                 configureRow(row, list[i])
             else
+                row.line = nil
                 row:Hide()
             end
         end
@@ -938,10 +984,10 @@ function M:Create()
     content:SetFrameLevel(f:GetFrameLevel() + 2)
 
     for i = 1, ROWS_PER_PAGE do
-        local row = CreateFrame("Frame", nil, content)
+        local row = CreateFrame("Button", nil, content)
         row:SetSize(528, ROW_HEIGHT)
         row:SetPoint("TOPLEFT", 0, -((i - 1) * ROW_HEIGHT))
-        row:EnableMouse(true)
+        row:RegisterForClicks("LeftButtonUp")
 
         row.bg = row:CreateTexture(nil, "BACKGROUND")
         row.bg:SetAllPoints()
@@ -984,9 +1030,16 @@ function M:Create()
         row.roll:SetWordWrap(false)
 
         row:SetScript("OnEnter", function(self)
-            if self.line and (self.line.kind == "item" or self.line.kind == "need") then
+            if self.line and (self.line.group or self.line.kind == "item" or self.line.kind == "need") then
                 W:ColorTexture(self.bg, skin.hover)
-                rowTooltip(self)
+                if not self.line.group then rowTooltip(self) end
+            end
+        end)
+        row:SetScript("OnClick", function(self)
+            local group = self.line and self.line.group
+            if group then
+                collapsedGroups[group] = not collapsedGroups[group] or nil
+                M:Refresh(group)
             end
         end)
         row:SetScript("OnLeave", function(self)
@@ -1100,6 +1153,7 @@ function M:Show(run, theme)
     if not frame then self:Create() end
     if not frame then return false end
     self:ApplyTheme(theme or (LJ.UI and LJ.UI.GetLayout and LJ.UI:GetLayout()))
+    if run ~= currentRun then collapsedGroups = {} end
     currentRun = run
     self.showTimeline = false
     page = 1
@@ -1139,37 +1193,66 @@ function M:IsShown()
     return frame ~= nil and frame:IsShown()
 end
 
-function M:Refresh()
+local function durationText(run, live)
+    local start = tonumber(run.started)
+    local finish = live and LJ.Now() or tonumber(run.ended)
+    if not start or start <= 0 or not finish or finish < start then return "–" end
+    local seconds = math.floor(finish - start)
+    if seconds >= 3600 then
+        return ("%d:%02d:%02d"):format(math.floor(seconds / 3600), math.floor(seconds / 60) % 60, seconds % 60)
+    end
+    return ("%d:%02d"):format(math.floor(seconds / 60), seconds % 60)
+end
+
+function M:Refresh(group)
     if not frame or not currentRun then return end
     local run = currentRun
     title:SetText(W:Truncate(LJ:DungeonName(run), 42))
     local active = LJ.Tracker and LJ.Tracker.GetActive and LJ.Tracker:GetActive()
-    local status = run.paused and LJ.L("STATUS_IDLE")
-        or (active == run and (LJ.Tracker:IsLive() and LJ.L("LIVE") or LJ.L("DETAIL_ENDED"))
-        or LJ.L(run.closedReason == "all-bosses-cleared" and "DETAIL_CLOSED" or "DETAIL_ENDED"))
+    local live = active == run and LJ.Tracker:IsLive() and not run.paused
+    local progress = not run.legacy and LJ.DungeonCompletion:Progress(run) or nil
+    local status = "RUN_STATUS_OPEN"
     if run.closedReason == "manual" then
-        status = LJ.L("RUN_FINISH_MANUAL")
+        status = "RUN_FINISH_MANUAL"
+    elseif run.paused then
+        status = "STATUS_IDLE"
+    elseif live then
+        status = "LIVE"
+    elseif LJ.DungeonCompletion:WasCleared(run, progress) then
+        status = "DETAIL_CLOSED"
+    elseif run.closed then
+        status = "DETAIL_ENDED"
     end
     local counted = LJ.Tracker:IsCounted(run)
     local tracking = LJ.L(counted and "DETAIL_STAT_COUNTED" or "DETAIL_STAT_NO_ACTIVITY")
-    subtitle:SetText(formatDate(run) .. " · " .. status .. " · " .. tracking)
+    subtitle:SetText(formatDate(run) .. " · " .. LJ.L(status) .. " · " .. tracking)
     if finishButton then finishButton:SetShown(active == run) end
 
     local bossCount = #(run.bosses or {})
-    local lines, dropCount = buildLines(run)
-    local needTotal, needWon = 0, 0
-    for i = 1, #(run.needs or {}) do
-        local n = run.needs[i]
-        needTotal = needTotal + 1
-        if n.result == "won" then needWon = needWon + 1 end
+    local lines, dropCount = buildLines(run, progress)
+    local won, lost, pending = 0, 0, 0
+    for _, need in ipairs(run.needs or {}) do
+        if need.result == "won" then won = won + 1
+        elseif need.result == "lost" then lost = lost + 1
+        else pending = pending + 1 end
     end
-    summary:SetText(LJ.L("DETAIL_SUMMARY", bossCount, dropCount, needTotal, needWon))
+    summary:SetText(LJ.L("DETAIL_RUN_COUNTS", durationText(run, live), bossCount, dropCount)
+        .. "\n" .. LJ.L("HISTORY_SUMMARY_NEED", won, lost, pending))
 
     M.lines = self.showTimeline and buildTimelineLines(run) or lines
     self.timelineButton.label:SetText(LJ.L(self.showTimeline
         and "DETAIL_TIMELINE_BACK" or "DETAIL_TIMELINE_BUTTON"))
     pages = paginate(M.lines)
     M.pages = pages
+    if group then
+        for index, list in ipairs(pages) do
+            local found
+            for _, line in ipairs(list) do
+                if line.group == group then found = true; break end
+            end
+            if found then page = index; break end
+        end
+    end
     if page > #pages then page = #pages end
     if page < 1 then page = 1 end
     renderPage()

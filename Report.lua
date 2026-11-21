@@ -32,6 +32,7 @@ local function faction(unit)
 end
 
 local function bnetFriend(battleTag, name, targetGUID)
+    if not battleTag and not targetGUID then return nil end
     if type(BNGetNumFriends) ~= "function" or not C_BattleNet
         or type(C_BattleNet.GetFriendAccountInfo) ~= "function" then return nil end
     local ok, count = pcall(BNGetNumFriends)
@@ -47,7 +48,7 @@ local function bnetFriend(battleTag, name, targetGUID)
                 local friendGUID = LJ.Plain(game.playerGuid)
                 same = LJ:SamePlayerName(name, game.characterName)
                     and LJ.Plain(game.isInCurrentRegion) ~= false
-                    and (not targetGUID or not friendGUID or targetGUID == friendGUID)
+                    and targetGUID == friendGUID
             end
             local id = tonumber(LJ.Plain(info.bnetAccountID))
             if same and id and type(tag) == "string" then
@@ -63,7 +64,7 @@ local function targetGUID()
     if type(UnitGUID) ~= "function" then return nil end
     local ok, guid = pcall(UnitGUID, "target")
     guid = ok and LJ.Plain(guid) or nil
-    return type(guid) == "string" and guid or nil
+    return type(guid) == "string" and guid ~= "" and guid or nil
 end
 
 function R:GetTargetName()
