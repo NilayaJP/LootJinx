@@ -4,6 +4,21 @@ local LJ = ns or _G.LootJinx or {}
 _G.LootJinx = LJ
 LJ.name = ADDON or "LootJinx"
 
+LJ.LAYOUTS = {
+    { id = "classic", label = "OPT_LAYOUT_CLASSIC" },
+    { id = "journal", label = "OPT_LAYOUT_JOURNAL" },
+    { id = "goblin", label = "OPT_LAYOUT_GOBLIN" },
+    { id = "dwarven", label = "OPT_LAYOUT_DWARVEN" },
+    { id = "oracle", label = "OPT_LAYOUT_ORACLE" },
+}
+
+local layoutsByID = {}
+for _, layout in ipairs(LJ.LAYOUTS) do layoutsByID[layout.id] = layout end
+
+function LJ:GetLayoutSpec(id)
+    return layoutsByID[id] or LJ.LAYOUTS[1]
+end
+
 -- ---------------------------------------------------------------- Farben
 LJ.COLORS = {
     bg          = { 0.035, 0.040, 0.055, 0.97 },
@@ -132,6 +147,8 @@ local function normalizeDrop(d, fallbackAt)
         id = id,
         link = link,
         bossID = bossID,
+        sourceNPCID = tonumber(d.sourceNPCID),
+        lootSourceAmbiguous = d.lootSourceAmbiguous == true or nil,
         bossName = type(d.bossName) == "string" and d.bossName or nil,
         at = tonumber(d.at) or fallbackAt or 0,
         winner = winner,
@@ -231,6 +248,10 @@ local function normalizeRun(run, fallbackID)
     run.key = type(run.key) == "string" and run.key or nil
     run.instanceID = tonumber(run.instanceID)
     run.zoneID = tonumber(run.zoneID)
+    run.zoneIDKind = run.zoneIDKind == "zone" and "zone" or nil
+    if not run.zoneIDKind and run.zoneID == run.instanceID then
+        run.zoneID, run.reenterPending = nil, nil
+    end
     -- The instance-copy check was removed; legacy copy fields are dropped.
     run.provisionalPreviousID = nil
     run.copyOutcome = nil
@@ -252,6 +273,8 @@ local function normalizeRun(run, fallbackID)
     run.agilityName = nil
     run.itemsSeen = tonumber(run.itemsSeen) or 0
     run.closed = run.closed == true
+    run.resetAfterExit = run.resetAfterExit == true or nil
+    run.unconfirmedCopy = run.unconfirmedCopy == true or nil
     run.closedReason = type(run.closedReason) == "string" and run.closedReason or nil
     if run.closedReason == "pending-copy" or run.closedReason == "different-copy"
         or run.closedReason == "unknown-copy" then
@@ -354,6 +377,9 @@ local function normalizeRun(run, fallbackID)
     end
     run.rolls = cleanRolls
     local function compatibleEncounter(first, second)
+        if first.sourceNPCID and second.sourceNPCID and first.sourceNPCID ~= second.sourceNPCID then
+            return false
+        end
         if first.bossID and second.bossID then return first.bossID == second.bossID end
         return not first.bossName or first.bossName == "" or not second.bossName or second.bossName == ""
             or first.bossName:lower() == second.bossName:lower()
@@ -411,6 +437,8 @@ local function normalizeRun(run, fallbackID)
                 match.rollKind = match.rollKind or duplicate.rollKind
                 match.bossID = match.bossID or duplicate.bossID
                 match.bossName = match.bossName or duplicate.bossName
+                match.sourceNPCID = match.sourceNPCID or duplicate.sourceNPCID
+                match.lootSourceAmbiguous = match.lootSourceAmbiguous or duplicate.lootSourceAmbiguous
                 table.remove(cleanDrops, i)
             end
         end
@@ -436,6 +464,8 @@ local function normalizeRun(run, fallbackID)
                 anchor.lastWindowAt = at
                 anchor.bossID = anchor.bossID or drop.bossID
                 anchor.bossName = anchor.bossName or drop.bossName
+                anchor.sourceNPCID = anchor.sourceNPCID or drop.sourceNPCID
+                anchor.lootSourceAmbiguous = anchor.lootSourceAmbiguous or drop.lootSourceAmbiguous
                 anchor.link = anchor.link or drop.link
                 anchor.passed = anchor.passed or drop.passed
                 isEcho[i] = true
@@ -633,7 +663,7 @@ function LJ:InitDB()
     db.characterStats = type(db.characterStats) == "table" and db.characterStats or {}
     db.compact = db.compact == true
     db.announceRecords = db.announceRecords == true
-    db.layoutPreview = db.layoutPreview == "journal" and "journal" or "classic"
+    db.layoutPreview = self:GetLayoutSpec(db.layoutPreview).id
     db.language = type(db.language) == "string" and db.language or "auto"
     db.minimapAngle = tonumber(db.minimapAngle) or 225
     if db.minimapAngle ~= db.minimapAngle then db.minimapAngle = 225 end
@@ -999,8 +1029,9 @@ if loader then
             LJ:Changed()
         elseif event == "PLAYER_ENTERING_WORLD" and LJ.dbReady and (arg1 == true or arg2 == true) then
             if LJ.Changelog then pcall(LJ.Changelog.ShowAfterUpdate, LJ.Changelog) end
-        elseif event == "PLAYER_LOGOUT" and LJ.dbReady and LJ.CharacterOverview then
-            LJ.CharacterOverview:Snapshot()
+        elseif event == "PLAYER_LOGOUT" and LJ.dbReady then
+            if LJ.Tracker then LJ.Tracker:SavePendingReentry() end
+            if LJ.CharacterOverview then LJ.CharacterOverview:Snapshot() end
         end
     end)
 end

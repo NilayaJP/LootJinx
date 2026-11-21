@@ -10,7 +10,9 @@ from zipfile import ZIP_DEFLATED, ZipFile
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = r"\d+\.\d+\.\d+"
 FOREVERDB_CREDIT = "[Data from ForeverDB.net](https://foreverdb.net)"
-ASSETS = ("LootJinxIcon", "NeedRolls", "NoLoot", "NoNeedWin", "Report", "SinceNeedWin")
+ASSETS = ("LootJinxIcon", "NeedRolls", "NoLoot", "NoNeedWin", "SinceNeedWin")
+THEMES = ("Classic", "Journal", "Goblin", "Dwarven", "Oracle")
+THEME_ASSETS = tuple(f"Media/Themes/{theme}{variant}.tga" for theme in THEMES for variant in ("Banner", "Icon"))
 
 
 def release_notes(markdown, version):
@@ -104,7 +106,7 @@ def build(root, package=False, check=False):
         raise ValueError("LootJinx.toc must load both changelog modules")
     if len(modules) != len(set(modules)):
         raise ValueError("LootJinx.toc lists a Lua module more than once")
-    files = ["LootJinx.toc", *modules, *(f"Media/{asset}.tga" for asset in ASSETS)]
+    files = ["LootJinx.toc", *modules, *(f"Media/{asset}.tga" for asset in ASSETS), *THEME_ASSETS]
     dist = root / "dist"
     dist.mkdir(exist_ok=True)
     output = dist / f"LootJinx-{version}.zip"

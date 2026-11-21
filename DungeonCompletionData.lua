@@ -25,7 +25,7 @@ LJ.DungeonCompletionData = {
     },
     ["The Deadmines"] = {
         { name = "Rhahk'Zor", aliases = { "Rhahk'Zor" }, npcID = 644 },
-        { name = "Sneed's Shredder", aliases = { "Sneed's Shredder", "Sneeds Schredder", "Sneed" }, npcID = 642, deName = "Sneeds Schredder" },
+        { name = "Sneed's Shredder", aliases = { "Sneed's Shredder", "Sneeds Schredder" }, npcID = 642, deName = "Sneeds Schredder", impliedBy = { "Sneed" } },
         { name = "Sneed", aliases = { "Sneed" }, npcID = 643 },
         { name = "Gilnid", aliases = { "Gilnid" }, npcID = 1763 },
         { name = "Mr. Smite", aliases = { "Mr. Smite", "Handlanger Pein" }, npcID = 646, deName = "Handlanger Pein" },

@@ -112,7 +112,7 @@ local function dungeonIdentity(run, includeWing)
     local instanceID = tonumber(run and run.instanceID)
     if instanceID and instanceID > 0 then
         local key = tostring(instanceID)
-        if includeWing then
+        if includeWing and (includeWing ~= "shared" or (LJ.DungeonLoot and LJ.DungeonLoot:IsSharedMap(instanceID))) then
             local candidates = LJ.DungeonLoot and LJ.DungeonLoot:Candidates(run)
             local wing
             if candidates and #candidates == 1 then
@@ -121,7 +121,7 @@ local function dungeonIdentity(run, includeWing)
                 local progress = LJ.DungeonCompletion:Progress(run)
                 wing = progress and progress.dungeon
             end
-            if wing then key = key .. ":" .. wing end
+            if wing then return key .. ":" .. wing, wing end
         end
         return key
     end
@@ -233,6 +233,20 @@ end
 
 function H:ResolvePresetDungeon(dungeon, rememberedKey, runs)
     local options = self:DungeonOptions(runs)
+    local mapID = rememberedKey:match("^id:(%d+)$")
+    if mapID and LJ.DungeonLoot and LJ.DungeonLoot:IsSharedMap(mapID) then
+        local label = normalized(dungeon:gsub("%s+%b()%s*$", ""))
+        local match
+        for _, option in ipairs(options) do
+            local wing = option.key:match("^id:" .. mapID .. ":(.+)$")
+            if (wing or option.key == rememberedKey)
+                and (label == normalized(option.displayName) or label == normalized(wing)) then
+                if match then return nil end
+                match = option
+            end
+        end
+        return match
+    end
     for _, option in ipairs(options) do
         if option.key == rememberedKey then return option end
     end
@@ -310,12 +324,12 @@ function H:Filter(runs, query, dungeon, range, now, status, dungeonKey, focus)
     if dungeon then
         selectedKey = self:ResolveDungeonKey(dungeon, runs, dungeonKey)
     end
-    local knownIDs = knownDungeonIDs(runs)
+    local knownIDs = knownDungeonIDs(runs, "shared")
     for i = #(runs or {}), 1, -1 do
         local run = runs[i]
         local started = type(run) == "table" and tonumber(run.started) or nil
         if type(run) == "table" and (not dungeon or (selectedKey
-            and filterKey(run, knownIDs) == selectedKey))
+            and filterKey(run, knownIDs, "shared") == selectedKey))
             and (needle == "" or nameMatches[run]
                 or (searchMaps[dungeonIdentity(run)] and searchIDs[dungeonIdentity(run, true)])
                 or needTextMatches(run, needle))
@@ -372,14 +386,16 @@ end
 
 function H:DungeonOptions(runs)
     local seen, options, nameCounts = {}, {}, {}
-    local knownIDs = knownDungeonIDs(runs)
+    local knownIDs = knownDungeonIDs(runs, "shared")
     for i = #(runs or {}), 1, -1 do
         local run = runs[i]
         local name = run and run.name
-        local key = type(run) == "table" and filterKey(run, knownIDs) or nil
+        local key = type(run) == "table" and filterKey(run, knownIDs, "shared") or nil
         if type(name) == "string" and name ~= "" and not seen[key] then
             seen[key] = true
-            local displayName = LJ:DungeonName(run)
+            local _, wing = dungeonIdentity(run, "shared")
+            local displayName = wing and LJ.DungeonLoot:DisplayName({ name = wing }, LJ.lang)
+                or wing or LJ:DungeonName(run)
             nameCounts[displayName] = (nameCounts[displayName] or 0) + 1
             options[#options + 1] = { run = run, name = name, key = key, displayName = displayName }
         end
@@ -484,15 +500,14 @@ function H:ApplyTheme()
     local skin = W:Skin()
     if self.skin ~= skin then
         self.skin = skin
-        W:Paint(self.frame, skin.bg, skin.border)
-        W:StyleAccent(self.accent, skin)
+        W:StyleWindow(self.frame, skin, 60, 30)
         for _, control in ipairs({ self.search, self.presetName }) do
-            W:Paint(control, skin.bg, skin.border)
-            W:ColorText(control, skin.text)
+            W:StyleInput(control, skin)
         end
-        for _, menu in ipairs({ self.menu, self.advancedMenu, self.presetMenu, self.comparePanel }) do
+        for _, menu in ipairs({ self.menu, self.advancedMenu, self.presetMenu }) do
             W:Paint(menu, skin.bg, skin.border)
         end
+        W:StyleWindow(self.comparePanel, skin, 39, 24)
         for _, panel in ipairs(self.compareCards) do W:Paint(panel, skin.surface, skin.border) end
         for _, field in ipairs(self.mutedLabels) do W:ColorText(field, skin.muted) end
         W:StyleCredit(self.creditLink, skin)
@@ -502,7 +517,8 @@ function H:ApplyTheme()
         W:ColorText(self.compareTitle, skin.text)
         for _, field in ipairs(self.compareColTitles) do W:ColorText(field, skin.accent) end
         for _, button in ipairs(self.buttons) do W:StyleButton(button, skin) end
-        for _, row in ipairs(self.rows) do
+        for i, row in ipairs(self.rows) do
+            W:StyleListRow(row, skin, i % 2 == 1)
             row.separator:SetColorTexture(skin.border[1], skin.border[2], skin.border[3], .60)
             W:ColorTexture(row.hover, skin.hover)
             W:StyleCheck(row.compare, skin, row.compare.mark)
@@ -511,6 +527,11 @@ function H:ApplyTheme()
     for _, choice in ipairs(self.advancedChoices) do
         W:StyleButton(choice, skin, self[choice.field] == choice.value)
     end
+    W:StyleButton(self.groupButton, skin, self.grouped and not (self.trend or self.bossView or self.lossRecord))
+    W:StyleButton(self.compareButton, skin, self.comparing)
+    W:StyleButton(self.filterButton, skin, self.dungeon ~= nil)
+    W:StyleButton(self.advancedButton, skin,
+        self.query ~= "" or self.dungeon ~= nil or self.range ~= "all" or self.status ~= "all" or self.focus ~= nil)
     for _, row in ipairs(self.rows) do
         W:ColorText(row.label, (row.group or row.boss) and skin.accent or skin.text)
     end
@@ -520,7 +541,6 @@ function H:Create()
     local f = CreateFrame("Frame", "LootJinxHistoryFrame", UIParent,
         BackdropTemplateMixin and "BackdropTemplate" or nil)
     self.frame = f
-    self.accent = W:AccentLine(f)
     f:SetSize(610, 520)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     f:SetFrameStrata("DIALOG")
@@ -546,7 +566,7 @@ function H:Create()
         menu:SetShown(not menu:IsShown())
     end
     self.title = label(f, 16, LJ.L("HISTORY_TITLE"))
-    self.title:SetPoint("TOPLEFT", 16, -14)
+    self.title:SetPoint("TOPLEFT", 56, -13)
     local legend = addButton(f, "?", 16, 16)
     legend:SetPoint("TOPRIGHT", -51, -16)
     W:Tooltip(legend, LJ.L("HISTORY_LEGEND_TITLE"), {
@@ -554,7 +574,9 @@ function H:Create()
         LJ.L("HISTORY_NEED_LEGEND"),
     })
     self.count = label(f, 10, "")
-    self.count:SetPoint("TOPLEFT", 16, -40)
+    self.count:SetPoint("TOPLEFT", 56, -38)
+    self.count:SetWidth(154)
+    self.count:SetWordWrap(false)
     self.mutedLabels[#self.mutedLabels + 1] = self.count
     self.groupButton = addButton(f, "", 132, 19)
     self.groupButton:SetPoint("TOPLEFT", 218, -37)
@@ -574,7 +596,7 @@ function H:Create()
     self.creditLink:SetPoint("BOTTOMRIGHT", -16, 15)
     self.mutedLabels[#self.mutedLabels + 1] = self.creditLink.label
     local close = addButton(f, "×", 24, 24)
-    close:SetPoint("TOPRIGHT", -14, -12)
+    W:WindowClose(close)
     close:SetScript("OnClick", function() H:Hide() end)
     self.search = CreateFrame("EditBox", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
     self.search:SetSize(178, 25)
@@ -796,6 +818,7 @@ function H:Create()
         row:RegisterForClicks("LeftButtonUp")
         row:SetSize(578, 35)
         row:SetPoint("TOPLEFT", 16, -154 - (i - 1) * 35)
+        W:CreateFoldIndicator(row, 10)
         row.label = label(row, 11)
         row.label:SetPoint("LEFT", 22, 0)
         row.label:SetWidth(319)
@@ -924,10 +947,10 @@ function H:Create()
     self.comparePanel:SetFrameLevel(f:GetFrameLevel() + 40)
     self.comparePanel:EnableMouse(true)
     self.compareTitle = label(self.comparePanel, 14, "")
-    self.compareTitle:SetPoint("TOPLEFT", 16, -14)
-    self.compareTitle:SetWidth(480)
+    self.compareTitle:SetPoint("TOPLEFT", 50, -11)
+    self.compareTitle:SetWidth(460)
     local compareClose = addButton(self.comparePanel, "×", 24, 22)
-    compareClose:SetPoint("TOPRIGHT", -12, -10)
+    W:WindowClose(compareClose)
     compareClose:SetScript("OnClick", function() H:ClearComparison(); H:Refresh() end)
     self.compareValues = {}
     self.compareCards = {}
@@ -1307,6 +1330,9 @@ function H:RenderEntry(row, entry)
     local run, group, week = entry.run, entry.group, entry.week
     local boss, item, roll = entry.boss, entry.bossItem, entry.roll
     local withContext = boss or item or roll
+    local expanded = group and self.expanded[group.key]
+        or (boss and self.bossView.expanded[boss.key])
+    W:SetFoldIndicator(row, (group or boss) and W:Skin().accent or nil, expanded)
     row.run, row.group, row.boss = run, group, boss
     row.compare:SetShown(run ~= nil and self.comparing == true)
     row.bar:SetShown(run ~= nil and roll == nil)
@@ -1349,8 +1375,7 @@ function H:RenderEntry(row, entry)
         row.need:SetText(runNeed(run))
         row.date:SetText(LJ:FormatTime(run.started, "DATE_LONG"))
     elseif group then
-        local arrow = self.expanded[group.key] and "▼ " or "▶ "
-        row.label:SetText(arrow .. group.name)
+        row.label:SetText(group.name)
         row.groupCount:SetText(LJ.L("HISTORY_GROUP_COUNT", #group.runs))
         row.need:SetText(group.rolls > 0 and ("%d / %d"):format(group.wins, group.rolls) or "—")
         row.date:SetText(LJ:FormatTime(group.latest, "DATE_LONG"))
@@ -1359,8 +1384,7 @@ function H:RenderEntry(row, entry)
         row.label:SetText(date and LJ.L("HISTORY_TREND_WEEK", date) or LJ.L("HISTORY_TREND_UNDATED"))
         row.trendValues:SetText(trendCounts(week.wins, week.losses, week.pending))
     elseif boss then
-        local arrow = self.bossView.expanded[boss.key] and "▼ " or "▶ "
-        row.label:SetText(arrow .. boss.name)
+        row.label:SetText(boss.name)
         row.context:SetText(LJ.L("HISTORY_BOSS_TOTALS", boss.visits, entry.visits, boss.drops) .. " · "
             .. LJ.L("HISTORY_BOSS_NEED", boss.won, boss.lost, boss.pending))
     elseif item then

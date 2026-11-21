@@ -4,28 +4,25 @@ local LJ = ns or _G.LootJinx
 if not LJ or not LJ.UI then return end
 
 local Classic = LJ.UI
-local Journal = LJ.JournalUI
-local R = { classic = Classic, journal = Journal }
+local R = LJ.ThemeDashboards
+R.classic, R.journal = Classic, LJ.JournalUI
 LJ.UI = R
 
-local function valid(id)
-    return id == "journal" and "journal" or "classic"
-end
-
 local function selected()
-    return valid(LJ.DB and LJ.DB.layoutPreview)
+    return LJ:GetLayoutSpec(LJ.DB and LJ.DB.layoutPreview).id
 end
 
 local function view()
-    return selected() == "journal" and Journal or Classic
+    return R[selected()]
 end
 
 local function syncFrame()
-    R.frame = view().frame
-    R.historyButton = view().historyButton
-    R.lossRecordButton = view().lossRecordButton
-    R.settingsButton = view().settingsButton
-    R.resizeGrip = view().resizeGrip
+    local active = view()
+    R.frame = active.frame
+    R.historyButton = active.historyButton
+    R.lossRecordButton = active.lossRecordButton
+    R.settingsButton = active.settingsButton
+    R.resizeGrip = active.resizeGrip
 end
 
 function R:GetLayout()
@@ -33,15 +30,12 @@ function R:GetLayout()
 end
 
 function R:SetLayout(id)
-    id = valid(id)
+    id = LJ:GetLayoutSpec(id).id
     if not LJ.DB then return id end
     if self.frame and LJ.DB.layoutPreview == id and self.frame == view().frame then return id end
-    local old = self.frame
-    local wasVisible = old and old:IsShown()
-    if old then
-        if Classic.frame == old then Classic:Hide()
-        elseif Journal and Journal.frame == old then Journal:Hide() end
-    end
+    local old = view()
+    local wasVisible = old.frame and old.frame:IsShown()
+    old:Hide()
     if LJ.RunDetail then LJ.RunDetail:Hide() end
     if LJ.History then LJ.History:Hide() end
     LJ.DB.layoutPreview = id
@@ -58,9 +52,7 @@ function R:Create()
     -- Classic remains initialized for its legacy callbacks and saved position.
     if not Classic.frame then Classic:Create() end
     local active = view()
-    if active == Journal and Journal and not Journal.frame then Journal:Create() end
-    if Classic.frame and active ~= Classic then Classic:Hide() end
-    if Journal and Journal.frame and active ~= Journal then Journal:Hide() end
+    if not active.frame then active:Create() end
     syncFrame()
     return self.frame
 end
@@ -68,12 +60,10 @@ end
 function R:Show()
     self:Create()
     local active = view()
-    if active == Journal then
-        Journal:Show()
-    else
+    if active == Classic then
         Classic:ApplyScale(LJ.DB and LJ.DB.scale or 1)
-        Classic:Show()
     end
+    active:Show()
     syncFrame()
 end
 
@@ -124,15 +114,11 @@ function R:BuildReport()
 end
 
 function R:ShowReport()
-    if selected() == "journal" then
-        Journal:ShowReport()
-    else
-        Classic:ShowReport()
-    end
+    return view():ShowReport()
 end
 
 function R:SendReport(channel, target)
-    if selected() == "journal" then
+    if view() ~= Classic then
         return LJ.Report:Send(channel, target)
     end
     return Classic:SendReport(channel, target)

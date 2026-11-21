@@ -1,6 +1,6 @@
 # LootJinx
 
-LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: lost Need rolls, unlucky streaks, missing loot, and personal records. Tracking starts automatically in dungeons, raids, and scenarios. Available in all supported client languages, with **Classic** and **Dungeon Journal** designs.
+LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: lost Need rolls, unlucky streaks, missing loot, and personal records. Tracking starts automatically in dungeons, raids, and scenarios. Available in all supported client languages with five dashboard designs.
 
 **Current version:** 1.7.5 · **Interface:** 16001 · **Dependencies:** None
 
@@ -11,11 +11,17 @@ LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: lost Need ro
 - **No Loot:** Recorded dungeon visits without observed eligible loot; quest items do not count.
 - **Since Need Win:** Dungeons since your last successful Need roll.
 
-All trackers appear in both designs. Empty visits with no observed boss, item, or roll are omitted after leaving the instance.
+All trackers appear in all five designs. Empty visits with no observed boss, item, or roll are omitted after leaving the instance.
 
 ## Review and share
 
-Both designs use the same dashboard layout and carry their palette through the other LootJinx windows. Classic uses cool accents and Dungeon Journal uses warm brass tones and a WoW display font. History and Report stay in the footer alongside the **…** menu for Help and Reset.
+Choose a design under **Options → Design**. Every design includes its own illustration and icon, with matching headers, controls, and list colors across LootJinx windows. History and Report stay in the footer alongside the **…** menu for Help and Reset.
+
+- **Classic** uses cool blue and violet accents with iron dice.
+- **Dungeon Journal** uses parchment and warm brass tones.
+- **Goblin Betting Hall** puts the Need win rate first and styles recent runs as betting slips.
+- **Dwarven Chronicle** puts three large streak cards along the top in slate and ember tones.
+- **Shadow Oracle** highlights the active Need loss streak, the clickable loss record, and roll summaries in violet.
 
 Open the movable LootJinx settings with the dashboard gear, a right-click on the minimap icon, or **Options → AddOns → LootJinx** in WoW.
 
@@ -27,7 +33,7 @@ Open **Bosses** on a dungeon group to see which runs recorded a boss defeat. Exp
 
 Use **Filters → Presets** to save and reuse searches, dungeon and status filters, date ranges, and sort order across characters. Open **Characters** in History to compare dungeon totals, Need results, and win rate. LootJinx records the summary locally once you log in on each character with the addon enabled.
 
-Browse recent runs and searchable history, and open run details to see observed bosses, drops, recipients, and roll values. History opens centered over the dashboard. Drag the title bar to move either History or Run Details. Use **Filters** for date range, status, sort order, and cleanup. Use **Compare** to select two runs of the same dungeon. Known boss and trash loot is grouped by source; unlisted or ambiguous gear stays visible under **Other Loot**. Older runs without detailed data remain in history. Clicking the No Need Win, No Loot, or Since Need Win card opens the history filtered to exactly those runs; a filter chip removes the focus again.
+Browse recent runs and searchable history, and open run details to see bosses, drops, recipients, and roll values. History opens centered over the dashboard. Drag the title bar to move either History or Run Details. Use **Filters** for date range, status, sort order, and cleanup. Use **Compare** to select two runs of the same dungeon. Known boss and trash loot is grouped by source. A boss group marked **Loot evidence** has a recorded drop pointing to that boss. Unlisted or ambiguous gear stays visible under **Other Loot**. Older runs without detailed data remain in history. Clicking the No Need Win, No Loot, or Since Need Win card opens the history filtered to exactly those runs; a filter chip removes the focus again.
 
 Run details show the run's duration when available, completion status, boss and loot counts, and won, lost, and pending Need rolls at the top. Click a loot group heading to collapse or expand it. Completion evidence follows the Need and loot sections.
 
@@ -65,6 +71,8 @@ To build the runtime ZIP from a Git checkout, run `python tools/build_changelog.
 The loot catalog is curated from ForeverDungeonJournal and reviewed against Wowhead Forever and [ForeverDB.net](https://foreverdb.net). The build-time importer uses the ForeverDB API for the instance list and the public dungeon pages for observed drops. Reviewed item sources are bundled with the addon.
 
 Run `lua tools/review_dungeon_sources.lua <path-to-ForeverDungeonJournal/Data/Dungeons.lua>` before regenerating the catalogs. The report lists the previous and proposed sources beside each changed item ID, along with the Journal file or reviewed URL supporting the proposed sources.
+
+The generated loot catalog includes boss NPC IDs for readable corpse sources, including rares. The completion catalog separately defines required bosses and prerequisite kills. A confirmed reset after leaving starts a new run on re-entry.
 
 To refresh the review snapshot, set `FOREVERDB_API_KEY` in the repository's `.env` or in your environment, then run `python tools/fetch_foreverdb_loot.py <path-to-ForeverDungeonJournal/Data/Dungeons.lua>` and `lua tools/review_foreverdb_loot.lua --all` from the repository root. The report includes dungeon loot and loot from unmatched bosses, with the evidence label from ForeverDB. Check the item pages for direct NPC sources before accepting dungeon-page observations into the catalog.
 

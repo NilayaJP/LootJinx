@@ -95,10 +95,14 @@ function Overview:Create(parent)
     panel:SetFrameLevel(parent:GetFrameLevel() + 30)
     panel:EnableMouse(true)
     self.panel = panel
-    self.title = text(panel, 15, C.accent, 12, -12, 550)
+    self.title = text(panel, 15, C.accent, 56, -12, 460)
     self.title:SetText(LJ.L("CHARACTER_OVERVIEW_TITLE"))
-    self.hint = text(panel, 10, C.muted, 12, -38, 550)
+    self.hint = text(panel, 10, C.muted, 56, -37, 460)
     self.hint:SetText(LJ.L("CHARACTER_OVERVIEW_HINT"))
+    self.close = W:Button(panel, "×", 24, 24)
+    W:WindowClose(self.close)
+    self.close:SetScript("OnClick", function() LJ.History:ToggleCharacters() end)
+    W:Tooltip(self.close, LJ.L("CLOSE"))
     self.headers = {}
     for _, column in ipairs(columns) do
         local header = text(panel, 9, C.muted, column.x, -65, column.width)
@@ -145,7 +149,7 @@ function Overview:ApplyTheme()
     local skin = W:Skin()
     if self.skin == skin then return end
     self.skin = skin
-    W:Paint(self.panel, skin.bg, skin.border)
+    W:StyleWindow(self.panel, skin, 56, 28)
     W:SetTextFont(self.title, 18, "", skin.displayFont)
     W:ColorText(self.title, skin.text)
     W:ColorText(self.details, skin.text)
@@ -160,6 +164,7 @@ function Overview:ApplyTheme()
     end
     W:StyleButton(self.prev, skin)
     W:StyleButton(self.next, skin)
+    W:StyleButton(self.close, skin)
     W:ColorTexture(self.rule, skin.border)
 end
 
@@ -185,6 +190,7 @@ function Overview:Refresh()
             local rate = (won + lost) > 0 and ("%.0f%%"):format(100 * won / (won + lost)) or "—"
             local values = { profile.name, count(profile, "runs"), won, lost, count(profile, "pending"), rate }
             for i, value in ipairs(values) do row.values[i]:SetText(value) end
+            W:StyleButton(row, self.skin, data.key == self.selected)
             W:ColorText(row.values[1], data.key == self.selected and self.skin.accent or self.skin.text)
             row.realm:SetText(profile.realm .. (data.key == current and (" · " .. LJ.L("CHARACTER_OVERVIEW_CURRENT")) or ""))
             row.profileKey = data.key

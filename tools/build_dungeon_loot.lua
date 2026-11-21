@@ -37,6 +37,7 @@ out:write("-- Curated item ID/source index from ForeverDungeonJournal " .. versi
 out:write("-- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, tools/wowhead_forever_loot.tsv,\n")
 out:write("-- and reviewed tools/foreverdb_loot_reviewed.tsv (Data from ForeverDB.net — https://foreverdb.net).\n")
 out:write("-- Reference data only: observations and client events decide whether an item actually dropped.\n")
+out:write("-- Groups store the name, trash flag, item IDs, and a boss NPC ID when available.\n")
 out:write("-- Regenerate with tools/build_dungeon_loot.lua after reviewing upstream data changes.\n")
 out:write("local ADDON, ns = ...\n")
 out:write("local LJ = ns or _G.LootJinx\n")
@@ -48,6 +49,7 @@ for _, dungeonName in ipairs(source.ORDER or {}) do
         out:write("    [", string.format("%q", dungeonName), "] = {\n")
         for _, boss in ipairs(dungeon.bosses or {}) do
             local ids, seen = {}, {}
+            local npcID = not boss.trash and tonumber(boss.npcID)
             for _, item in ipairs(boss.loot or {}) do
                 local id = type(item) == "table" and tonumber(item[1])
                 if id and id > 0 and not seen[id] then
@@ -63,14 +65,16 @@ for _, dungeonName in ipairs(source.ORDER or {}) do
                     seen[id] = true
                 end
             end
-            if #ids > 0 then
+            if #ids > 0 or (npcID and npcID > 0) then
                 out:write("        { ", string.format("%q", boss.name or "?"), ", ",
                     boss.trash and "true" or "false", ", { ")
                 for i, id in ipairs(ids) do
                     if i > 1 then out:write(", ") end
                     out:write(tostring(id))
                 end
-                out:write(" } },\n")
+                out:write(" }")
+                if npcID and npcID > 0 then out:write(", ", tostring(npcID)) end
+                out:write(" },\n")
             end
         end
         out:write("    },\n")

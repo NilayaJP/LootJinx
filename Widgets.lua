@@ -8,25 +8,69 @@ LJ.Widgets = W
 
 local C = LJ.COLORS or {}
 local WHITE = "Interface\\Buttons\\WHITE8X8"
+local THEME_MEDIA = "Interface\\AddOns\\LootJinx\\Media\\Themes\\"
 local FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 W.skins = {
     classic = {
+        art = "Classic",
+        header = { .072, .086, .126, 1 }, artworkAlpha = .24, edgeHeight = 1,
         bg = { .057, .064, .087, .98 }, surface = { .084, .098, .13, .98 },
         border = { .192, .214, .27, 1 }, hover = { .133, .141, .207, 1 },
         text = C.text, muted = C.muted, accent = { .72, .59, .95, 1 },
         progress = { .43, .82, .93, 1 }, track = { .153, .169, .223, 1 },
     },
     journal = {
+        art = "Journal",
+        header = { .205, .147, .105, 1 }, artworkAlpha = .35, edgeHeight = 2,
         bg = { .137, .100, .081, .98 }, surface = { .180, .134, .102, .98 },
         border = { .340, .255, .181, 1 }, hover = { .248, .183, .126, 1 },
         text = { .950, .900, .815, 1 }, muted = { .82, .75, .66, 1 },
         accent = { .90, .74, .49, 1 }, progress = { .80, .61, .35, 1 },
         track = { .255, .184, .126, 1 }, displayFont = "Fonts\\MORPHEUS.TTF",
     },
+    goblin = {
+        art = "Goblin",
+        header = { .151, .118, .073, 1 }, artworkAlpha = .42, edgeHeight = 2,
+        bg = { .074, .093, .068, .98 }, surface = { .108, .153, .108, .98 },
+        border = { .32, .28, .17, 1 }, hover = { .174, .227, .147, 1 },
+        text = { .97, .93, .81, 1 }, muted = { .77, .80, .69, 1 },
+        accent = { .99, .73, .44, 1 }, progress = { .64, .91, .60, 1 },
+        track = { .22, .31, .20, 1 },
+    },
+    dwarven = {
+        art = "Dwarven",
+        header = { .175, .170, .174, 1 }, artworkAlpha = .33, edgeHeight = 3,
+        bg = { .080, .082, .092, .98 }, surface = { .137, .141, .156, .98 },
+        border = { .36, .34, .33, 1 }, hover = { .222, .208, .199, 1 },
+        text = { .96, .94, .91, 1 }, muted = { .82, .79, .75, 1 },
+        accent = { 1, .75, .52, 1 }, progress = { 1, .61, .40, 1 },
+        track = { .29, .22, .20, 1 }, displayFont = "Fonts\\MORPHEUS.TTF",
+    },
+    oracle = {
+        art = "Oracle",
+        header = { .134, .100, .230, 1 }, artworkAlpha = .34, edgeHeight = 1,
+        bg = { .073, .062, .118, .98 }, surface = { .117, .095, .185, .98 },
+        border = { .29, .24, .43, 1 }, hover = { .205, .153, .32, 1 },
+        text = { .96, .93, 1, 1 }, muted = { .81, .76, .91, 1 },
+        accent = { .88, .73, 1, 1 }, progress = { .76, .73, 1, 1 },
+        track = { .23, .18, .34, 1 }, displayFont = "Fonts\\MORPHEUS.TTF",
+    },
 }
 
 function W:Skin(layout)
     return self.skins[layout or (LJ.DB and LJ.DB.layoutPreview)] or self.skins.classic
+end
+
+function W:SetThemeArt(texture, skin, variant)
+    texture:SetTexture(THEME_MEDIA .. skin.art .. variant .. ".tga")
+end
+
+function W:ThemeBanner(parent)
+    local art = parent:CreateTexture(nil, "BACKGROUND", nil, 1)
+    art:SetPoint("TOPLEFT", 1, -1)
+    art:SetPoint("BOTTOMRIGHT", -1, 1)
+    art:SetAlpha(.48)
+    return art
 end
 
 -- The selected addon language can use a different script from the client.
@@ -87,6 +131,95 @@ function W:StyleAccent(line, skin)
     end
 end
 
+function W:StyleWindow(frame, skin, height, iconSize, subtleArt)
+    local chrome = frame.ljChrome
+    if not chrome then
+        local header = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
+        header:SetPoint("TOPLEFT", 1, -1)
+        header:SetPoint("TOPRIGHT", -1, -1)
+        header:SetHeight(height)
+        local art = frame:CreateTexture(nil, "BACKGROUND", nil, 2)
+        art:SetAllPoints(header)
+        art:SetTexCoord(0, 1, .08, subtleArt and .55 or .92)
+        local rule = frame:CreateTexture(nil, "BACKGROUND", nil, 3)
+        rule:SetPoint("TOPLEFT", header, "BOTTOMLEFT")
+        rule:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT")
+        rule:SetHeight(1)
+        local icon = frame:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(iconSize, iconSize)
+        icon:SetPoint("TOPLEFT", 16, -math.floor((height - iconSize) / 2))
+        chrome = { header = header, art = art, rule = rule, icon = icon, accent = self:AccentLine(frame) }
+        frame.ljChrome = chrome
+    end
+    if chrome.skin == skin then return end
+    chrome.skin = skin
+    self:Paint(frame, { skin.bg[1], skin.bg[2], skin.bg[3], 1 }, skin.border)
+    self:ColorTexture(chrome.header, skin.header)
+    self:ColorTexture(chrome.rule, skin.border)
+    self:SetThemeArt(chrome.art, skin, "Banner")
+    chrome.art:SetAlpha(subtleArt and skin.artworkAlpha * .55 or skin.artworkAlpha)
+    self:SetThemeArt(chrome.icon, skin, "Icon")
+    chrome.accent:SetHeight(skin.edgeHeight)
+    self:StyleAccent(chrome.accent, skin)
+end
+
+function W:WindowClose(button)
+    button:SetSize(24, 24)
+    button:SetPoint("TOPRIGHT", -14, -12)
+    self:SetTextFont(button.label, 15)
+end
+
+local function inputBorder(control)
+    local skin = control.ljInputSkin
+    local border = control.ljInputFocused and skin.accent or skin.border
+    if control.SetBackdropBorderColor then control:SetBackdropBorderColor(c4(border)) end
+end
+
+function W:StyleInput(control, skin)
+    if not control.ljInputSkin and control.HookScript then
+        control:HookScript("OnEditFocusGained", function(self)
+            self.ljInputFocused = true
+            inputBorder(self)
+        end)
+        control:HookScript("OnEditFocusLost", function(self)
+            self.ljInputFocused = nil
+            inputBorder(self)
+        end)
+    end
+    control.ljInputSkin = skin
+    self:Paint(control, skin.surface, skin.border)
+    self:ColorText(control, skin.text)
+    inputBorder(control)
+end
+
+function W:StyleListRow(row, skin, alternate)
+    if not row.ljListFill then
+        row.ljListFill = row:CreateTexture(nil, "BACKGROUND", nil, -4)
+        row.ljListFill:SetAllPoints()
+    end
+    self:ColorTexture(row.ljListFill, alternate and skin.surface or skin.bg)
+end
+
+function W:CreateFoldIndicator(row, inset)
+    row.foldHorizontal = row:CreateTexture(nil, "ARTWORK")
+    row.foldHorizontal:SetPoint("LEFT", inset, 0)
+    row.foldHorizontal:SetSize(7, 1)
+    row.foldHorizontal:Hide()
+    row.foldVertical = row:CreateTexture(nil, "ARTWORK")
+    row.foldVertical:SetPoint("CENTER", row.foldHorizontal, "CENTER")
+    row.foldVertical:SetSize(1, 7)
+    row.foldVertical:Hide()
+end
+
+function W:SetFoldIndicator(row, color, expanded)
+    if color then
+        self:ColorTexture(row.foldHorizontal, color)
+        self:ColorTexture(row.foldVertical, color)
+    end
+    row.foldHorizontal:SetShown(color ~= nil)
+    row.foldVertical:SetShown(color ~= nil and not expanded)
+end
+
 local popupLayers = setmetatable({}, { __mode = "k" })
 
 function W:StylePopup(definition)
@@ -103,14 +236,21 @@ function W:StylePopup(definition)
                 line:SetPoint("TOPLEFT", 4, -4)
                 line:SetPoint("TOPRIGHT", -4, -4)
                 line:SetHeight(2)
-                layers = { fill = fill, line = line }
+                local art = parent:CreateTexture(nil, "BACKGROUND", nil, -2)
+                art:SetPoint("TOPLEFT", 4, -6)
+                art:SetPoint("TOPRIGHT", -4, -6)
+                art:SetHeight(36)
+                layers = { fill = fill, line = line, art = art }
                 popupLayers[dialog] = layers
             end
             local skin = W:Skin()
             W:ColorTexture(layers.fill, skin.bg)
             W:StyleAccent(layers.line, skin)
+            W:SetThemeArt(layers.art, skin, "Banner")
+            layers.art:SetAlpha(skin.artworkAlpha * .7)
             layers.fill:Show()
             layers.line:Show()
+            layers.art:Show()
         end
         if show then show(dialog, ...) end
     end
@@ -119,6 +259,7 @@ function W:StylePopup(definition)
         if layers then
             layers.fill:Hide()
             layers.line:Hide()
+            layers.art:Hide()
         end
         if hide then hide(dialog, ...) end
     end
@@ -189,9 +330,9 @@ function W:Card(parent)
     return card
 end
 
-function W:Bar(parent, height, gradientFrom, gradientTo)
+function W:Bar(parent, width, height, gradientFrom, gradientTo)
     local bar = CreateFrame("Frame", nil, parent)
-    bar:SetHeight(height or 6)
+    bar:SetSize(width, height)
     bar:SetFrameLevel((parent:GetFrameLevel() or 1) + 2)
 
     bar.bg = bar:CreateTexture(nil, "BACKGROUND")
@@ -199,16 +340,16 @@ function W:Bar(parent, height, gradientFrom, gradientTo)
     self:ColorTexture(bar.bg, C.track)
 
     bar.fill = bar:CreateTexture(nil, "ARTWORK")
-    bar.fill:SetAllPoints()
+    bar.fill:SetPoint("TOPLEFT")
+    bar.fill:SetPoint("BOTTOMLEFT")
     self:SetGradient(bar.fill, true, gradientFrom or C.accent, gradientTo or C.cyan)
-    bar.fill:SetTexCoord(0, 0, 0, 1)
 
-    bar.value = 0
     function bar:SetValue(v)
         v = tonumber(v) or 0
         if v < 0 then v = 0 elseif v > 1 then v = 1 end
         self.value = v
-        self.fill:SetTexCoord(0, v, 0, 1)
+        self.fill:SetShown(v > 0)
+        if v > 0 then self.fill:SetWidth(width * v) end
     end
     bar:SetValue(0)
     return bar
@@ -219,7 +360,8 @@ local function buttonColors(button, hovering)
     local skin = button.ljSkin
     local fill = skin and (hovering and skin.hover or skin.surface)
         or (hovering and defaultButtonHover or defaultButtonFill)
-    local edge = hovering and (skin and skin.accent or C.accent) or (skin and skin.border or C.border)
+    local edge = (hovering or button.ljSelected) and (skin and skin.accent or C.accent)
+        or (skin and skin.border or C.border)
     if button.SetBackdropColor then button:SetBackdropColor(c4(fill)) end
     if button.SetBackdropBorderColor then button:SetBackdropBorderColor(c4(edge)) end
     W:ColorText(button.label, skin and (button.ljSelected and skin.accent or skin.text)

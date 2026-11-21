@@ -6,7 +6,6 @@ if not LJ then return end
 local O = {}
 LJ.Options = O
 local W = LJ.Widgets
-local MEDIA = "Interface\\AddOns\\LootJinx\\Media\\"
 
 local function inCombat()
     return type(InCombatLockdown) == "function" and InCombatLockdown() == true
@@ -156,8 +155,7 @@ function O:ApplyTheme()
     local skin = W:Skin()
     if self.skin == skin then return end
     self.skin = skin
-    W:Paint(panel, skin.bg, skin.border)
-    W:StyleAccent(self.accent, skin)
+    W:StyleWindow(panel, skin, 62, 30)
     for _, card in ipairs(themed.panels) do W:Paint(card, skin.surface, skin.border) end
     for _, entry in ipairs(themed.text) do
         local role, field = entry.role, entry.field
@@ -169,6 +167,7 @@ function O:ApplyTheme()
     for _, button in ipairs(themed.buttons) do W:StyleButton(button, skin) end
     for _, check in ipairs(themed.checks) do W:StyleCheck(check, skin, check.check) end
     if launcher then
+        W:SetThemeArt(launcher.logo, skin, "Icon")
         W:ColorText(launcher.title, skin.text)
         W:SetTextFont(launcher.title, 22, "", skin.displayFont)
         W:ColorText(launcher.hint, skin.muted)
@@ -254,35 +253,20 @@ local function buildPanel()
     panel:Hide()
     if UISpecialFrames then table.insert(UISpecialFrames, panel:GetName()) end
     O.panel = panel
-    O.accent = W:AccentLine(panel)
 
-    local header = optionPanel(panel)
-    header:SetPoint("TOPLEFT", 16, -16)
-    header:SetSize(568, 64)
-
-    local iconFrame = optionPanel(header)
-    iconFrame:SetSize(38, 38)
-    iconFrame:SetPoint("TOPLEFT", 14, -12)
-    iconFrame:SetFrameLevel(header:GetFrameLevel() + 2)
-    local icon = iconFrame:CreateTexture(nil, "ARTWORK")
-    icon:SetPoint("TOPLEFT", 2, -2)
-    icon:SetPoint("BOTTOMRIGHT", -2, 2)
-    icon:SetTexture(MEDIA .. "LootJinxIcon")
-
-    local title = optionText(header, 20, "heading")
-    title:SetPoint("TOPLEFT", 64, -12)
+    local title = optionText(panel, 20, "heading")
+    title:SetPoint("TOPLEFT", 56, -13)
     title:SetText(LJ.L("OPTIONS_TAB"))
 
-    local subtitle = optionText(header, 10, "muted")
-    subtitle:SetPoint("TOPLEFT", 65, -36)
+    local subtitle = optionText(panel, 10, "muted")
+    subtitle:SetPoint("TOPLEFT", 56, -38)
     subtitle:SetText(LJ.L("OPTIONS_TITLE"))
 
-    local version = optionText(header, 9, "muted")
-    version:SetPoint("TOPRIGHT", -54, -18)
+    local version = optionText(panel, 9, "muted")
+    version:SetPoint("TOPRIGHT", -50, -18)
     version:SetText(versionText())
-    local close = optionButton(header, "×", 26, 26)
-    close:SetPoint("TOPRIGHT", -12, -12)
-    W:SetTextFont(close.label, 15)
+    local close = optionButton(panel, "×", 24, 24)
+    W:WindowClose(close)
     close:SetScript("OnClick", closeOptionsPanel)
     W:Tooltip(close, LJ.L("CLOSE"))
     controls.close = close
@@ -325,29 +309,39 @@ local function buildPanel()
 
     local dropdown = optionButton(layoutCard, "", 322, 24)
     dropdown:SetPoint("TOPLEFT", 14, -26)
+    local layoutIcon = dropdown:CreateTexture(nil, "ARTWORK")
+    layoutIcon:SetSize(18, 18)
+    layoutIcon:SetPoint("LEFT", 6, 0)
     local arrow = optionText(dropdown, 12, "text")
     arrow:SetPoint("RIGHT", -10, 0)
     arrow:SetText("v")
     local menu = optionPanel(panel)
     menu:SetPoint("TOPLEFT", dropdown, "BOTTOMLEFT", 0, -2)
-    menu:SetSize(322, 56)
+    menu:SetSize(322, #LJ.LAYOUTS * 25 + 7)
     menu:SetFrameLevel(layoutCard:GetFrameLevel() + 10)
-    local classic = optionButton(menu, LJ.L("OPT_LAYOUT_CLASSIC"), 310, 24)
-    classic:SetPoint("TOPLEFT", 6, -4)
-    local journal = optionButton(menu, LJ.L("OPT_LAYOUT_JOURNAL"), 310, 24)
-    journal:SetPoint("TOPLEFT", 6, -29)
-    dropdown:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
-    classic:SetScript("OnClick", function()
-        menu:Hide()
-        LJ.UI:SetLayout("classic")
-    end)
-    journal:SetScript("OnClick", function()
-        menu:Hide()
-        LJ.UI:SetLayout("journal")
+    local choices = {}
+    for i, spec in ipairs(LJ.LAYOUTS) do
+        local id = spec.id
+        local choice = optionButton(menu, LJ.L(spec.label), 310, 24)
+        choice:SetPoint("TOPLEFT", 6, -4 - (i - 1) * 25)
+        local icon = choice:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(18, 18)
+        icon:SetPoint("LEFT", 6, 0)
+        W:SetThemeArt(icon, W:Skin(id), "Icon")
+        choice:SetScript("OnClick", function()
+            menu:Hide()
+            LJ.UI:SetLayout(id)
+        end)
+        choices[id] = choice
+    end
+    dropdown:SetScript("OnClick", function()
+        if controls.langMenu then controls.langMenu:Hide() end
+        menu:SetShown(not menu:IsShown())
     end)
     menu:Hide()
     controls.layoutDropdown, controls.layoutMenu = dropdown, menu
-    controls.layoutClassic, controls.layoutJournal = classic, journal
+    controls.layoutIcon, controls.layoutChoices = layoutIcon, choices
+    controls.layoutClassic, controls.layoutJournal = choices.classic, choices.journal
     local layoutHint = optionText(layoutCard, 8, "muted")
     layoutHint:SetPoint("TOPLEFT", 14, -52)
     layoutHint:SetWidth(530)
@@ -380,7 +374,10 @@ local function buildPanel()
         end)
         langButtons[i] = b
     end
-    langDropdown:SetScript("OnClick", function() langMenu:SetShown(not langMenu:IsShown()) end)
+    langDropdown:SetScript("OnClick", function()
+        menu:Hide()
+        langMenu:SetShown(not langMenu:IsShown())
+    end)
     langMenu:Hide()
     controls.langDropdown, controls.langMenu = langDropdown, langMenu
     controls.langButtons = langButtons
@@ -420,7 +417,7 @@ local function registerPanel()
         local logo = launcher:CreateTexture(nil, "ARTWORK")
         logo:SetPoint("TOPLEFT", 20, -24)
         logo:SetSize(40, 40)
-        logo:SetTexture(MEDIA .. "LootJinxIcon")
+        launcher.logo = logo
         launcher.title = W:Font(launcher, 22)
         launcher.title:SetPoint("TOPLEFT", 72, -26)
         launcher.title:SetText(LJ.L("OPTIONS_TAB"))
@@ -473,11 +470,19 @@ function O:Refresh()
     if controls.records then setCheck(controls.records, LJ.DB.announceRecords) end
     if controls.compact then setCheck(controls.compact, LJ.DB.compact) end
     if controls.layoutDropdown then
-        controls.layoutDropdown.label:SetText(LJ.L(LJ.DB.layoutPreview == "journal"
-            and "OPT_LAYOUT_JOURNAL" or "OPT_LAYOUT_CLASSIC"))
+        local spec = LJ:GetLayoutSpec(LJ.DB.layoutPreview)
+        controls.layoutDropdown.label:SetText(LJ.L(spec.label))
+        W:SetThemeArt(controls.layoutIcon, W:Skin(spec.id), "Icon")
+        for id, choice in pairs(controls.layoutChoices) do
+            W:StyleButton(choice, self.skin, id == spec.id)
+        end
     end
     if controls.langDropdown then
-        controls.langDropdown.label:SetText(languageName(LJ.DB.language or "auto"))
+        local language = LJ.DB.language or "auto"
+        controls.langDropdown.label:SetText(languageName(language))
+        for _, choice in ipairs(controls.langButtons) do
+            W:StyleButton(choice, self.skin, choice.code == language)
+        end
     end
 end
 

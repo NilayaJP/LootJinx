@@ -37,16 +37,22 @@ local BY_INSTANCE = {
     [531] = "Ahn'Qiraj Temple", [533] = "Naxxramas",
 }
 
-local itemIndex, byLowerName
+local itemIndex, byLowerName, bossesByNPC
 local function indexData()
     if itemIndex then return end
-    itemIndex, byLowerName = {}, {}
+    itemIndex, byLowerName, bossesByNPC = {}, {}, {}
     for dungeonName, groups in pairs(LJ.DungeonLootData or {}) do
         local items = {}
+        local npcs = {}
         itemIndex[dungeonName] = items
+        bossesByNPC[dungeonName] = npcs
         byLowerName[dungeonName:lower()] = dungeonName
         for _, group in ipairs(groups) do
-            local bossName, trash, ids = group[1], group[2], group[3]
+            local bossName, trash, ids, npcID = group[1], group[2], group[3], group[4]
+            if not trash and npcID then
+                local previous = npcs[npcID]
+                npcs[npcID] = (previous == nil or previous == bossName) and bossName or false
+            end
             for _, id in ipairs(ids or {}) do
                 local source = items[id]
                 if not source then
@@ -115,12 +121,16 @@ function Catalog:Candidates(run)
     return candidates(run)
 end
 
+function Catalog:IsSharedMap(instanceID)
+    return type(BY_INSTANCE[tonumber(instanceID)]) == "table"
+end
+
 function Catalog:DisplayName(run, language)
     local name = type(run) == "table" and run.name
     local possible = self:Candidates(run)
     local key = possible and #possible == 1 and possible[1]
         or (type(name) == "string" and displayKey(name))
-    local translations = LJ.DungeonNames[key]
+    local translations = (LJ.DungeonNames or {})[key]
     if translations then return language == "en" and key or translations[language] end
 end
 
@@ -148,4 +158,60 @@ function Catalog:Source(run, itemID)
     if count == 1 then return result, boss end
     if count > 1 then return "ambiguous" end
     return nil
+end
+
+function Catalog:BossForNPC(run, npcID)
+    if not npcID then return nil end
+    local found
+    for _, dungeon in ipairs(self:Candidates(run) or {}) do
+        local name = (bossesByNPC[dungeon] or {})[npcID]
+        if name == false then return nil end
+        if not name then
+            for _, boss in ipairs((LJ.DungeonCompletionData or {})[dungeon] or {}) do
+                if boss.npcID == npcID then
+                    if name and name ~= boss.name then return nil end
+                    name = boss.name
+                end
+            end
+        end
+        if name then
+            if found and found ~= name then return nil end
+            found = name
+        end
+    end
+    return found
+end
+
+function Catalog:MatchesBoss(run, observed, canonical)
+    if type(observed) ~= "string" or type(canonical) ~= "string" then return false end
+    observed, canonical = observed:gsub("’", "'"):lower(), canonical:gsub("’", "'"):lower()
+    if observed == canonical then return true end
+    local match
+    for _, dungeon in ipairs(self:Candidates(run) or {}) do
+        for _, boss in ipairs((LJ.DungeonCompletionData or {})[dungeon] or {}) do
+            local name = boss.name:gsub("’", "'"):lower()
+            if observed == name then return false end
+            for _, alias in ipairs(boss.aliases or {}) do
+                if observed == alias:gsub("’", "'"):lower() then
+                    if match and match ~= name then return false end
+                    match = name
+                end
+            end
+        end
+    end
+    return match == canonical
+end
+
+function Catalog:DropSource(run, drop)
+    if drop.lootSourceAmbiguous then return "ambiguous" end
+    local boss = self:BossForNPC(run, tonumber(drop.sourceNPCID))
+    if boss then return "boss", boss, true end
+    local kind, name = self:Source(run, drop.id)
+    if drop.sourceNPCID and kind == "boss" then return "unknown-npc" end
+    return kind, name
+end
+
+function Catalog:CanInferBoss(drop)
+    return (tonumber(drop.bossID) or 0) <= 0 and drop.source ~= "encounter"
+        and not (drop.sources and drop.sources.encounter)
 end
