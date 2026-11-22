@@ -86,7 +86,7 @@ The journal source review also checks faction and quest restrictions, encounter 
 
 To refresh the review snapshot, set `FOREVERDB_API_KEY` in the repository's `.env` or in your environment, then run `python tools/fetch_foreverdb_loot.py <path-to-ForeverDungeonJournal/Data/Dungeons.lua>` and `lua tools/review_foreverdb_loot.lua --all` from the repository root. The report includes dungeon loot and loot from unmatched bosses, with the evidence label from ForeverDB. Check the item pages for direct NPC sources before accepting dungeon-page observations into the catalog.
 
-[Data from ForeverDB.net](https://foreverdb.net). The dashboard, history, and run details display a copyable link to the source.
+The dashboard, history, run details, and in-game changelog credit both sources with copyable links. [DungeonJournal by ExehnTV](https://www.curseforge.com/wow/addons/dungeonjournal) · [Data from ForeverDB.net](https://foreverdb.net)
 
 ## Detection limits
 

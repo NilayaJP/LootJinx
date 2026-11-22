@@ -87,8 +87,8 @@ function Changelog:Create()
     label:SetWidth(515)
     label:SetText(LJ.L("CHANGELOG_OPT_OUT"))
 
-    local credit = W:ForeverDBCredit(panel, function() frame:Hide() end)
-    credit:SetPoint("BOTTOMRIGHT", -20, 50)
+    local credit = W:SourceCredits(panel, function() frame:Hide() end)
+    credit:SetPoint("BOTTOMRIGHT", -20, 42)
     if UISpecialFrames then table.insert(UISpecialFrames, frame:GetName()) end
 
     self.frame, self.version, self.notes = frame, version, notes
@@ -145,9 +145,11 @@ function Changelog:Show()
     local frame = self:Create()
     self.data = matches and data or nil
     self.version:SetText("LootJinx " .. current .. (matches and data.date ~= "" and " · " .. data.date or ""))
-    local credit = matches and data.foreverDB == true or false
+    local credit = matches == true
     self.credit:SetShown(credit)
     self.credit.label:SetShown(credit)
+    self.credit.journalButton:SetShown(credit)
+    self.credit.journalLink:Hide()
     self:RefreshPreference()
     frame:Show()
     self:ApplyTheme()
