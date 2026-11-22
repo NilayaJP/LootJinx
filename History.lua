@@ -502,7 +502,6 @@ function H:ApplyTheme()
         W:StyleWindow(self.comparePanel, skin, 39, 24)
         for _, panel in ipairs(self.compareCards) do W:Paint(panel, skin.surface, skin.border) end
         for _, field in ipairs(self.mutedLabels) do W:ColorText(field, skin.muted) end
-        W:StyleCredit(self.creditLink, skin)
         W:SetTextFont(self.title, 20, "", skin.displayFont)
         W:ColorText(self.title, skin.text)
         W:SetTextFont(self.compareTitle, 16, "", skin.displayFont)
@@ -591,9 +590,9 @@ function H:Create()
         end
         H:Refresh()
     end)
-    self.creditLink = W:SourceCredits(f, function() H:Hide() end)
-    self.creditLink:SetPoint("BOTTOMRIGHT", -16, 15)
-    self.mutedLabels[#self.mutedLabels + 1] = self.creditLink.label
+    self.credit = W:SourceCredits(f)
+    self.credit:SetPoint("BOTTOMRIGHT", -16, 13)
+    self.mutedLabels[#self.mutedLabels + 1] = self.credit
     local close = addButton(f, "×", 24, 24)
     W:WindowClose(close)
     close:SetScript("OnClick", function() H:Hide() end)

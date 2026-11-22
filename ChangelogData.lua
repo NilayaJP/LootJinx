@@ -13,7 +13,7 @@ LJ.ChangelogData = {
 • Added a Need roll breakdown by item quality, including unknown quality.
 • Added timeline playback in Run Details, with pause and jumps to the next boss or drop.
 • Added Deathcharger's Reins to Baron Rivendare's reference loot and displayed DungeonJournal's temporary loot-removal note for Obsidian Sentinel.]] },
-        { title = [[Changed]], text = [[• Credited DungeonJournal by ExehnTV alongside ForeverDB in the addon windows and changelog.
+        { title = [[Changed]], text = [[• Displayed ForeverDB and DungeonJournal by ExehnTV as two lines of text in the addon windows and changelog.
 • Applied illustrated headers and matching controls across LootJinx windows, comparison panels, and confirmation dialogs.
 • Improved the contrast of run and loot lists and highlighted selected controls and focused text inputs.
 • Enlarged the Options window and its text, with scaling that kept the panel within smaller viewports.
