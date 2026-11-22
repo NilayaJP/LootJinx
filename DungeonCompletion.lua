@@ -18,13 +18,16 @@ local function markBoss(seen, name)
     if key and key ~= "" then seen[key] = true end
 end
 
-local function bossSeen(seen, boss)
+local function bossSeen(seen, observed, boss)
     if seen[normalized(boss.name)] then return true end
     for _, alias in ipairs(boss.aliases or {}) do
         if seen[normalized(alias)] then return true end
     end
     for _, implied in ipairs(boss.impliedBy or {}) do
         if seen[normalized(implied)] then return true end
+    end
+    for _, implied in ipairs(boss.encounterImpliedBy or {}) do
+        if observed[normalized(implied)] then return true end
     end
     if not boss.members or #boss.members == 0 then return false end
     for _, member in ipairs(boss.members) do
@@ -51,12 +54,13 @@ local function collectSeen(run)
             local knownEncounter = fromEncounter
                 and (observedIDs[tonumber(drop.bossID)] or observedNames[normalized(drop.bossName)])
             local kind, boss, corpse = LJ.DungeonLoot:DropSource(run, drop)
-            if kind == "boss" and (corpse or (not knownEncounter and LJ.DungeonLoot:CanInferBoss(drop))) then
+            if kind == "boss" and (corpse or (not knownEncounter and not LJ.DungeonLoot:IsRecipe(drop.id)
+                and LJ.DungeonLoot:CanInferBoss(drop))) then
                 markBoss(seen, boss)
             end
         end
     end
-    return seen
+    return seen, observedNames
 end
 
 function Completion:Progress(run)
@@ -64,25 +68,32 @@ function Completion:Progress(run)
     if type(candidates) ~= "table" then
         return { state = "unavailable", candidates = {}, observed = 0, required = 0 }
     end
-    local seen = collectSeen(run)
+    local seen, observed = collectSeen(run)
+    local faction = run.faction or (LJ.PlayerFaction and LJ:PlayerFaction())
     local results = {}
     local best, tied = nil, false
     for _, dungeon in ipairs(candidates) do
         local required = LJ.DungeonCompletionData and LJ.DungeonCompletionData[dungeon]
         if type(required) == "table" and #required > 0 then
             local missing = {}
+            local count = 0
             for _, boss in ipairs(required) do
-                if not bossSeen(seen, boss) then missing[#missing + 1] = boss.name end
+                if not boss.questOnly and (not boss.factionOnly or not faction or boss.factionOnly == faction) then
+                    count = count + 1
+                    if not bossSeen(seen, observed, boss) then missing[#missing + 1] = boss.name end
+                end
             end
-            local result = {
-                dungeon = dungeon, observed = #required - #missing,
-                required = #required, missing = missing,
-            }
-            results[#results + 1] = result
-            if not best or result.observed > best.observed then
-                best, tied = result, false
-            elseif result.observed == best.observed then
-                tied = true
+            if count > 0 then
+                local result = {
+                    dungeon = dungeon, observed = count - #missing,
+                    required = count, missing = missing,
+                }
+                results[#results + 1] = result
+                if not best or result.observed > best.observed then
+                    best, tied = result, false
+                elseif result.observed == best.observed then
+                    tied = true
+                end
             end
         end
     end

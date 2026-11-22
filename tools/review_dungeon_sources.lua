@@ -74,6 +74,25 @@ local function bossFlags()
                 if boss.children then
                     result[dungeon][boss.name] = result[dungeon][boss.name] .. " members=" .. values(boss.children)
                 end
+                local fields = {
+                    { "factionOnly", boss.factionOnly }, { "fightGroup", boss.fightGroup },
+                    { "spawnQuest", type(boss.spawnQuest) == "table" and (boss.spawnQuest.quest or true) or boss.spawnQuest },
+                    { "runLogHidden", boss.runLogHidden }, { "recipeTab", boss.recipeTab },
+                    { "lootRemoved", boss.lootRemoved },
+                }
+                for _, field in ipairs(fields) do
+                    if field[2] then
+                        result[dungeon][boss.name] = result[dungeon][boss.name]
+                            .. " " .. field[1] .. "=" .. tostring(field[2])
+                    end
+                end
+                if boss.killWith then
+                    local partners = {}
+                    for _, partner in ipairs(boss.killWith) do
+                        if type(partner) == "table" then partners[#partners + 1] = values(partner) end
+                    end
+                    result[dungeon][boss.name] = result[dungeon][boss.name] .. " killWith=" .. values(partners)
+                end
             end
         end
     end
@@ -144,28 +163,26 @@ for dungeon, bosses in pairs(flags) do
     for name, value in pairs(bosses) do newBosses[dungeon .. " / " .. name] = value end
 end
 
-local arena = {
-    ["Gorosh the Dervish"] = true, Grizzle = true, Eviscerator = true,
-    ["Ok'thor the Breaker"] = true, ["Anub'shiah"] = true,
-    ["Hedrum the Creeper"] = true,
-}
 local oldRequired, newRequired = {}, {}
+local function requirement(boss)
+    return boss.factionOnly and ("required for " .. boss.factionOnly) or "required"
+end
 for dungeon, bosses in pairs(current.DungeonCompletionData or {}) do
     -- Curated raid entries outside the Journal are kept by the generator.
     if source.DB[dungeon] then
-        for _, boss in ipairs(bosses) do oldRequired[dungeon .. " / " .. boss.name] = "required" end
+        for _, boss in ipairs(bosses) do
+            if not boss.questOnly then oldRequired[dungeon .. " / " .. boss.name] = requirement(boss) end
+        end
     end
 end
 for _, dungeon in ipairs(source.ORDER) do
     for _, boss in ipairs((source.DB[dungeon] or {}).bosses or {}) do
         if journalBosses[boss] and type(boss.name) == "string" and not boss.trash and not boss.rare
-            and not boss.optional and not boss.summonItem and not boss.childOf then
-            if dungeon ~= "Blackrock Depths" or not arena[boss.name]
-                or boss.name == "Gorosh the Dervish" then
-                local name = dungeon == "Blackrock Depths" and arena[boss.name]
-                    and "Ring of the Law" or boss.name
-                newRequired[dungeon .. " / " .. name] = "required"
-            end
+            and not boss.optional and not boss.summonItem and not boss.spawnQuest
+            and not boss.runLogHidden and not boss.recipeTab and not boss.childOf then
+            local name = boss.fightGroup == "Ring of Law" and "Ring of the Law"
+                or boss.fightGroup or boss.name
+            newRequired[dungeon .. " / " .. name] = requirement(boss)
         end
     end
 end
@@ -188,7 +205,7 @@ for dungeon, groups in pairs(current.DungeonLootData or {}) do
 end
 for _, dungeon in ipairs(source.ORDER) do
     for _, boss in ipairs((source.DB[dungeon] or {}).bosses or {}) do
-        local sourceName = boss.trash and "trash" or boss.name
+        local sourceName = (boss.trash or boss.runLogHidden) and "trash" or boss.name
         if type(sourceName) == "string" then
             local function add(items, evidence)
                 for _, item in ipairs(items or {}) do
@@ -238,7 +255,7 @@ end
 
 print("ForeverDungeonJournal " .. baseline.version .. " -> " .. version)
 local total = 0
-total = total + compare("Boss names and rare/optional/trash/summon flags", oldBosses, newBosses)
+total = total + compare("Boss names, encounter rules, and loot flags", oldBosses, newBosses)
 total = total + compare("Required-boss membership", oldRequired, newRequired)
 
 local sharedMaps = {

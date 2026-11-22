@@ -106,6 +106,7 @@ function Overview:Create(parent)
     self.headers = {}
     for _, column in ipairs(columns) do
         local header = text(panel, 9, C.muted, column.x, -65, column.width)
+        W:UseTextSize(header, "list", 9)
         header:SetText(LJ.L(column.key))
         self.headers[#self.headers + 1] = header
     end
@@ -117,8 +118,10 @@ function Overview:Create(parent)
         row.values = {}
         for i, column in ipairs(columns) do
             row.values[i] = text(row, 11, C.text, column.x - 10, -5, column.width)
+            W:UseTextSize(row.values[i], "list", 11)
         end
         row.realm = text(row, 9, C.muted, 2, -19, 218)
+        W:UseTextSize(row.realm, "list", 9)
         row:SetScript("OnClick", function(button)
             self.selected = button.profileKey
             self:Refresh()
@@ -128,6 +131,7 @@ function Overview:Create(parent)
     self.details = text(panel, 10, C.text, 12, -349, 552)
     self.updated = text(panel, 10, C.muted, 12, -372, 552)
     self.empty = text(panel, 11, C.muted, 12, -105, 548)
+    W:UseTextSize(self.empty, "list", 11)
     self.empty:SetText(LJ.L("CHARACTER_OVERVIEW_EMPTY"))
     self.prev = W:Button(panel, "<", 42, 22)
     self.prev:SetPoint("BOTTOMLEFT", 12, 10)

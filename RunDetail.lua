@@ -26,6 +26,18 @@ local page = 1
 local suspendedSpecialNames
 local restoreToken = 0
 local deferredRestoreFrame
+local timelineEvents, playbackIndex, playbackElapsed = {}, 0, 0
+local playbackPlaying = false
+
+local function stopPlayback()
+    playbackPlaying = false
+    if frame then frame:SetScript("OnUpdate", nil) end
+end
+
+local function resetPlayback()
+    stopPlayback()
+    timelineEvents, playbackIndex, playbackElapsed = {}, 0, 0
+end
 
 function M:SuspendParentEscape()
     if type(UISpecialFrames) ~= "table" then return end
@@ -360,9 +372,15 @@ local function bossIndexFor(run, drop, bosses, catalogKind, catalogBoss, corpse,
     end
     if not corpse and not LJ.DungeonLoot:CanInferBoss(drop) then return nil, true end
     if catalogKind == "boss" and type(catalogBoss) == "string" then
-        return closestBoss(bosses, drop.at, function(boss)
+        local index, found = closestBoss(bosses, drop.at, function(boss)
             return LJ.DungeonLoot:MatchesBoss(run, boss.name, catalogBoss)
         end)
+        if found then return index, true end
+        if corpse then
+            return closestBoss(bosses, drop.at, function(boss)
+                return LJ.DungeonLoot:MatchesFight(run, boss.name, catalogBoss)
+            end)
+        end
     end
 end
 
@@ -375,7 +393,7 @@ local function bossLootFor(run, aggregate)
         local index, found = bossIndexFor(run, drop, observed, kind, name, corpse, aggregate)
         -- Only a unique catalog source or a known corpse can supply a group
         -- without a saved boss event. Keep unresolved encounter IDs visible.
-        if not found and kind == "boss" then
+        if not found and kind == "boss" and (corpse or not LJ.DungeonLoot:IsRecipe(drop.id)) then
             index = inferred[name]
             if not index then
                 index = #bosses + 1
@@ -585,51 +603,77 @@ end
 local function buildTimelineLines(run)
     local lines = { { kind = "section", name = LJ.L("DETAIL_TIMELINE_TITLE") } }
     local events = {}
-    local function add(at, text)
+    local started = tonumber(run.started) or 0
+    local untimed = false
+    local function add(kind, at, text)
         at = tonumber(at)
-        if at and at > 0 then events[#events + 1] = { at = at, text = text, order = #events + 1 } end
+        if at and at > 0 and at >= started and at < math.huge then
+            events[#events + 1] = { kind = kind, at = at, text = text, order = #events + 1 }
+        else
+            untimed = true
+        end
     end
-    add(run.started, LJ.L("DETAIL_TIMELINE_START"))
+    add("start", started, LJ.L(run.partial and "DETAIL_TIMELINE_PARTIAL_START" or "DETAIL_TIMELINE_START"))
     if type(run.timeline) == "table" then
         for _, event in ipairs(run.timeline) do
             if event.kind == "exit" or event.kind == "return" then
-                add(event.at, LJ.L(event.kind == "exit" and "DETAIL_TIMELINE_EXIT"
+                add(event.kind, event.at, LJ.L(event.kind == "exit" and "DETAIL_TIMELINE_EXIT"
                     or "DETAIL_TIMELINE_RETURN"))
             end
         end
-        for _, boss in ipairs(run.bosses or {}) do
-            if tonumber(boss.at) and tonumber(boss.at) > (tonumber(run.started) or 0) then
-                add(boss.at, LJ.L("DETAIL_TIMELINE_BOSS",
-                    W:Truncate(boss.name or LJ.L("DETAIL_UNKNOWN_BOSS"), 36)))
-            end
-        end
-        for _, need in ipairs(run.needs or {}) do
-            if (need.result == "won" or need.result == "lost") and tonumber(need.resolvedAt)
-                and tonumber(need.resolvedAt) > (tonumber(run.started) or 0) then
-                add(need.resolvedAt, LJ.L(need.result == "won"
-                    and "DETAIL_TIMELINE_NEED_WON" or "DETAIL_TIMELINE_NEED_LOST"))
-            end
+    else
+        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_TIMELINE_OLD"), accent = true }
+    end
+    -- Older saved details used the run start as a fallback for missing times.
+    for _, boss in ipairs(run.bosses or {}) do
+        local at = tonumber(boss.at) or 0
+        add("boss", at > started and at, LJ.L("DETAIL_TIMELINE_BOSS",
+            W:Truncate(boss.name or LJ.L("DETAIL_UNKNOWN_BOSS"), 36)))
+    end
+    for _, drop in ipairs(run.drops or {}) do
+        local at = tonumber(drop.at) or 0
+        if at > started then
+            local link = type(drop.link) == "string" and drop.link or nil
+            local info = LJ:ItemInfo(link or drop.id)
+            local name = info.name or (link and link:match("|h%[([^%]]+)%]|h"))
+                or LJ.L("DETAIL_ITEM_UNKNOWN", tonumber(drop.id) or 0)
+            local label = drop.source == "loot-history-recovered" and "DETAIL_TIMELINE_RECOVERED_DROP"
+                or "DETAIL_TIMELINE_DROP"
+            add("drop", at, LJ.L(label, W:Truncate(name, 36)))
+        else
+            untimed = true
         end
     end
-    if run.closed then add(run.ended, LJ.L("DETAIL_TIMELINE_END")) end
+    for _, need in ipairs(run.needs or {}) do
+        if need.result == "won" or need.result == "lost" then
+            add("need", need.resolvedAt, LJ.L(need.result == "won"
+                and "DETAIL_TIMELINE_NEED_WON" or "DETAIL_TIMELINE_NEED_LOST"))
+        end
+    end
+    if run.closed then add("end", run.ended, LJ.L("DETAIL_TIMELINE_END")) end
     table.sort(events, function(a, b)
         return a.at == b.at and a.order < b.order or a.at < b.at
     end)
-    local first = 1
-    if #events > 18 then first = #events - 17 end
-    if first > 1 or (tonumber(run.timelineOmitted) or 0) > 0 then
-        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_TIMELINE_OMITTED",
-            first - 1 + (tonumber(run.timelineOmitted) or 0)), muted = true }
+    if run.partial then
+        lines[#lines + 1] = { kind = "note", text = LJ.L("HISTORY_COMPARE_PARTIAL"), muted = true }
     end
-    for i = first, #events do
-        local event = events[i]
-        local stamp = LJ:FormatTime(event.at, "DATE_TIME_SHORT")
-        lines[#lines + 1] = { kind = "note", text = stamp .. " · " .. event.text, muted = true }
+    local omitted = tonumber(run.timelineOmitted) or 0
+    if omitted > 0 then
+        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_TIMELINE_NOT_SAVED", omitted), muted = true }
     end
-    if type(run.timeline) ~= "table" then
-        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_TIMELINE_OLD"), accent = true }
+    if #events == 0 then
+        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_TIMELINE_NONE"), muted = true }
+    elseif untimed then
+        lines[#lines + 1] = { kind = "note", text = LJ.L("DETAIL_TIMELINE_UNTIMED"), muted = true }
     end
-    return lines
+    local timeFormat = LJ.L("DATE_TIME_SHORT") .. ":%S"
+    for _, event in ipairs(events) do
+        local stamp = LJ:FormatTime(event.at, timeFormat)
+        -- Timeline rows have no groups, so pagination splits them at a fixed row count.
+        event.page = math.floor(#lines / ROWS_PER_PAGE) + 1
+        lines[#lines + 1] = { kind = "note", text = stamp .. " · " .. event.text, event = event }
+    end
+    return lines, events
 end
 
 local function buildLines(run, progress)
@@ -686,6 +730,7 @@ local function buildLines(run, progress)
             name = boss.name or LJ.L("DETAIL_UNKNOWN_BOSS"),
             count = #items, group = group, collapsed = collapsedGroups[group] == true,
             lootEvidence = boss.lootEvidence,
+            lootRemoved = LJ.DungeonLoot:IsLootRemoved(run, boss.name),
         }
         if not collapsedGroups[group] then
             if #items == 0 then
@@ -781,12 +826,15 @@ local function rowTooltip(row)
     local link = row.link
     if not line or not GameTooltip then return end
     local need = line.need
-    GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+    W:BeginTooltip(row, "ANCHOR_RIGHT")
     local shown = false
     if link and GameTooltip.SetHyperlink then
         shown = pcall(GameTooltip.SetHyperlink, GameTooltip, link)
     end
     if not shown then GameTooltip:AddLine(link or row.name:GetText(), 0.92, 0.93, 0.96) end
+    if line.lootRemoved then
+        GameTooltip:AddLine(LJ.L("DETAIL_LOOT_REMOVED"), 0.92, 0.82, 0.61, true)
+    end
     if line.kind == "item" and line.drop and LJ.Evidence then
         local level, reason = LJ.Evidence:ClassifyDrop(line.drop)
         GameTooltip:AddLine(LJ.L("EVIDENCE_DROP_TOOLTIP", LJ.L("EVIDENCE_" .. string.upper(level))),
@@ -826,7 +874,7 @@ local function rowTooltip(row)
             end
         end
     end
-    GameTooltip:Show()
+    W:ShowTooltip()
 end
 
 local function configureRow(row, line)
@@ -871,7 +919,15 @@ local function configureRow(row, line)
         row.name:ClearAllPoints()
         row.name:SetPoint("LEFT", 10, 0)
         row.name:SetWidth(500)
-        row.name:SetText(colored(line.accent and C.orange or skin.muted, line.text))
+        local selected = line.event and line.event == timelineEvents[playbackIndex]
+        local color = selected and skin.accent or (line.accent and C.orange or skin.muted)
+        row.name:SetText(colored(color, line.text))
+        if selected then
+            row.baseAlpha = skin.hover[4] or 1
+            W:ColorTexture(row.bg, skin.hover)
+            row.bar:SetColorTexture(color[1], color[2], color[3], 1)
+            row.bar:Show()
+        end
         return
     end
 
@@ -889,7 +945,7 @@ local function configureRow(row, line)
     row.icon:SetTexture(icon)
     row.icon:Show()
     row.name:ClearAllPoints()
-    row.name:SetPoint("LEFT", 32, 5)
+    row.name:SetPoint("LEFT", 32, 7)
     row.name:SetWidth(280)
     row.name:SetText(text)
 
@@ -897,7 +953,7 @@ local function configureRow(row, line)
         local meta, metaColor = needStatusText(need, nil)
         row.meta:ClearAllPoints()
         row.meta:SetPoint("LEFT", 32, -7)
-        row.meta:SetWidth(300)
+        row.meta:SetWidth(288)
         row.meta:SetText(colored(metaColor, meta))
         row.bar:SetColorTexture(metaColor[1], metaColor[2], metaColor[3], 0.9)
         row.bar:Show()
@@ -917,7 +973,7 @@ local function configureRow(row, line)
         recipientColor = skin.muted
     end
     row.recipient:ClearAllPoints()
-    row.recipient:SetPoint("RIGHT", -8, 4)
+    row.recipient:SetPoint("RIGHT", -8, 7)
     row.recipient:SetWidth(190)
     row.recipient:SetText(colored(recipientColor, recipientText))
 
@@ -930,7 +986,7 @@ local function configureRow(row, line)
     end
     row.meta:ClearAllPoints()
     row.meta:SetPoint("LEFT", 32, -7)
-    row.meta:SetWidth(300)
+    row.meta:SetWidth(288)
 
     local roll = dropRollText(currentRun, drop)
     row.roll:ClearAllPoints()
@@ -962,6 +1018,64 @@ local function renderPage()
     M.page = page
 end
 
+local function nextTimelineEvent(kind)
+    for index = playbackIndex + 1, #timelineEvents do
+        if timelineEvents[index].kind == kind then return index end
+    end
+end
+
+local function updatePlaybackControls()
+    local count = #timelineEvents
+    local label = playbackPlaying and "DETAIL_TIMELINE_PAUSE"
+        or (playbackIndex == count and count > 0 and "DETAIL_TIMELINE_REPLAY" or "DETAIL_TIMELINE_PLAY")
+    M.playButton.label:SetText(LJ.L(label))
+    W:StyleButton(M.playButton, skin, playbackPlaying)
+    M.playbackPosition:SetText(count > 0 and LJ.L("DETAIL_TIMELINE_POSITION", playbackIndex, count) or "")
+    M.playbackPosition:SetShown(M.showTimeline and count > 0)
+    local states = {
+        { M.playButton, count > 0 },
+        { M.nextBossButton, nextTimelineEvent("boss") ~= nil },
+        { M.nextDropButton, nextTimelineEvent("drop") ~= nil },
+    }
+    for _, entry in ipairs(states) do
+        local button, enabled = entry[1], entry[2]
+        button:SetShown(M.showTimeline and count > 0)
+        button:EnableMouse(enabled)
+        button:SetAlpha(enabled and 1 or .45)
+    end
+end
+
+local function selectTimelineEvent(index)
+    local event = timelineEvents[index]
+    if not event then return end
+    playbackIndex, playbackElapsed, page = index, 0, event.page
+    if index == #timelineEvents then stopPlayback() end
+    updatePlaybackControls()
+    renderPage()
+end
+
+local function tickPlayback(_, elapsed)
+    local event, nextEvent = timelineEvents[playbackIndex], timelineEvents[playbackIndex + 1]
+    if not event or not nextEvent then return end
+    local wait = math.max(.65, math.min(2, (nextEvent.at - event.at) / 20))
+    playbackElapsed = playbackElapsed + elapsed
+    if playbackElapsed >= wait then selectTimelineEvent(playbackIndex + 1) end
+end
+
+local function togglePlayback()
+    local count = #timelineEvents
+    if count == 0 then return end
+    if playbackPlaying then
+        stopPlayback()
+        updatePlaybackControls()
+        return
+    end
+    playbackPlaying = true
+    if playbackIndex == 0 or playbackIndex == count then selectTimelineEvent(1) end
+    if playbackPlaying then frame:SetScript("OnUpdate", tickPlayback) end
+    updatePlaybackControls()
+end
+
 function M:Create()
     if frame then return frame end
     if type(CreateFrame) ~= "function" then return nil end
@@ -989,6 +1103,7 @@ function M:Create()
     title:SetWordWrap(false)
 
     subtitle = W:Font(f, 9, skin.muted, "")
+    W:UseTextSize(subtitle, "detail", 9)
     M.subtitle = subtitle
     subtitle:SetPoint("TOPLEFT", 58, -51)
     subtitle:SetWidth(433)
@@ -1005,6 +1120,7 @@ function M:Create()
     summaryPanel:SetPoint("TOPLEFT", 16, -70)
     summaryPanel:SetSize(528, 34)
     summary = W:Font(summaryPanel, 10, skin.text, "")
+    W:UseTextSize(summary, "detail", 10)
     M.summary = summary
     summary:SetPoint("LEFT", 12, 0)
     summary:SetWidth(400)
@@ -1019,6 +1135,22 @@ function M:Create()
     summaryPanel:SetScript("OnLeave", function()
         if GameTooltip then GameTooltip:Hide() end
     end)
+
+    M.playButton = W:Button(f, LJ.L("DETAIL_TIMELINE_PLAY"), 97, 20)
+    M.playButton:SetPoint("TOPLEFT", 16, -111)
+    M.playButton:SetScript("OnClick", togglePlayback)
+    M.nextBossButton = W:Button(f, LJ.L("DETAIL_TIMELINE_NEXT_BOSS"), 108, 20)
+    M.nextBossButton:SetPoint("LEFT", M.playButton, "RIGHT", 6, 0)
+    M.nextBossButton:SetScript("OnClick", function() selectTimelineEvent(nextTimelineEvent("boss")) end)
+    M.nextDropButton = W:Button(f, LJ.L("DETAIL_TIMELINE_NEXT_DROP"), 108, 20)
+    M.nextDropButton:SetPoint("LEFT", M.nextBossButton, "RIGHT", 6, 0)
+    M.nextDropButton:SetScript("OnClick", function() selectTimelineEvent(nextTimelineEvent("drop")) end)
+    M.playbackPosition = W:Font(f, 10, skin.muted, "")
+    W:UseTextSize(M.playbackPosition, "detail", 10)
+    M.playbackPosition:SetPoint("RIGHT", f, "TOPRIGHT", -16, -121)
+    M.playbackPosition:SetWidth(193)
+    M.playbackPosition:SetJustifyH("RIGHT")
+    M.playbackPosition:SetWordWrap(false)
 
     content = CreateFrame("Frame", nil, f)
     content:SetPoint("TOPLEFT", 16, -112)
@@ -1052,22 +1184,26 @@ function M:Create()
         row.icon:Hide()
 
         row.name = W:Font(row, 11, skin.text, "")
-        row.name:SetPoint("LEFT", 32, 5)
+        W:UseTextSize(row.name, "detail", 11)
+        row.name:SetPoint("LEFT", 32, 7)
         row.name:SetWidth(280)
         row.name:SetWordWrap(false)
 
         row.recipient = W:Font(row, 10, skin.text, "")
-        row.recipient:SetPoint("RIGHT", -8, 4)
+        W:UseTextSize(row.recipient, "detail", 10)
+        row.recipient:SetPoint("RIGHT", -8, 7)
         row.recipient:SetWidth(190)
         row.recipient:SetJustifyH("RIGHT")
         row.recipient:SetWordWrap(false)
 
         row.meta = W:Font(row, 9, skin.muted, "")
+        W:UseTextSize(row.meta, "detail", 9)
         row.meta:SetPoint("LEFT", 32, -7)
-        row.meta:SetWidth(300)
+        row.meta:SetWidth(288)
         row.meta:SetWordWrap(false)
 
         row.roll = W:Font(row, 9, skin.progress, "")
+        W:UseTextSize(row.roll, "detail", 9)
         row.roll:SetPoint("RIGHT", -8, -7)
         row.roll:SetWidth(190)
         row.roll:SetJustifyH("RIGHT")
@@ -1076,7 +1212,7 @@ function M:Create()
         row:SetScript("OnEnter", function(self)
             if self.line and (self.line.group or self.line.kind == "item" or self.line.kind == "need") then
                 W:ColorTexture(self.bg, skin.hover)
-                if not self.line.group then rowTooltip(self) end
+                if not self.line.group or self.line.lootRemoved then rowTooltip(self) end
             end
         end)
         row:SetScript("OnClick", function(self)
@@ -1087,7 +1223,12 @@ function M:Create()
             end
         end)
         row:SetScript("OnLeave", function(self)
-            self.bg:SetColorTexture(skin.surface[1], skin.surface[2], skin.surface[3], self.baseAlpha or 0)
+            local event = self.line and self.line.event
+            if event and event == timelineEvents[playbackIndex] then
+                W:ColorTexture(self.bg, skin.hover)
+            else
+                self.bg:SetColorTexture(skin.surface[1], skin.surface[2], skin.surface[3], self.baseAlpha or 0)
+            end
             if GameTooltip then GameTooltip:Hide() end
         end)
 
@@ -1129,6 +1270,8 @@ function M:Create()
 
     f:SetScript("OnHide", function()
         stopDragging()
+        resetPlayback()
+        M.showTimeline = false
         if GameTooltip then GameTooltip:Hide() end
         restoreDashboardEscape()
     end)
@@ -1175,7 +1318,7 @@ function M:ApplyTheme(theme)
     W:SetTextFont(title, 20, "", skin.displayFont)
     W:ColorText(title, skin.text)
     W:ColorText(eyebrow, skin.accent)
-    for _, label in ipairs({ subtitle, hint, pageText }) do W:ColorText(label, skin.muted) end
+    for _, label in ipairs({ subtitle, hint, pageText, self.playbackPosition }) do W:ColorText(label, skin.muted) end
     W:ColorText(summary, skin.text)
     W:StyleCredit(self.creditLink, skin)
     W:ColorTexture(self.separator, skin.border)
@@ -1187,7 +1330,8 @@ function M:ApplyTheme(theme)
         W:ColorText(row.roll, skin.progress)
         row.separator:SetColorTexture(skin.border[1], skin.border[2], skin.border[3], .60)
     end
-    for _, button in ipairs({ closeButton, finishButton, self.timelineButton, prevButton, nextButton }) do
+    for _, button in ipairs({ closeButton, finishButton, self.timelineButton, self.playButton,
+        self.nextBossButton, self.nextDropButton, prevButton, nextButton }) do
         W:StyleButton(button, skin)
     end
 end
@@ -1198,6 +1342,7 @@ function M:Show(run, theme)
     self:ApplyTheme(theme or (LJ.UI and LJ.UI.GetLayout and LJ.UI:GetLayout()))
     if run ~= currentRun then collapsedGroups = {} end
     currentRun = run
+    resetPlayback()
     self.showTimeline = false
     page = 1
     local ok, err = pcall(M.Refresh, M)
@@ -1281,10 +1426,18 @@ function M:Refresh(group)
     summary:SetText(LJ.L("DETAIL_RUN_COUNTS", durationText(run, live), bossCount, dropCount)
         .. "\n" .. LJ.L("HISTORY_SUMMARY_NEED", won, lost, pending))
 
-    M.lines = self.showTimeline and buildTimelineLines(run) or lines
+    if self.showTimeline then
+        -- Keep a stable sequence while playing or paused, even for a live run.
+        if playbackIndex == 0 then M.lines, timelineEvents = buildTimelineLines(run) end
+    else
+        M.lines = lines
+    end
     self.timelineButton.label:SetText(LJ.L(self.showTimeline
         and "DETAIL_TIMELINE_BACK" or "DETAIL_TIMELINE_BUTTON"))
     W:StyleButton(self.timelineButton, skin, self.showTimeline)
+    updatePlaybackControls()
+    content:ClearAllPoints()
+    content:SetPoint("TOPLEFT", 16, self.showTimeline and #timelineEvents > 0 and -138 or -112)
     pages = paginate(M.lines)
     M.pages = pages
     if group then
@@ -1303,6 +1456,7 @@ end
 
 function M:ToggleTimeline()
     if not currentRun then return end
+    resetPlayback()
     self.showTimeline = not self.showTimeline
     page = 1
     self:Refresh()

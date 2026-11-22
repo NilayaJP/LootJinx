@@ -56,11 +56,7 @@ local journalAliases = {
     },
 }
 
-local arenaNames = {
-    ["Gorosh the Dervish"] = true, Grizzle = true, Eviscerator = true,
-    ["Ok'thor the Breaker"] = true, ["Anub'shiah"] = true,
-    ["Hedrum the Creeper"] = true,
-}
+local fightNames = { ["Ring of Law"] = "Ring of the Law" }
 
 local function appendUnique(list, value)
     if type(value) ~= "string" or value == "" then return end
@@ -79,7 +75,7 @@ local function writeList(out, key, entries)
     out:write(" }")
 end
 
-local function writeBoss(out, name, aliases, npcID, deName, impliedBy, members)
+local function writeBoss(out, name, aliases, npcID, deName, impliedBy, members, factionOnly, encounterImpliedBy, spawnQuest, fightGroup)
     out:write("        { name = ", string.format("%q", name))
     writeList(out, "aliases", aliases)
     out:write(", npcID = ", tostring(tonumber(npcID) or "nil"))
@@ -88,18 +84,22 @@ local function writeBoss(out, name, aliases, npcID, deName, impliedBy, members)
     end
     if impliedBy then writeList(out, "impliedBy", impliedBy) end
     if members then writeList(out, "members", members) end
+    if factionOnly then out:write(", factionOnly = ", string.format("%q", factionOnly)) end
+    if encounterImpliedBy then writeList(out, "encounterImpliedBy", encounterImpliedBy) end
+    if spawnQuest then out:write(", questOnly = true") end
+    if fightGroup then out:write(", fightGroup = ", string.format("%q", fightGroup)) end
     out:write(" },\n")
 end
 
 local out = assert(io.open("DungeonCompletionData.lua", "w"))
-out:write("-- Required boss names from ForeverDungeonJournal " .. version .. " with available German names and reviewed Wowhead Forever encounter labels. Rare, optional, summoned, and trash entries excluded.\n")
+out:write("-- Completion and quest-boss names from ForeverDungeonJournal " .. version .. " with available German names and reviewed Wowhead Forever encounter labels.\n")
 out:write("local ADDON, ns = ...\nlocal LJ = ns or _G.LootJinx\nif not LJ then return end\n")
 out:write("LJ.DungeonCompletionData = {\n")
 for _, dungeonName in ipairs(source.ORDER or {}) do
     local dungeon = source.DB[dungeonName]
     if dungeon then
         out:write("    [", string.format("%q", dungeonName), "] = {\n")
-        local implicitKills, groupMembers = {}, {}
+        local implicitKills, encounterKills, groupMembers, writtenFights = {}, {}, {}, {}
         for _, boss in ipairs(dungeon.bosses or {}) do
             if boss.childOf then
                 local members = groupMembers[boss.childOf] or {}
@@ -112,19 +112,30 @@ for _, dungeonName in ipairs(source.ORDER or {}) do
                     appendUnique(implicitKills[prior], boss.name)
                 end
             end
+            for _, partner in ipairs(boss.killWith or {}) do
+                local name = type(partner) == "table" and partner[1]
+                if type(name) == "string" then
+                    encounterKills[name] = encounterKills[name] or {}
+                    appendUnique(encounterKills[name], boss.name)
+                    appendUnique(encounterKills[name], german[boss.name])
+                    for _, alias in ipairs(boss.aliases or {}) do appendUnique(encounterKills[name], alias) end
+                end
+            end
         end
         for _, boss in ipairs(dungeon.bosses or {}) do
             if not boss.trash and not boss.rare and not boss.optional
-                and not boss.summonItem and not boss.childOf and type(boss.name) == "string" then
-                if dungeonName ~= "Blackrock Depths" or not arenaNames[boss.name]
-                    or boss.name == "Gorosh the Dervish" then
+                and not boss.summonItem and not boss.childOf
+                and not boss.runLogHidden and not boss.recipeTab and type(boss.name) == "string" then
+                if not boss.fightGroup or not writtenFights[boss.fightGroup] then
                     local name = boss.name
                     local aliases = {}
-                    if dungeonName == "Blackrock Depths" and arenaNames[name] then
-                        name = "Ring of the Law"
+                    if boss.fightGroup then
+                        writtenFights[boss.fightGroup] = true
+                        name = fightNames[boss.fightGroup] or boss.fightGroup
                         appendUnique(aliases, name)
+                        appendUnique(aliases, boss.fightGroup)
                         for _, arenaBoss in ipairs(dungeon.bosses or {}) do
-                            if arenaNames[arenaBoss.name] then
+                            if arenaBoss.fightGroup == boss.fightGroup then
                                 appendUnique(aliases, arenaBoss.name)
                                 appendUnique(aliases, german[arenaBoss.name])
                             end
@@ -151,7 +162,8 @@ for _, dungeonName in ipairs(source.ORDER or {}) do
                         appendUnique(impliedBy, killer)
                         appendUnique(impliedBy, german[killer])
                     end
-                    writeBoss(out, name, aliases, boss.npcID, german[boss.name], impliedBy, groupMembers[name])
+                    writeBoss(out, name, aliases, boss.npcID, german[boss.name], impliedBy, groupMembers[name],
+                        boss.factionOnly, encounterKills[boss.name], boss.spawnQuest, boss.fightGroup)
                 end
             end
         end
@@ -163,7 +175,8 @@ for _, dungeonName in ipairs(raids) do
     if not source.DB[dungeonName] then
         out:write("    [", string.format("%q", dungeonName), "] = {\n")
         for _, boss in ipairs(assert(current.DungeonCompletionData[dungeonName])) do
-            writeBoss(out, boss.name, boss.aliases, boss.npcID, boss.deName, boss.impliedBy, boss.members)
+            writeBoss(out, boss.name, boss.aliases, boss.npcID, boss.deName, boss.impliedBy, boss.members,
+                boss.factionOnly, boss.encounterImpliedBy, boss.questOnly, boss.fightGroup)
         end
         out:write("    },\n")
     end

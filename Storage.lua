@@ -40,7 +40,10 @@ function S:Clean(runs, active, now)
             local needs = {}
             for _, need in ipairs(run.needs or {}) do
                 if type(need) == "table" then
-                    needs[#needs + 1] = { at = need.at, result = need.result }
+                    needs[#needs + 1] = {
+                        at = need.at, result = need.result,
+                        quality = LJ.NeedItemQuality and LJ:NeedItemQuality(need) or nil,
+                    }
                 end
             end
             run.needs = needs

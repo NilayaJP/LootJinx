@@ -17,6 +17,7 @@ local MAX_TIMELINE_EVENTS = 24
 local LOGIN_STALE_OUTSIDE_SECONDS = 6 * 60 * 60
 local EXIT_SETTLE_SECONDS = 3
 local RESUME_SECONDS = 5 * 60
+local CONFIRMED_RESUME_SECONDS = 30 * 60
 -- Ein Loot-Fenster kann fuer dieselbe Leiche mehrfach geoeffnet werden. Solche
 -- Wiederholungen sind kein neuer Drop, sondern zeigen das bereits gelootete
 -- (oder liegengelassene) Item erneut an.
@@ -52,16 +53,14 @@ local function now()
     return reentryEventTime or LJ.Now()
 end
 
-local function reentryQueue(run)
+local function reentryQueue(run, departure)
     if pendingReentry and pendingReentry.run == run then return pendingReentry end
     if not inside or not run or not run.reenterPending then return nil end
-    local departed, exitIndex
-    for i = #(run.timeline or {}), 1, -1 do
-        local event = run.timeline[i]
-        if event.kind == "exit" then
-            departed, exitIndex = event.at, i
-            break
-        end
+    local departed, exitIndex = departure, nil
+    local index = #(run.timeline or {})
+    local event = index > 0 and run.timeline[index]
+    if event and event.kind == "exit" and (not departure or event.at >= departure) then
+        departed, exitIndex = event.at, index
     end
     pendingReentry = { run = run, started = now(), departed = departed, exitIndex = exitIndex, events = {} }
     return pendingReentry
@@ -73,7 +72,7 @@ local function enqueueReentry(queue, replay, events)
 end
 
 local function endBeforeReentry(run, queue)
-    run.ended = queue.departed or queue.started
+    run.ended = queue.previousEnded or queue.departed or queue.started
     if queue.exitIndex then
         for i = #run.timeline, queue.exitIndex + 1, -1 do run.timeline[i] = nil end
     end
@@ -238,12 +237,24 @@ function T:IsCounted(run)
     return not emptyVisit(run)
 end
 
+local function sameInstance(run, d)
+    if run.key and d.key then return tostring(run.key) == tostring(d.key) end
+    return lower(run.name) == lower(d.name)
+end
+
+local function emptyContinuation(run, previous)
+    if not previous or not previous.closed or previous.closedReason ~= "left"
+        or previous.resetAfterExit or not sameInstance(previous, run) then return false end
+    local start, ended = tonumber(run.started), tonumber(previous.ended)
+    return start and ended and start >= ended and start - ended <= CONFIRMED_RESUME_SECONDS
+end
+
 function T:GetRuns()
     local data = db()
     local runs = data and data.runs or {}
     local visible
     for i, run in ipairs(runs) do
-        if run.closed and emptyVisit(run) then
+        if (run.closed or emptyContinuation(run, runs[i - 1])) and emptyVisit(run) then
             if not visible then
                 visible = {}
                 for j = 1, i - 1 do visible[#visible + 1] = runs[j] end
@@ -312,11 +323,6 @@ local function getDungeon()
     }
 end
 
-local function sameInstance(run, d)
-    if run.key and d.key then return tostring(run.key) == tostring(d.key) end
-    return lower(run.name) == lower(d.name)
-end
-
 -- Kehrt der Spieler kurz nach dem Verlassen in dieselbe Instanz zurück, wird
 -- der zuletzt geschlossene Run fortgesetzt. Das verhindert geteilte Runs nach
 -- Wipe, Portal oder Reload innerhalb des Zeitfensters.
@@ -327,14 +333,7 @@ local function recentlyLeftRun()
         or run.resetAfterExit or run.unconfirmedCopy then return nil end
     local ended = tonumber(run.ended) or tonumber(run.lastSeen)
     local age = ended and now() - ended
-    if age and age >= 0 and age <= RESUME_SECONDS then return run, age end
-end
-
-local function resumableRun(d)
-    local run, age = recentlyLeftRun()
-    -- Ein Reentry in derselben Sekunde ist kein echter Wiedereintritt: dann
-    -- laeuft der Run noch im Settle-Fenster und wird ohnehin fortgesetzt.
-    if run and age > 0 and sameInstance(run, d) then return run end
+    if age and age >= 0 and age <= CONFIRMED_RESUME_SECONDS then return run, age end
 end
 
 local function resetRollLinks()
@@ -345,10 +344,12 @@ local function resumeRun(run, d)
     resetRollLinks()
     local data = db()
     if not data then return nil end
+    local previousEnded = run.ended
     run.closed = false
     run.closedReason = nil
     run.ended = nil
     run.outsideAt = nil
+    run.corpseExit = nil
     run.lastSeen = now()
     run.key = d.key
     run.instanceID = d.instanceID or run.instanceID
@@ -363,7 +364,12 @@ local function resumeRun(run, d)
     lastExitedRun, lastExitUntil = nil, nil
     transitionGuardRun = nil
     run.reenterPending = run.zoneID ~= nil
-    timelineEvent(run, "return", now())
+    local queue = reentryQueue(run)
+    if queue then
+        queue.previousEnded = previousEnded
+    else
+        timelineEvent(run, "return", now())
+    end
     diag("run-resume", run.id, "name=" .. tostring(run.name))
     LJ:Changed()
     return run
@@ -400,6 +406,7 @@ function T:CloseActive(reason)
     local wasInside = inside
     endBeforeReentry(run, queue)
     closeRun(run, "left")
+    if #queue.events == 0 and #(queue.history or {}) == 0 then return true end
     local visit = self:StartRun(run, true)
     if not visit then return true end
     visit.started = queue.started
@@ -442,6 +449,7 @@ function T:StartRun(d, partial)
         instanceID = d.instanceID,
         zoneID = nil,
         difficulty = d.difficulty,
+        faction = LJ.PlayerFaction and LJ:PlayerFaction() or nil,
         started = now(),
         lastSeen = now(),
         lootSeen = false,
@@ -495,6 +503,21 @@ local function observeUnit(unit)
     if ok then T:ObserveInstanceGUID(guid) end
 end
 
+local function resumableRun(d)
+    local run, age = recentlyLeftRun()
+    if not run or age <= 0 or not sameInstance(run, d) then return nil end
+    -- A saved copy ID lets resumeRun buffer observations until a readable
+    -- GUID proves which copy the player returned to.
+    if age <= RESUME_SECONDS or run.corpseExit or (run.zoneIDKind == "zone" and run.zoneID) then return run end
+end
+
+local function playerIsDeadOrGhost()
+    if type(UnitIsDeadOrGhost) ~= "function" then return false end
+    local ok, value = pcall(UnitIsDeadOrGhost, "player")
+    value = ok and LJ.Plain(value)
+    return value == true or value == 1
+end
+
 function T:ObserveInstanceGUID(guid)
     if not inside then return false end
     local run = activeRun()
@@ -502,6 +525,7 @@ function T:ObserveInstanceGUID(guid)
     local zoneID, zoneKind = guidInstanceID(guid, run.instanceID)
     if not zoneID then return false end
     if run.reenterPending then
+        if run.zoneIDKind == "zone" and zoneKind ~= "zone" then return false end
         local queue = pendingReentry
         pendingReentry = nil
         run.reenterPending = nil
@@ -531,7 +555,7 @@ function T:ObserveInstanceGUID(guid)
         end
         run.zoneID, run.zoneIDKind = zoneID, zoneKind
         local last = run.timeline and run.timeline[#run.timeline]
-        if not last or last.kind ~= "return" then timelineEvent(run, "return", now()) end
+        if not last or last.kind ~= "return" then timelineEvent(run, "return", queue and queue.started or now()) end
         if queue and queue.run == run then replayReentry(queue, run) end
         diag("copy-merged", run.id, "zone=" .. tostring(zoneID))
         LJ:Changed()
@@ -560,9 +584,11 @@ function T:CheckZone()
         if blocked then return end
         local run = activeRun()
         if run and sameInstance(run, d) then
-            local reentering = (not inside) or run.outsideAt ~= nil
+            local outsideAt = run.outsideAt
+            local reentering = (not inside) or outsideAt ~= nil
             if reentering then
                 diag("zone-reenter", run.id, run.zoneID and "known-copy" or "unknown-copy")
+                run.corpseExit = nil
             end
             inside = true
             run.outsideAt = nil
@@ -571,7 +597,10 @@ function T:CheckZone()
             run.instanceID = d.instanceID or run.instanceID
             run.difficulty = d.difficulty or run.difficulty
             if d.name and d.name ~= "" then run.name = d.name end
-            if reentering and run.zoneID then run.reenterPending = true end
+            if reentering and run.zoneID then
+                run.reenterPending = true
+                reentryQueue(run, outsideAt or now())
+            end
             observeUnit("target")
             observeUnit("mouseover")
             LJ:Changed()
@@ -600,6 +629,7 @@ function T:CheckZone()
         if run then
             if wasInside then
                 timelineEvent(run, "exit", now())
+                run.corpseExit = playerIsDeadOrGhost() or nil
                 exitGraceRun, exitGraceUntil = run, now() + EXIT_SETTLE_SECONDS
                 lastExitedRun, lastExitUntil = run, exitGraceUntil
                 diag("exit-settle", run.id, "start")

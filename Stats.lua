@@ -183,6 +183,70 @@ function Stats.RunBasis(runs, run)
     return basis
 end
 
+function Stats.LocalDayStart(now, daysBack, startOfWeek)
+    local gameClock = type(date) == "function" and type(time) == "function"
+    local dateFn = gameClock and date or (os and os.date)
+    local timeFn = gameClock and time or (os and os.time)
+    if not dateFn or not timeFn then return nil end
+    local day = dateFn("*t", now)
+    if type(day) ~= "table" then return nil end
+    if startOfWeek then
+        if not day.wday then return nil end
+        daysBack = (day.wday + 5) % 7
+    end
+    return tonumber(timeFn({ year = day.year, month = day.month,
+        day = day.day - daysBack, hour = 0, min = 0, sec = 0 }))
+end
+
+function Stats.WeeklyRecap(runs, now)
+    local start = now and Stats.LocalDayStart(now, 0, true)
+    local earlier, throughWeek, weekRuns = {}, {}, {}
+    if start then
+        for _, run in ipairs(runs or {}) do
+            local stamp = tonumber(run.started) or 0
+            if stamp < start then
+                earlier[#earlier + 1] = run
+            elseif stamp <= now then
+                weekRuns[#weekRuns + 1] = run
+            end
+            if stamp <= now then throughWeek[#throughWeek + 1] = run end
+        end
+    end
+    local before = Stats.Compute(earlier)
+    local current = Stats.Compute(throughWeek)
+    return {
+        start = start,
+        weekRuns = weekRuns,
+        runs = #weekRuns,
+        wins = current.needWins - before.needWins,
+        losses = current.needLost - before.needLost,
+        pending = current.needPending - before.needPending,
+        newRecord = current.lostNeedMax > before.lostNeedMax and current.lostNeedMax or nil,
+    }
+end
+
+function Stats.NeedByQuality(runs)
+    local buckets, result = {}, {}
+    for _, run in ipairs(runs or {}) do
+        for _, need in ipairs(run.needs or {}) do
+            if type(need) == "table" and need.rollKind ~= "greed" then
+                local quality = LJ:NeedItemQuality(need)
+                local key = quality or -1
+                local row = buckets[key]
+                if not row then
+                    row = { quality = quality, wins = 0, losses = 0, pending = 0 }
+                    buckets[key] = row
+                    result[#result + 1] = row
+                end
+                local field = need.result == "won" and "wins" or need.result == "lost" and "losses" or "pending"
+                row[field] = row[field] + 1
+            end
+        end
+    end
+    table.sort(result, function(a, b) return (a.quality or -1) > (b.quality or -1) end)
+    return result
+end
+
 function Stats.RunStatusKey(run, active)
     if type(run) ~= "table" then return nil end
     if run.closedReason == "manual" then return "RUN_STATUS_MANUAL" end

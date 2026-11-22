@@ -7,6 +7,11 @@ local O = {}
 LJ.Options = O
 local W = LJ.Widgets
 local PANEL_WIDTH, PANEL_HEIGHT = 600, 524
+local textSizeGroups = {
+    { id = "list", label = "OPT_TEXT_SIZE_LIST" },
+    { id = "detail", label = "OPT_TEXT_SIZE_DETAIL" },
+    { id = "tooltip", label = "OPT_TEXT_SIZE_TOOLTIP" },
+}
 
 local function inCombat()
     return type(InCombatLockdown) == "function" and InCombatLockdown() == true
@@ -233,6 +238,34 @@ local function setCheck(check, value)
     if check.check then check.check:SetShown(value) end
 end
 
+local function createTextSizeControls(card)
+    controls.textSizes = {}
+    for index, group in ipairs(textSizeGroups) do
+        local id = group.id
+        local x = 14 + (index - 1) * 185
+        local label = optionText(card, 10, "text")
+        label:SetPoint("TOPLEFT", x, -27)
+        label:SetText(LJ.L(group.label))
+
+        local smaller = optionButton(card, "-", 26, 22)
+        smaller:SetPoint("TOPLEFT", x, -43)
+        local value = optionButton(card, "", 82, 22)
+        value:SetPoint("LEFT", smaller, "RIGHT", 4, 0)
+        local larger = optionButton(card, "+", 26, 22)
+        larger:SetPoint("LEFT", value, "RIGHT", 4, 0)
+        W:Tooltip(value, LJ.L("OPT_TEXT_SIZE_DEFAULT"))
+
+        local function adjust(offset)
+            W:SetTextSizeOffset(id, offset)
+            O:Refresh()
+        end
+        smaller:SetScript("OnClick", function() adjust(W:GetTextSizeOffset(id) - 1) end)
+        value:SetScript("OnClick", function() adjust(0) end)
+        larger:SetScript("OnClick", function() adjust(W:GetTextSizeOffset(id) + 1) end)
+        controls.textSizes[id] = { smaller = smaller, value = value, larger = larger }
+    end
+end
+
 local function buildPanel()
     panel = CreateFrame("Frame", "LootJinxOptionsPanel", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     panel.name = LJ.L("OPTIONS_TAB")
@@ -303,13 +336,13 @@ local function buildPanel()
 
     local layoutCard = optionPanel(panel)
     layoutCard:SetPoint("TOPLEFT", 16, -282)
-    layoutCard:SetSize(568, 68)
+    layoutCard:SetSize(280, 68)
     local layoutTitle = optionText(layoutCard, 11, "section")
     layoutTitle:SetPoint("TOPLEFT", 14, -8)
     layoutTitle:SetText(LJ.L("OPT_LAYOUT"))
 
-    local dropdown = optionButton(layoutCard, "", 322, 24)
-    dropdown:SetPoint("TOPLEFT", 14, -26)
+    local dropdown = optionButton(layoutCard, "", 252, 22)
+    dropdown:SetPoint("TOPLEFT", 14, -22)
     local layoutIcon = dropdown:CreateTexture(nil, "ARTWORK")
     layoutIcon:SetSize(18, 18)
     layoutIcon:SetPoint("LEFT", 6, 0)
@@ -318,12 +351,12 @@ local function buildPanel()
     arrow:SetText("v")
     local menu = optionPanel(panel)
     menu:SetPoint("TOPLEFT", dropdown, "BOTTOMLEFT", 0, -2)
-    menu:SetSize(322, #LJ.LAYOUTS * 25 + 7)
+    menu:SetSize(252, #LJ.LAYOUTS * 25 + 7)
     menu:SetFrameLevel(layoutCard:GetFrameLevel() + 10)
     local choices = {}
     for i, spec in ipairs(LJ.LAYOUTS) do
         local id = spec.id
-        local choice = optionButton(menu, LJ.L(spec.label), 310, 24)
+        local choice = optionButton(menu, LJ.L(spec.label), 240, 24)
         choice:SetPoint("TOPLEFT", 6, -4 - (i - 1) * 25)
         local icon = choice:CreateTexture(nil, "ARTWORK")
         icon:SetSize(18, 18)
@@ -344,29 +377,29 @@ local function buildPanel()
     controls.layoutIcon, controls.layoutChoices = layoutIcon, choices
     controls.layoutClassic, controls.layoutJournal = choices.classic, choices.journal
     local layoutHint = optionText(layoutCard, 8, "muted")
-    layoutHint:SetPoint("TOPLEFT", 14, -52)
-    layoutHint:SetWidth(530)
+    layoutHint:SetPoint("TOPLEFT", 14, -47)
+    layoutHint:SetWidth(252)
     layoutHint:SetText(LJ.L("OPT_LAYOUT_HINT"))
 
     local languageCard = optionPanel(panel)
-    languageCard:SetPoint("TOPLEFT", 16, -358)
-    languageCard:SetSize(568, 68)
+    languageCard:SetPoint("TOPLEFT", 304, -282)
+    languageCard:SetSize(280, 68)
     local languageTitle = optionText(languageCard, 11, "section")
     languageTitle:SetPoint("TOPLEFT", 14, -8)
     languageTitle:SetText(LJ.L("OPT_LANGUAGE"))
 
-    local langDropdown = optionButton(languageCard, "", 322, 24)
-    langDropdown:SetPoint("TOPLEFT", 14, -26)
+    local langDropdown = optionButton(languageCard, "", 252, 22)
+    langDropdown:SetPoint("TOPLEFT", 14, -22)
     local langArrow = optionText(langDropdown, 12, "text")
     langArrow:SetPoint("RIGHT", -10, 0)
     langArrow:SetText("v")
     local langMenu = optionPanel(panel)
     langMenu:SetPoint("BOTTOMLEFT", langDropdown, "TOPLEFT", 0, 2)
-    langMenu:SetSize(322, 280)
+    langMenu:SetSize(252, 280)
     langMenu:SetFrameLevel(languageCard:GetFrameLevel() + 10)
     local langButtons = {}
     for i, loc in ipairs(LJ.LOCALES) do
-        local b = optionButton(langMenu, loc.name, 310, 24)
+        local b = optionButton(langMenu, loc.name, 240, 24)
         b:SetPoint("TOPLEFT", 6, -4 - (i - 1) * 25)
         b.code = loc.code
         b:SetScript("OnClick", function(self)
@@ -383,12 +416,12 @@ local function buildPanel()
     controls.langDropdown, controls.langMenu = langDropdown, langMenu
     controls.langButtons = langButtons
     local languageHint = optionText(languageCard, 8, "muted")
-    languageHint:SetPoint("TOPLEFT", 14, -52)
-    languageHint:SetWidth(530)
+    languageHint:SetPoint("TOPLEFT", 14, -47)
+    languageHint:SetWidth(252)
     languageHint:SetText(LJ.L("OPT_LANGUAGE_HINT"))
 
     local changelogCard = optionPanel(panel)
-    changelogCard:SetPoint("TOPLEFT", 16, -434)
+    changelogCard:SetPoint("TOPLEFT", 16, -358)
     changelogCard:SetSize(568, 68)
     local changelogTitle = optionText(changelogCard, 11, "section")
     changelogTitle:SetPoint("TOPLEFT", 14, -10)
@@ -403,6 +436,14 @@ local function buildPanel()
             LJ.Changelog:Show()
         end
     end)
+
+    local textSizeCard = optionPanel(panel)
+    textSizeCard:SetPoint("TOPLEFT", 16, -434)
+    textSizeCard:SetSize(568, 68)
+    local textSizeTitle = optionText(textSizeCard, 11, "section")
+    textSizeTitle:SetPoint("TOPLEFT", 14, -8)
+    textSizeTitle:SetText(LJ.L("OPT_TEXT_SIZE"))
+    createTextSizeControls(textSizeCard)
 
     local footer = optionText(panel, 9, "muted")
     footer:SetPoint("TOPLEFT", 18, -508)
@@ -470,6 +511,13 @@ function O:Refresh()
     if controls.hideChangelog then setCheck(controls.hideChangelog, LJ.DB.hideChangelog) end
     if controls.records then setCheck(controls.records, LJ.DB.announceRecords) end
     if controls.compact then setCheck(controls.compact, LJ.DB.compact) end
+    for id, buttons in pairs(controls.textSizes) do
+        local offset = W:GetTextSizeOffset(id)
+        local minimum, maximum = W:GetTextSizeRange(id)
+        buttons.value.label:SetText(offset == 0 and LJ.L("OPT_TEXT_SIZE_DEFAULT") or string.format("%+d", offset))
+        buttons.smaller:SetAlpha(offset == minimum and 0.5 or 1)
+        buttons.larger:SetAlpha(offset == maximum and 0.5 or 1)
+    end
     if controls.layoutDropdown then
         local spec = LJ:GetLayoutSpec(LJ.DB.layoutPreview)
         controls.layoutDropdown.label:SetText(LJ.L(spec.label))

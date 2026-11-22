@@ -7,11 +7,18 @@ LJ.ChangelogData = {
     sections = {
         { title = [[Added New]], text = [[• Added the Goblin Betting Hall, Dwarven Chronicle, and Shadow Oracle designs to Options.
 • Added illustrated backgrounds and icons for all five designs.
-• Added boss evidence from readable corpse sources and defeated members reported by successful encounters. Included rare and optional bosses in the NPC source catalog.]] },
+• Added boss evidence from readable corpse sources and defeated members reported by successful encounters. Included rare and optional bosses in the NPC source catalog.
+• Added a weekly recap with recorded runs, Need outcomes, and personal Need loss streak records.
+• Added per-character run bookmarks and a bookmark view in Dungeon History.
+• Added independent font sizes for lists, Run Details, and LootJinx tooltips.
+• Added a Need roll breakdown by item quality, including unknown quality.
+• Added timeline playback in Run Details, with pause and jumps to the next boss or drop.
+• Added Deathcharger's Reins to Baron Rivendare's reference loot and displayed DungeonJournal's temporary loot-removal note for Obsidian Sentinel.]] },
         { title = [[Changed]], text = [[• Applied illustrated headers and matching controls across LootJinx windows, comparison panels, and confirmation dialogs.
 • Improved the contrast of run and loot lists and highlighted selected controls and focused text inputs.
 • Enlarged the Options window and its text, with scaling that kept the panel within smaller viewports.
-• Replaced expand and collapse glyphs in Dungeon History, boss statistics, and Run Details with font-independent controls.]] },
+• Replaced expand and collapse glyphs in Dungeon History, boss statistics, and Run Details with font-independent controls.
+• Extended the DungeonJournal source review to report encounter rules and loot availability flags.]] },
         { title = [[Fixed]], text = [[• Kept the dashboard in the same position when switching designs and preserved the selected design's position during the upgrade.
 • Fixed the Need win-rate bar so its fill matched the resolved percentage.
 • Grouped uniquely attributed loot under its boss in Run Details and boss statistics, even when the client omitted the boss event.
@@ -20,6 +27,10 @@ LJ.ChangelogData = {
 • Preserved known boss names after incomplete follow-up events and recognized typographic apostrophes in boss names.
 • Buffered loot windows, loot chat, boss events, roll starts, Need and Greed votes, cancellations, and Loot History updates during re-entry. Preserved unresolved observations in a separate partial run on exit or reload.
 • Required more than a shared map ID to confirm the same copy and started a fresh run after a confirmed reset, even when the previous run had already closed.
-• Listed dungeon wings separately in the History filter.]] },
+• Listed dungeon wings separately in the History filter.
+• Continued runs after longer corpse runs and returns to a verified instance copy for up to 30 minutes. Hid empty re-entry records from run history.
+• Fixed completion credit for the Zul'Farrak final encounter and the Ring of Law. Grouped drops with the saved Ring of Law event when a verified arena challenger was the loot source.
+• Applied faction and quest restrictions to the required-boss list in Uldaman and Razorfen Downs.
+• Classified Shadowfang Keep's stable horses as trash and excluded recipe-only drops from inferred boss kills.]] },
     },
 }

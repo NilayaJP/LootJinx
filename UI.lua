@@ -388,14 +388,14 @@ end
 
 function LJ:ShowRunBasisTooltip(owner, run)
     if not GameTooltip or not run then return end
-    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+    W:BeginTooltip(owner, "ANCHOR_RIGHT")
     self:AppendRunBasisTooltip(run)
-    GameTooltip:Show()
+    W:ShowTooltip()
 end
 
 local function runTooltip(row, run)
     if not GameTooltip then return end
-    GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+    W:BeginTooltip(row, "ANCHOR_RIGHT")
     GameTooltip:AddLine(LJ.Widgets:Truncate(LJ:DungeonName(run), 44),
         C.accent[1], C.accent[2], C.accent[3], true)
     GameTooltip:AddLine(dateLabel(run), C.muted[1], C.muted[2], C.muted[3])
@@ -428,7 +428,7 @@ local function runTooltip(row, run)
             GameTooltip:AddLine(LJ.L("DETAIL_CLICK"), C.muted[1], C.muted[2], C.muted[3])
         end
     end
-    GameTooltip:Show()
+    W:ShowTooltip()
 end
 
 function LJ:ShowRecentTooltip(row, run)
@@ -439,6 +439,7 @@ function LJ:CreateDashboardRecent(owner, window, skin, theme)
     local panel = dashboardCard(window, skin, 16, -312, 608, 148)
     dashboardText(panel, skin, LJ.L("RECENT"), 13, -8, 560, 12, skin.text, true)
     panel.empty = W:Font(panel, 10, skin.muted, "")
+    W:UseTextSize(panel.empty, "list", 10)
     panel.empty:SetPoint("CENTER", 0, -6)
     panel.empty:SetText(LJ.L("RECENT_EMPTY"))
 
@@ -471,6 +472,8 @@ function LJ:CreateDashboardRecent(owner, window, skin, theme)
         row.name = dashboardText(row, skin, "", 10, -6, 247, 11, skin.text)
         row.badges = dashboardText(row, skin, "", 264, -7, 206, 10,
             theme == "oracle" and skin.accent or skin.muted)
+        W:UseTextSize(row.name, "list", 11)
+        W:UseTextSize(row.badges, "list", 10)
         if theme == "goblin" then
             local slip = row:CreateTexture(nil, "BACKGROUND", nil, -1)
             slip:SetPoint("TOPLEFT", 2, -1)
@@ -478,6 +481,7 @@ function LJ:CreateDashboardRecent(owner, window, skin, theme)
             W:ColorTexture(slip, { skin.border[1], skin.border[2], skin.border[3], .30 })
         end
         row.date = dashboardText(row, skin, "", 477, -7, 101, 10, skin.muted)
+        W:UseTextSize(row.date, "list", 10)
         row.date:SetJustifyH("RIGHT")
         row:SetScript("OnEnter", function(self)
             if self.run then
@@ -607,6 +611,7 @@ local function createFooter()
     compactLatest:SetPoint("BOTTOMLEFT", 16, 21)
     compactLatest:RegisterForClicks("LeftButtonUp")
     compactLatest.label = W:Font(compactLatest, 10, C.text, "")
+    W:UseTextSize(compactLatest.label, "list", 10)
     compactLatest.label:SetPoint("LEFT", 0, 0)
     compactLatest.label:SetWidth(230)
     compactLatest.label:SetWordWrap(false)
@@ -1033,11 +1038,11 @@ end
 
 function LootJinx_OnAddonCompartmentEnter(_, owner)
     if not GameTooltip then return end
-    GameTooltip:SetOwner(owner or UIParent, "ANCHOR_LEFT")
+    W:BeginTooltip(owner or UIParent, "ANCHOR_LEFT")
     GameTooltip:AddLine("LootJinx", C.accent[1], C.accent[2], C.accent[3])
     GameTooltip:AddLine(LJ.L("SUBTITLE"), 0.86, 0.87, 0.90, true)
     GameTooltip:AddLine("/lj", 0.70, 0.72, 0.80)
-    GameTooltip:Show()
+    W:ShowTooltip()
 end
 
 function LootJinx_OnAddonCompartmentLeave()

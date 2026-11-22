@@ -37,15 +37,17 @@ local BY_INSTANCE = {
     [531] = "Ahn'Qiraj Temple", [533] = "Naxxramas",
 }
 
-local itemIndex, byLowerName, bossesByNPC
+local itemIndex, byLowerName, bossesByNPC, trashByNPC, removedLoot
 local function indexData()
     if itemIndex then return end
     itemIndex, byLowerName, bossesByNPC = {}, {}, {}
+    trashByNPC, removedLoot = {}, {}
     for dungeonName, groups in pairs(LJ.DungeonLootData or {}) do
         local items = {}
         local npcs = {}
         itemIndex[dungeonName] = items
         bossesByNPC[dungeonName] = npcs
+        trashByNPC[dungeonName], removedLoot[dungeonName] = {}, {}
         byLowerName[dungeonName:lower()] = dungeonName
         for _, group in ipairs(groups) do
             local bossName, trash, ids, npcID = group[1], group[2], group[3], group[4]
@@ -53,6 +55,8 @@ local function indexData()
                 local previous = npcs[npcID]
                 npcs[npcID] = (previous == nil or previous == bossName) and bossName or false
             end
+            if trash and npcID then trashByNPC[dungeonName][npcID] = true end
+            if group.lootRemoved then removedLoot[dungeonName][bossName] = true end
             for _, id in ipairs(ids or {}) do
                 local source = items[id]
                 if not source then
@@ -202,13 +206,49 @@ function Catalog:MatchesBoss(run, observed, canonical)
     return match == canonical
 end
 
+function Catalog:MatchesFight(run, observed, challenger)
+    for _, dungeon in ipairs(self:Candidates(run) or {}) do
+        for _, boss in ipairs((LJ.DungeonCompletionData or {})[dungeon] or {}) do
+            if boss.fightGroup and (observed == boss.fightGroup or observed == boss.name) then
+                for _, alias in ipairs(boss.aliases) do
+                    if alias == challenger then return true end
+                end
+            end
+        end
+    end
+    return false
+end
+
 function Catalog:DropSource(run, drop)
     if drop.lootSourceAmbiguous then return "ambiguous" end
-    local boss = self:BossForNPC(run, tonumber(drop.sourceNPCID))
+    local npcID = tonumber(drop.sourceNPCID)
+    local boss = self:BossForNPC(run, npcID)
     if boss then return "boss", boss, true end
+    if npcID then
+        local possible = self:Candidates(run)
+        local trash = possible and #possible == 1 and trashByNPC[possible[1]]
+        if trash and trash[npcID] then return "trash" end
+    end
     local kind, name = self:Source(run, drop.id)
     if drop.sourceNPCID and kind == "boss" then return "unknown-npc" end
     return kind, name
+end
+
+function Catalog:IsRecipe(itemID)
+    itemID = tonumber(itemID)
+    if not itemID then return false end
+    if LJ.DungeonRecipeIDs and LJ.DungeonRecipeIDs[itemID] then return true end
+    local info = LJ.ItemInfoInstant and LJ:ItemInfoInstant(itemID)
+    return info and info.classID == 9 or false
+end
+
+function Catalog:IsLootRemoved(run, name)
+    for _, dungeon in ipairs(self:Candidates(run) or {}) do
+        for boss in pairs(removedLoot[dungeon] or {}) do
+            if self:MatchesBoss(run, name, boss) then return true end
+        end
+    end
+    return false
 end
 
 function Catalog:CanInferBoss(drop)

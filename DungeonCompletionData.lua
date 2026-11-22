@@ -1,4 +1,4 @@
--- Required boss names from ForeverDungeonJournal 2.1.2 with available German names and reviewed Wowhead Forever encounter labels. Rare, optional, summoned, and trash entries excluded.
+-- Completion and quest-boss names from ForeverDungeonJournal 2.1.3 with available German names and reviewed Wowhead Forever encounter labels.
 local ADDON, ns = ...
 local LJ = ns or _G.LootJinx
 if not LJ then return end
@@ -124,7 +124,7 @@ LJ.DungeonCompletionData = {
     },
     ["Razorfen Downs"] = {
         { name = "Tuten'kash", aliases = { "Tuten'kash" }, npcID = 7355 },
-        { name = "Plaguemaw the Rotting", aliases = { "Plaguemaw the Rotting", "Plaguemaw", "Plaguemaw der Faulende", "Plaguemaw the Rotting Event" }, npcID = 7356, deName = "Plaguemaw der Faulende" },
+        { name = "Plaguemaw the Rotting", aliases = { "Plaguemaw the Rotting", "Plaguemaw", "Plaguemaw der Faulende", "Plaguemaw the Rotting Event" }, npcID = 7356, deName = "Plaguemaw der Faulende", questOnly = true },
         { name = "Mordresh Fire Eye", aliases = { "Mordresh Fire Eye", "Mordresh Feuerauge" }, npcID = 7357, deName = "Mordresh Feuerauge" },
         { name = "Glutton", aliases = { "Glutton", "Nimmersatt" }, npcID = 8567, deName = "Nimmersatt" },
         { name = "Amnennar the Coldbringer", aliases = { "Amnennar the Coldbringer", "Amnennar", "Amnennar der Kältebringer" }, npcID = 7358, deName = "Amnennar der Kältebringer" },
@@ -139,7 +139,7 @@ LJ.DungeonCompletionData = {
     },
     ["Uldaman"] = {
         { name = "Revelosh", aliases = { "Revelosh" }, npcID = 6910 },
-        { name = "The Lost Dwarves", aliases = { "The Lost Dwarves", "Baelog", "Eric \"The Swift\"", "Olaf", "Die verschollenen Zwerge" }, npcID = 6906, deName = "Die verschollenen Zwerge" },
+        { name = "The Lost Dwarves", aliases = { "The Lost Dwarves", "Baelog", "Eric \"The Swift\"", "Olaf", "Die verschollenen Zwerge" }, npcID = 6906, deName = "Die verschollenen Zwerge", factionOnly = "Horde" },
         { name = "Ironaya", aliases = { "Ironaya" }, npcID = 7228 },
         { name = "Obsidian Sentinel", aliases = { "Obsidian Sentinel", "Obsidianschildwache" }, npcID = 7023, deName = "Obsidianschildwache" },
         { name = "Ancient Stone Keeper", aliases = { "Ancient Stone Keeper", "Uralter Steinbewahrer" }, npcID = 7206, deName = "Uralter Steinbewahrer" },
@@ -156,7 +156,7 @@ LJ.DungeonCompletionData = {
         { name = "Sergeant Bly", aliases = { "Sergeant Bly" }, npcID = 7604 },
         { name = "Hydromancer Velratha", aliases = { "Hydromancer Velratha", "Wasserbeschwörerin Velratha" }, npcID = 7795, deName = "Wasserbeschwörerin Velratha" },
         { name = "Gahz'rilla", aliases = { "Gahz'rilla" }, npcID = 7273 },
-        { name = "Ruuzlu", aliases = { "Ruuzlu" }, npcID = 7797 },
+        { name = "Ruuzlu", aliases = { "Ruuzlu" }, npcID = 7797, encounterImpliedBy = { "Chief Ukorz Sandscalp", "Häuptling Ukorz Sandskalp" } },
         { name = "Chief Ukorz Sandscalp", aliases = { "Chief Ukorz Sandscalp", "Häuptling Ukorz Sandskalp" }, npcID = 7267, deName = "Häuptling Ukorz Sandskalp" },
     },
     ["Maraudon"] = {
@@ -190,7 +190,7 @@ LJ.DungeonCompletionData = {
         { name = "High Interrogator Gerstahn", aliases = { "High Interrogator Gerstahn", "Verhörmeisterin Gerstahn" }, npcID = 9018, deName = "Verhörmeisterin Gerstahn" },
         { name = "Lord Roccor", aliases = { "Lord Roccor" }, npcID = 9025 },
         { name = "Houndmaster Grebmar", aliases = { "Houndmaster Grebmar", "Hundemeister Grebmar" }, npcID = 9319, deName = "Hundemeister Grebmar" },
-        { name = "Ring of the Law", aliases = { "Ring of the Law", "Gorosh the Dervish", "Gorosh der Derwisch", "Grizzle", "Eviscerator", "Ausweider", "Ok'thor the Breaker", "Ok'thor der Zerstörer", "Anub'shiah", "Hedrum the Creeper", "Hedrum der Krabbler" }, npcID = 9027, deName = "Gorosh der Derwisch" },
+        { name = "Ring of the Law", aliases = { "Ring of the Law", "Ring of Law", "Gorosh the Dervish", "Gorosh der Derwisch", "Grizzle", "Eviscerator", "Ausweider", "Ok'thor the Breaker", "Ok'thor der Zerstörer", "Anub'shiah", "Hedrum the Creeper", "Hedrum der Krabbler" }, npcID = 9027, deName = "Gorosh der Derwisch", fightGroup = "Ring of Law" },
         { name = "Pyromancer Loregrain", aliases = { "Pyromancer Loregrain", "Pyromant Weisenkorn" }, npcID = 9024, deName = "Pyromant Weisenkorn" },
         { name = "Fineous Darkvire", aliases = { "Fineous Darkvire", "Fineous Dunkelader" }, npcID = 9056, deName = "Fineous Dunkelader" },
         { name = "Warder Stilgiss", aliases = { "Warder Stilgiss", "Wärter Stilgiss" }, npcID = 9041, deName = "Wärter Stilgiss" },

@@ -43,42 +43,57 @@ out:write("local ADDON, ns = ...\n")
 out:write("local LJ = ns or _G.LootJinx\n")
 out:write("if not LJ then return end\n")
 out:write("LJ.DungeonLootData = {\n")
+local recipes = {}
 for _, dungeonName in ipairs(source.ORDER or {}) do
     local dungeon = source.DB[dungeonName]
     if dungeon then
         out:write("    [", string.format("%q", dungeonName), "] = {\n")
         for _, boss in ipairs(dungeon.bosses or {}) do
             local ids, seen = {}, {}
-            local npcID = not boss.trash and tonumber(boss.npcID)
-            for _, item in ipairs(boss.loot or {}) do
-                local id = type(item) == "table" and tonumber(item[1])
-                if id and id > 0 and not seen[id] then
-                    ids[#ids + 1] = id
-                    seen[id] = true
+            local trash = boss.trash or boss.runLogHidden
+            local npcID = tonumber(boss.npcID)
+            local function add(items)
+                for _, item in ipairs(items or {}) do
+                    local id = type(item) == "table" and tonumber(item[1])
+                    if id and id > 0 then
+                        if not seen[id] then
+                            ids[#ids + 1] = id
+                            seen[id] = true
+                        end
+                        local slot = item[3]
+                        if type(slot) == "string" and (slot:match("^Recipe") or slot == "Blueprint") then
+                            recipes[id] = true
+                        end
+                    end
                 end
             end
-            local shared = source.GetBossSharedLoot and source.GetBossSharedLoot(dungeonName, boss)
-            for _, item in ipairs(shared or {}) do
-                local id = type(item) == "table" and tonumber(item[1])
-                if id and id > 0 and not seen[id] then
-                    ids[#ids + 1] = id
-                    seen[id] = true
-                end
-            end
+            add(boss.loot)
+            add(source.GetBossSharedLoot and source.GetBossSharedLoot(dungeonName, boss))
             if #ids > 0 or (npcID and npcID > 0) then
                 out:write("        { ", string.format("%q", boss.name or "?"), ", ",
-                    boss.trash and "true" or "false", ", { ")
+                    trash and "true" or "false", ", { ")
                 for i, id in ipairs(ids) do
                     if i > 1 then out:write(", ") end
                     out:write(tostring(id))
                 end
                 out:write(" }")
                 if npcID and npcID > 0 then out:write(", ", tostring(npcID)) end
+                if boss.lootRemoved then out:write(", lootRemoved = true") end
                 out:write(" },\n")
             end
         end
         out:write("    },\n")
     end
+end
+out:write("}\n")
+local recipeIDs = {}
+for id in pairs(recipes) do recipeIDs[#recipeIDs + 1] = id end
+table.sort(recipeIDs)
+out:write("LJ.DungeonRecipeIDs = {\n")
+for index, id in ipairs(recipeIDs) do
+    if (index - 1) % 6 == 0 then out:write("    ") end
+    out:write("[", tostring(id), "] = true,")
+    if index % 6 == 0 or index == #recipeIDs then out:write("\n") else out:write(" ") end
 end
 out:write("}\n")
 out:close()
