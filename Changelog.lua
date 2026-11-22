@@ -145,10 +145,6 @@ function Changelog:Show()
     local frame = self:Create()
     self.data = matches and data or nil
     self.version:SetText("LootJinx " .. current .. (matches and data.date ~= "" and " · " .. data.date or ""))
-    local credit = matches == true
-    self.credit:SetShown(credit)
-    self.credit.label:SetShown(credit)
-    self.credit.journalButton:SetShown(credit)
     self.credit.journalLink:Hide()
     self:RefreshPreference()
     frame:Show()
