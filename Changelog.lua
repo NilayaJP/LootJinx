@@ -87,8 +87,8 @@ function Changelog:Create()
     label:SetWidth(515)
     label:SetText(LJ.L("CHANGELOG_OPT_OUT"))
 
-    local credit = W:SourceCredits(panel, function() frame:Hide() end)
-    credit:SetPoint("BOTTOMRIGHT", -20, 42)
+    local credit = W:SourceCredits(panel)
+    credit:SetPoint("BOTTOMRIGHT", -20, 48)
     if UISpecialFrames then table.insert(UISpecialFrames, frame:GetName()) end
 
     self.frame, self.version, self.notes = frame, version, notes
@@ -109,7 +109,7 @@ function Changelog:ApplyTheme()
         W:ColorText(self.notes, skin.text)
         W:ColorText(self.preferenceLabel, skin.text)
         W:StyleCheck(self.checkbox, skin, self.checkbox.mark)
-        W:StyleCredit(self.credit, skin)
+        W:ColorText(self.credit, skin.muted)
         W:StyleButton(self.close, skin)
         local bar = self.scroll.ScrollBar or _G[self.scroll:GetName() .. "ScrollBar"]
         local thumb = bar and bar.GetThumbTexture and bar:GetThumbTexture()
@@ -145,7 +145,6 @@ function Changelog:Show()
     local frame = self:Create()
     self.data = matches and data or nil
     self.version:SetText("LootJinx " .. current .. (matches and data.date ~= "" and " · " .. data.date or ""))
-    self.credit.journalLink:Hide()
     self:RefreshPreference()
     frame:Show()
     self:ApplyTheme()
