@@ -612,12 +612,11 @@ function W:Tooltip(frame, title, lines)
     end)
 end
 
-function W:ForeverDBCredit(parent, onEscape)
-    local url = "https://foreverdb.net"
-    local link = CreateFrame("EditBox", nil, parent)
-    link:SetSize(120, 16)
+local function copyableSource(parent, url, width, onEscape, template)
+    local link = CreateFrame("EditBox", nil, parent, template)
+    link:SetSize(width, 16)
     link:SetAutoFocus(false)
-    self:SetTextFont(link, 10)
+    W:SetTextFont(link, 10)
     link:SetText(url)
     link:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
     link:SetScript("OnTextChanged", function(self)
@@ -628,28 +627,61 @@ function W:ForeverDBCredit(parent, onEscape)
     end)
     link:SetScript("OnEscapePressed", function(self)
         self:ClearFocus()
-        if onEscape then onEscape() end
+        if onEscape then onEscape(self) end
     end)
     link:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
     link:SetScript("OnHide", function(self) self:ClearFocus() end)
+    return link
+end
+
+function W:SourceCredits(parent, onEscape, placement)
+    local link = copyableSource(parent, "https://foreverdb.net", 120, onEscape)
     link.label = self:Font(parent, 10, C.muted)
     link.label:SetPoint("RIGHT", link, "LEFT", -4, 0)
     link.label:SetText(LJ.L("FOREVERDB_CREDIT"))
     self:Tooltip(link, "ForeverDB.net", { LJ.L("FOREVERDB_COPY") })
+
+    local journal = self:Button(parent, "DungeonJournal", 104, 15)
+    if placement == "right" then
+        journal:SetPoint("LEFT", link, "RIGHT", 8, 0)
+    elseif placement == "left" then
+        journal:SetPoint("RIGHT", link.label, "LEFT", -8, 0)
+    else
+        journal:SetPoint("BOTTOMRIGHT", link, "TOPRIGHT", 0, 1)
+    end
+    self:Tooltip(journal, "DungeonJournal · ExehnTV", { LJ.L("FOREVERDB_COPY") })
+    local journalLink = copyableSource(parent, "https://www.curseforge.com/wow/addons/dungeonjournal",
+        316, function(edit) edit:Hide() end, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    journalLink:SetHeight(22)
+    journalLink:SetTextInsets(6, 6, 0, 0)
+    journalLink:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -16, 76)
+    journalLink:SetFrameLevel(parent:GetFrameLevel() + 15)
+    journalLink:SetScript("OnEditFocusLost", function(edit) edit:Hide() end)
+    journalLink:SetScript("OnEnterPressed", function(edit) edit:Hide() end)
+    journalLink:Hide()
+    journal:SetScript("OnClick", function()
+        if GameTooltip then GameTooltip:Hide() end
+        journalLink:Show()
+        journalLink:SetFocus()
+        journalLink:HighlightText()
+    end)
+    link.journalButton, link.journalLink = journal, journalLink
     return link
 end
 
 function W:StyleCredit(link, skin)
     self:ColorText(link, skin.accent)
     self:ColorText(link.label, skin.muted)
+    self:StyleButton(link.journalButton, skin)
+    self:StyleInput(link.journalLink, skin)
 end
 
-function W:AddDashboardCredit(frame, linkColor)
-    local link = self:ForeverDBCredit(frame)
+function W:AddDashboardCredit(frame, skin)
+    local link = self:SourceCredits(frame, nil, "right")
     link.label:ClearAllPoints()
     link.label:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 16, 5)
     link:SetPoint("LEFT", link.label, "RIGHT", 4, 0)
-    link:SetTextColor(c4(linkColor))
+    self:StyleCredit(link, skin)
     frame.creditLink = link
 end
 

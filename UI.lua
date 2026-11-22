@@ -604,7 +604,7 @@ local function createFooter()
     footer:SetWidth(230)
     footer:SetWordWrap(false)
     frame.footer = footer
-    W:AddDashboardCredit(frame, S.accent)
+    W:AddDashboardCredit(frame, S)
 
     compactLatest = CreateFrame("Button", nil, frame)
     compactLatest:SetSize(230, 20)

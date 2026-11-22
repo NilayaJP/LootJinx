@@ -1246,7 +1246,7 @@ function M:Create()
     hint = W:Font(f, 8, skin.muted, "")
     hint:SetPoint("BOTTOMLEFT", 16, 28)
     hint:SetText(LJ.L("DETAIL_HINT"))
-    self.creditLink = W:ForeverDBCredit(f, function() M:Hide() end)
+    self.creditLink = W:SourceCredits(f, function() M:Hide() end, "left")
     self.creditLink:SetPoint("BOTTOMRIGHT", -16, 31)
 
     pageText = W:Font(f, 9, skin.muted, "")

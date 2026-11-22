@@ -591,7 +591,7 @@ function H:Create()
         end
         H:Refresh()
     end)
-    self.creditLink = W:ForeverDBCredit(f, function() H:Hide() end)
+    self.creditLink = W:SourceCredits(f, function() H:Hide() end)
     self.creditLink:SetPoint("BOTTOMRIGHT", -16, 15)
     self.mutedLabels[#self.mutedLabels + 1] = self.creditLink.label
     local close = addButton(f, "×", 24, 24)

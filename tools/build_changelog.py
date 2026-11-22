@@ -10,6 +10,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = r"\d+\.\d+\.\d+"
 FOREVERDB_CREDIT = "[Data from ForeverDB.net](https://foreverdb.net)"
+DUNGEON_JOURNAL_CREDIT = "[DungeonJournal by ExehnTV](https://www.curseforge.com/wow/addons/dungeonjournal)"
 ASSETS = ("LootJinxIcon", "NeedRolls", "NoLoot", "NoNeedWin", "SinceNeedWin")
 THEMES = ("Classic", "Journal", "Goblin", "Dwarven", "Oracle")
 THEME_ASSETS = tuple(f"Media/Themes/{theme}{variant}.tga" for theme in THEMES for variant in ("Banner", "Icon"))
@@ -29,10 +30,9 @@ def release_notes(markdown, version):
     end = headings[index + 1].start() if index + 1 < len(headings) else len(markdown)
     sections = []
     title, lines = "", []
-    credit = False
     for line in markdown[headings[index].end():end].strip().splitlines():
-        if line.strip().rstrip(".") == FOREVERDB_CREDIT:
-            credit = True
+        attribution = line.strip().rstrip(".")
+        if attribution in (FOREVERDB_CREDIT, DUNGEON_JOURNAL_CREDIT):
             continue
         heading = re.fullmatch(r"###[ \t]+(.+)", line.strip())
         if heading:
@@ -49,7 +49,7 @@ def release_notes(markdown, version):
         sections.append((title, body))
     if not sections:
         raise ValueError(f"empty release notes for {version}")
-    return match[1] or "", sections, credit
+    return match[1] or "", sections
 
 
 def lua_text(text):
@@ -60,7 +60,7 @@ def lua_text(text):
 
 
 def render_changelog(markdown, version):
-    date, sections, credit = release_notes(markdown, version)
+    date, sections = release_notes(markdown, version)
     entries = "".join(
         f"        {{ title = {lua_text(title)}, text = {lua_text(body)} }},\n"
         for title, body in sections
@@ -71,7 +71,6 @@ def render_changelog(markdown, version):
         "LJ.ChangelogData = {\n"
         f'    version = "{version}",\n'
         f'    date = "{date}",\n'
-        f'    foreverDB = {str(credit).lower()},\n'
         "    sections = {\n"
         f"{entries}"
         "    },\n"
