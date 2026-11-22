@@ -46,6 +46,13 @@ local function Plain(v)
 end
 LJ.Plain = Plain
 
+function LJ:PlayerFaction()
+    if type(UnitFactionGroup) ~= "function" then return nil end
+    local ok, faction = pcall(UnitFactionGroup, "player")
+    faction = ok and Plain(faction)
+    if faction == "Alliance" or faction == "Horde" then return faction end
+end
+
 function LJ.Now()
     local t = GetServerTime and GetServerTime()
     t = Plain(t)
@@ -213,6 +220,7 @@ local function normalizeNeed(n, fallbackAt)
     n.chatSeen = n.chatSeen == true
     n.before = tonumber(n.before)
     n.link = type(n.link) == "string" and n.link or nil
+    n.quality = tonumber(n.quality)
     n.result = (n.result == "won" or n.result == "lost") and n.result or nil
     n.resolvedAt = tonumber(n.resolvedAt)
     n.reason = type(n.reason) == "string" and n.reason or nil
@@ -256,9 +264,11 @@ local function normalizeRun(run, fallbackID)
     run.provisionalPreviousID = nil
     run.copyOutcome = nil
     run.difficulty = type(run.difficulty) == "string" and run.difficulty or nil
+    run.faction = (run.faction == "Alliance" or run.faction == "Horde") and run.faction or nil
     run.started = tonumber(run.started) or 0
     run.lastSeen = tonumber(run.lastSeen) or run.started
     run.outsideAt = tonumber(run.outsideAt)
+    run.corpseExit = run.corpseExit == true or nil
     run.paused = run.paused == true
     run.ended = tonumber(run.ended)
     run.lootSeen = run.lootSeen == true
@@ -273,6 +283,7 @@ local function normalizeRun(run, fallbackID)
     run.agilityName = nil
     run.itemsSeen = tonumber(run.itemsSeen) or 0
     run.closed = run.closed == true
+    run.bookmarked = run.bookmarked == true or nil
     run.resetAfterExit = run.resetAfterExit == true or nil
     run.unconfirmedCopy = run.unconfirmedCopy == true or nil
     run.closedReason = type(run.closedReason) == "string" and run.closedReason or nil
@@ -920,6 +931,18 @@ function LJ:ItemQuality(link, knownQuality)
     local colors = { ["9d9d9d"] = 0, ["ffffff"] = 1, ["1eff00"] = 2,
         ["0070dd"] = 3, ["a335ee"] = 4, ["ff8000"] = 5 }
     return color and colors[color:lower()] or nil
+end
+
+local function validItemQuality(value)
+    local quality = tonumber(value)
+    if quality and quality >= 0 and quality <= 8 and quality % 1 == 0 then return quality end
+end
+
+function LJ:NeedItemQuality(need)
+    local quality = validItemQuality(need.quality) or validItemQuality(self:ItemQuality(need.link))
+    if quality then return quality end
+    local item = need.link or need.id
+    if item then return validItemQuality(self:ItemInfo(item).quality) end
 end
 
 -- Classifies a link as loot or quest; primary stats are no longer tracked.

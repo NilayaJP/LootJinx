@@ -5,6 +5,7 @@ if not LJ then return end
 
 local M = {}
 LJ.Minimap = M
+local W = LJ.Widgets
 
 local MEDIA = "Interface\\AddOns\\LootJinx\\Media\\"
 local DEFAULT_ANGLE = 225
@@ -58,14 +59,14 @@ end
 
 local function onEnter(self)
     if self.dragging or not GameTooltip then return end
-    GameTooltip:SetOwner(self, tooltipAnchor(self))
+    W:BeginTooltip(self, tooltipAnchor(self))
     GameTooltip:AddLine("LootJinx", C.accent[1], C.accent[2], C.accent[3])
     GameTooltip:AddLine(LJ.L("SUBTITLE"), 0.86, 0.87, 0.90, true)
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(LJ.L("MINIMAP_LEFT"), 0.70, 0.72, 0.80)
     GameTooltip:AddLine(LJ.L("MINIMAP_RIGHT"), 0.70, 0.72, 0.80)
     GameTooltip:AddLine(LJ.L("MINIMAP_DRAG"), 0.70, 0.72, 0.80)
-    GameTooltip:Show()
+    W:ShowTooltip()
 end
 
 local function onLeave()

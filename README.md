@@ -2,7 +2,7 @@
 
 LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: lost Need rolls, unlucky streaks, missing loot, and personal records. Tracking starts automatically in dungeons, raids, and scenarios. Available in all supported client languages with five dashboard designs.
 
-**Current version:** 1.7.5 · **Interface:** 16001 · **Dependencies:** None
+**Current version:** 1.7.6 · **Interface:** 16001 · **Dependencies:** None
 
 ## What it tracks
 
@@ -33,11 +33,17 @@ Open **Bosses** on a dungeon group to see which runs recorded a boss defeat. Exp
 
 Use **Filters → Presets** to save and reuse searches, dungeon and status filters, date ranges, and sort order across characters. Open **Characters** in History to compare dungeon totals, Need results, and win rate. LootJinx records the summary locally once you log in on each character with the addon enabled.
 
+Open **Weekly Recap** in History for runs started since Monday, their Need results, and any new Need loss streak record. Bookmark runs from their History rows and find them again under **Bookmarks** on the same character. **Need by Quality** groups wins, losses, and pending rolls for the filtered runs by item quality. Rolls without usable item quality are listed separately.
+
 Browse recent runs and searchable history, and open run details to see bosses, drops, recipients, and roll values. History opens centered over the dashboard. Drag the title bar to move either History or Run Details. Use **Filters** for date range, status, sort order, and cleanup. Use **Compare** to select two runs of the same dungeon. Known boss and trash loot is grouped by source. A boss group marked **Loot evidence** has a recorded drop pointing to that boss. Unlisted or ambiguous gear stays visible under **Other Loot**. Older runs without detailed data remain in history. Clicking the No Need Win, No Loot, or Since Need Win card opens the history filtered to exactly those runs; a filter chip removes the focus again.
 
 Run details show the run's duration when available, completion status, boss and loot counts, and won, lost, and pending Need rolls at the top. Click a loot group heading to collapse or expand it. Completion evidence follows the Need and loot sections.
 
+Open **Timeline** in Run Details to play or pause the recorded events and jump to the next boss or drop. Events without usable timestamps are omitted from playback.
+
 Share a short statistics report in party or raid chat, with a selected same-faction player, or with a confirmed Battle.net friend. Settings include window scale, compact mode, record announcements, design, and language. The language defaults to your WoW client. Choose an override in LootJinx Options and confirm the reload to apply it. The override also translates class names and recognized dungeon names, and history search accepts both displayed and recorded dungeon names. Character runs are saved in `LootJinxCharDB`; display settings are saved account-wide in `LootJinxDB`.
+
+Under **Options → Text Size**, adjust lists, Run Details, and LootJinx tooltips separately from window scale. Click a size value to restore its default.
 
 Automatic Battle.net targeting uses the selected character's GUID. If the client withholds it, enter the friend's BattleTag in the report window.
 
@@ -73,6 +79,10 @@ The loot catalog is curated from ForeverDungeonJournal and reviewed against Wowh
 Run `lua tools/review_dungeon_sources.lua <path-to-ForeverDungeonJournal/Data/Dungeons.lua>` before regenerating the catalogs. The report lists the previous and proposed sources beside each changed item ID, along with the Journal file or reviewed URL supporting the proposed sources.
 
 The generated loot catalog includes boss NPC IDs for readable corpse sources, including rares. The completion catalog separately defines required bosses and prerequisite kills. A confirmed reset after leaving starts a new run on re-entry.
+
+LootJinx can continue a run after a corpse run or a return to a verified instance copy for up to 30 minutes. A map ID identifies the dungeon, so a longer ordinary return also needs matching copy evidence.
+
+The journal source review also checks faction and quest restrictions, encounter groups and linked bosses, and changes to loot availability. Run Details keep historical loot visible when DungeonJournal marks a boss's loot as temporarily unavailable. Recipes without direct source evidence do not count as boss defeats.
 
 To refresh the review snapshot, set `FOREVERDB_API_KEY` in the repository's `.env` or in your environment, then run `python tools/fetch_foreverdb_loot.py <path-to-ForeverDungeonJournal/Data/Dungeons.lua>` and `lua tools/review_foreverdb_loot.lua --all` from the repository root. The report includes dungeon loot and loot from unmatched bosses, with the evidence label from ForeverDB. Check the item pages for direct NPC sources before accepting dungeon-page observations into the catalog.
 

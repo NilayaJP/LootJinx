@@ -292,6 +292,123 @@ function W:Font(parent, size, color, flags, defaultFont)
     return fs
 end
 
+local textSizeMaximum = { list = 2, detail = 2, tooltip = 3 }
+local textSizeMinimum = -2
+local sizedText = {
+    list = setmetatable({}, { __mode = "k" }),
+    detail = setmetatable({}, { __mode = "k" }),
+}
+
+local function clampTextSize(group, offset)
+    offset = tonumber(offset)
+    if not offset or offset ~= offset then return 0 end
+    return math.floor(math.max(textSizeMinimum, math.min(textSizeMaximum[group], offset)) + 0.5)
+end
+
+function W:GetTextSizeOffset(group)
+    local saved = LJ.DB and LJ.DB.textSizeOffsets
+    if not textSizeMaximum[group] or type(saved) ~= "table" then return 0 end
+    return clampTextSize(group, saved[group])
+end
+
+function W:GetTextSizeRange(group)
+    return textSizeMinimum, textSizeMaximum[group]
+end
+
+local function applyTextSize(region, base, offset)
+    local path, size, flags = region:GetFont()
+    local targetSize = math.max(6, base.size + offset)
+    local targetFlags = base.flags or flags
+    if path and (size ~= targetSize or flags ~= targetFlags) then
+        tryFont(region, path, targetSize, targetFlags)
+    elseif not path then
+        W:SetTextFont(region, targetSize, targetFlags)
+    end
+end
+
+function W:UseTextSize(region, group, baseSize, flags)
+    local regions = sizedText[group]
+    if not regions then return region end
+    local base = { size = baseSize, flags = flags }
+    regions[region] = base
+    applyTextSize(region, base, self:GetTextSizeOffset(group))
+    return region
+end
+
+local tooltipFonts = {}
+local tooltipOwner
+local tooltipReady
+
+local function restoreTooltipFonts()
+    for region, base in pairs(tooltipFonts) do
+        tryFont(region, base.path, base.size, base.flags)
+        tooltipFonts[region] = nil
+    end
+end
+
+local function sizeTooltipLine(region, offset)
+    if not region or type(region.GetFont) ~= "function" or type(region.SetFont) ~= "function" then return end
+    local path, size, flags = region:GetFont()
+    if path and size and tryFont(region, path, math.max(6, size + offset), flags) then
+        tooltipFonts[region] = { path = path, size = size, flags = flags }
+    end
+end
+
+local function sizeTooltip(tooltip, offset)
+    restoreTooltipFonts()
+    if offset == 0 then return end
+    for line = 1, tooltip:NumLines() do
+        local left = tooltip.GetLeftLine and tooltip:GetLeftLine(line) or _G["GameTooltipTextLeft" .. line]
+        local right = tooltip.GetRightLine and tooltip:GetRightLine(line) or _G["GameTooltipTextRight" .. line]
+        sizeTooltipLine(left, offset)
+        sizeTooltipLine(right, offset)
+    end
+end
+
+local function installTooltipHooks(tooltip)
+    if type(tooltip.HookScript) ~= "function" or type(tooltip.NumLines) ~= "function" then return false end
+    local clearOK = pcall(tooltip.HookScript, tooltip, "OnTooltipCleared", restoreTooltipFonts)
+    local hideOK = pcall(tooltip.HookScript, tooltip, "OnHide", function()
+        tooltipOwner = nil
+        restoreTooltipFonts()
+    end)
+    return clearOK and hideOK
+end
+
+function W:BeginTooltip(owner, anchor)
+    if not GameTooltip then return end
+    if tooltipReady == nil then tooltipReady = installTooltipHooks(GameTooltip) end
+    restoreTooltipFonts()
+    GameTooltip:SetOwner(owner, anchor)
+    tooltipOwner = owner
+end
+
+function W:ShowTooltip()
+    if not GameTooltip then return end
+    if tooltipReady and tooltipOwner then
+        pcall(sizeTooltip, GameTooltip, self:GetTextSizeOffset("tooltip"))
+    end
+    GameTooltip:Show()
+end
+
+local function refreshActiveTooltip()
+    if GameTooltip:IsShown() and GameTooltip:GetOwner() == tooltipOwner then W:ShowTooltip() end
+end
+
+function W:SetTextSizeOffset(group, offset)
+    if not LJ.DB or not textSizeMaximum[group] then return end
+    offset = clampTextSize(group, offset)
+    if type(LJ.DB.textSizeOffsets) ~= "table" then LJ.DB.textSizeOffsets = {} end
+    LJ.DB.textSizeOffsets[group] = offset
+    if group == "tooltip" then
+        if tooltipReady and tooltipOwner and GameTooltip then pcall(refreshActiveTooltip) end
+        return
+    end
+    for region, base in pairs(sizedText[group]) do
+        applyTextSize(region, base, offset)
+    end
+end
+
 function W:Panel(parent, layer)
     local f = CreateFrame("Frame", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     if f.SetBackdrop then
@@ -471,7 +588,7 @@ function W:Tooltip(frame, title, lines)
         local data = self.__ljTooltip
         if not data or not GameTooltip then return end
         local skin = self.ljSkin or W:Skin()
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        W:BeginTooltip(self, "ANCHOR_RIGHT")
         GameTooltip:AddLine(data.title, skin.accent[1], skin.accent[2], skin.accent[3])
         for i = 1, #(data.lines or {}) do
             local line = data.lines[i]
@@ -481,7 +598,7 @@ function W:Tooltip(frame, title, lines)
                 GameTooltip:AddLine(tostring(line), skin.text[1], skin.text[2], skin.text[3], true)
             end
         end
-        GameTooltip:Show()
+        W:ShowTooltip()
     end)
     frame:SetScript("OnLeave", function(self, ...)
         if prevLeave then prevLeave(self, ...) end
@@ -670,10 +787,10 @@ function W:ResizeGrip(parent, onScaleChanged, onReset)
 
     grip:SetScript("OnEnter", function(self)
         if not GameTooltip then return end
-        GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
+        W:BeginTooltip(self, "ANCHOR_TOPLEFT")
         GameTooltip:SetText(LJ.L("RESIZE_GRIP_TITLE"), c4(C.accent))
         GameTooltip:AddLine(LJ.L("RESIZE_GRIP_TIP"), 1, 1, 1, true)
-        GameTooltip:Show()
+        W:ShowTooltip()
     end)
     grip:SetScript("OnLeave", function(self)
         if not GameTooltip then return end
