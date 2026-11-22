@@ -53,16 +53,14 @@ local function now()
     return reentryEventTime or LJ.Now()
 end
 
-local function reentryQueue(run)
+local function reentryQueue(run, departure)
     if pendingReentry and pendingReentry.run == run then return pendingReentry end
     if not inside or not run or not run.reenterPending then return nil end
-    local departed, exitIndex
-    for i = #(run.timeline or {}), 1, -1 do
-        local event = run.timeline[i]
-        if event.kind == "exit" then
-            departed, exitIndex = event.at, i
-            break
-        end
+    local departed, exitIndex = departure, nil
+    local index = #(run.timeline or {})
+    local event = index > 0 and run.timeline[index]
+    if event and event.kind == "exit" and (not departure or event.at >= departure) then
+        departed, exitIndex = event.at, index
     end
     pendingReentry = { run = run, started = now(), departed = departed, exitIndex = exitIndex, events = {} }
     return pendingReentry
@@ -586,7 +584,8 @@ function T:CheckZone()
         if blocked then return end
         local run = activeRun()
         if run and sameInstance(run, d) then
-            local reentering = (not inside) or run.outsideAt ~= nil
+            local outsideAt = run.outsideAt
+            local reentering = (not inside) or outsideAt ~= nil
             if reentering then
                 diag("zone-reenter", run.id, run.zoneID and "known-copy" or "unknown-copy")
                 run.corpseExit = nil
@@ -600,7 +599,7 @@ function T:CheckZone()
             if d.name and d.name ~= "" then run.name = d.name end
             if reentering and run.zoneID then
                 run.reenterPending = true
-                reentryQueue(run)
+                reentryQueue(run, outsideAt or now())
             end
             observeUnit("target")
             observeUnit("mouseover")
