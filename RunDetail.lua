@@ -431,6 +431,8 @@ local function itemCounts(entries)
     return totals, exact
 end
 
+local bossLootVisible
+
 function M:BossStatistics(runs)
     local rows, groups, knownIDs = {}, {}, {}
     for _, run in ipairs(runs) do
@@ -461,7 +463,10 @@ function M:BossStatistics(runs)
             byIndex[index] = data
         end
         if #bosses > 0 then
-            local drops, needs = run.drops or {}, run.needs or {}
+            local drops, needs = {}, run.needs or {}
+            for _, drop in ipairs(run.drops or {}) do
+                if bossLootVisible(drop) then drops[#drops + 1] = drop end
+            end
             local dropCount, dropExact = itemCounts(drops)
             local needCount, needExact = itemCounts(needs)
             for _, drop in ipairs(drops) do
@@ -539,8 +544,10 @@ local function bossLootQuality(drop)
     local info = LJ:ItemInfo(drop.link or drop.id)
     local instant = LJ:ItemInfoInstant(drop.link or drop.id) or LJ:ItemInfoInstant(drop.id)
     local classID = (instant and instant.classID) or info.classID
+    if classID == nil then return -1 end
     if classID ~= 2 and classID ~= 4 then return nil end
     local equipLoc = instant and instant.equipLoc or info.equipLoc
+    if equipLoc == nil then return -1 end
     if type(equipLoc) ~= "string" or equipLoc == ""
         or equipLoc == "INVTYPE_NON_EQUIP" then return nil end
     if info.quality ~= nil then return tonumber(info.quality) end
@@ -549,7 +556,13 @@ local function bossLootQuality(drop)
         local ok, quality = pcall(getQuality, drop.id)
         if ok and tonumber(LJ.Plain(quality)) then return tonumber(LJ.Plain(quality)) end
     end
-    return linkQuality
+    return linkQuality or -1
+end
+
+bossLootVisible = function(drop)
+    -- Gear of uncommon quality or better. Gear whose quality is not loaded yet (-1) stays visible.
+    local quality = bossLootQuality(drop)
+    return quality ~= nil and (quality < 0 or quality >= 2)
 end
 
 local function completionDungeonName(dungeon)
@@ -694,7 +707,7 @@ local function buildLines(run, progress)
     local otherReasons = {}
     local visibleDrops = {}
     for _, drop in ipairs(run.drops or {}) do
-        if (bossLootQuality(drop) or 0) >= 2 then
+        if bossLootVisible(drop) then
             visibleDrops[#visibleDrops + 1] = drop
         end
     end
@@ -865,6 +878,7 @@ local function rowTooltip(row)
                 or roll.kind == "need" and LJ.L("DETAIL_ROLL_KIND_NEED")
                 or LJ.L("DETAIL_ROLL_KIND_UNKNOWN")
             local name = roll.name
+            if name == nil then pcall(LJ.Probe, "U11-rollname", "nil") end
             if LJ:IsMe(name) then name = LJ.L("DETAIL_YOU") end
             local text = LJ.L("DETAIL_ROLL_LINE", kind, name, tonumber(roll.value))
             if roll.kind ~= "need" then
@@ -1113,7 +1127,7 @@ function M:Create()
     W:WindowClose(closeButton)
     closeButton.label:SetPoint("CENTER", 0, 1)
     closeButton:SetScript("OnClick", function() M:Hide() end)
-    W:Tooltip(closeButton, LJ.L("CLOSE"), { LJ.L("CLOSE") })
+    W:Tooltip(closeButton, LJ.L("CLOSE"))
 
     summaryPanel = W:Panel(f, "BACKGROUND")
     M.summaryPanel = summaryPanel
@@ -1373,10 +1387,6 @@ function M:ConfirmFinish()
     return true
 end
 
-function M:ReplaceRun(previous, replacement)
-    if currentRun == previous then self:Show(replacement) end
-end
-
 function M:IsShown()
     return frame ~= nil and frame:IsShown()
 end
@@ -1397,13 +1407,11 @@ function M:Refresh(group)
     local run = currentRun
     title:SetText(W:Truncate(LJ:DungeonName(run), 42))
     local active = LJ.Tracker and LJ.Tracker.GetActive and LJ.Tracker:GetActive()
-    local live = active == run and LJ.Tracker:IsLive() and not run.paused
+    local live = active == run and LJ.Tracker:IsLive()
     local progress = not run.legacy and LJ.DungeonCompletion:Progress(run) or nil
     local status = "RUN_STATUS_OPEN"
     if run.closedReason == "manual" then
         status = "RUN_FINISH_MANUAL"
-    elseif run.paused then
-        status = "STATUS_IDLE"
     elseif live then
         status = "LIVE"
     elseif LJ.DungeonCompletion:WasCleared(run, progress) then

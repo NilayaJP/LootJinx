@@ -218,11 +218,6 @@ local function addCopyState(lines, state)
             .. " open=" .. tostring(run.open or 0)
             .. " pending=" .. tostring(run.pendingCount or 0))
     end
-    if copy.previousID then
-        append(lines, "previous=" .. idText(copy.previousID)
-            .. " previousZone=" .. tostring(copy.previousZoneID or "-")
-            .. " previousReason=" .. tostring(copy.previousClosedReason or "-"))
-    end
 end
 
 local function addEvents(lines, self)

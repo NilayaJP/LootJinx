@@ -18,6 +18,8 @@ local LOGIN_STALE_OUTSIDE_SECONDS = 6 * 60 * 60
 local EXIT_SETTLE_SECONDS = 3
 local RESUME_SECONDS = 5 * 60
 local CONFIRMED_RESUME_SECONDS = 30 * 60
+local RESUME_POPUP = "LOOTJINX_RESUME_CHOICE"
+local pendingResumeChoice
 -- Ein Loot-Fenster kann fuer dieselbe Leiche mehrfach geoeffnet werden. Solche
 -- Wiederholungen sind kein neuer Drop, sondern zeigen das bereits gelootete
 -- (oder liegengelassene) Item erneut an.
@@ -354,7 +356,7 @@ local function resumeRun(run, d)
     run.key = d.key
     run.instanceID = d.instanceID or run.instanceID
     run.difficulty = d.difficulty or run.difficulty
-    if d.name and d.name ~= "" then run.name = d.name end
+    if d.name and d.name ~= "" and not (run.name and run.name:find(":")) then run.name = d.name end
     data.activeID = run.id
     inside = true
     blocked = false
@@ -480,21 +482,10 @@ function T:StartRun(d, partial)
     return run
 end
 
-local function guidInstanceID(guid, instanceID)
-    guid = LJ.Plain(guid)
-    if type(guid) ~= "string" then return nil end
-    local kind, map, zone = guid:match("^(%a+)%-%d+%-[^-]+%-(%d+)%-(%d+)%-%d+%-[^-]+$")
-    if kind then
-        -- Use only the readable zone field of a creature on the current map.
-        if (kind == "Creature" or kind == "Vehicle") and tonumber(map) == tonumber(instanceID)
-            and tonumber(map) > 0 and tonumber(zone) > 0 then return tonumber(zone), "zone" end
-        return nil
-    end
-    local legacyKind, legacyID = guid:match("^(%a+)%-%d+%-%d+%-(%d+)%-%d+%-[^-]+$")
-    local id = tonumber(legacyID)
-    if (legacyKind == "Creature" or legacyKind == "Cast") and id and id > 0 and id ~= tonumber(instanceID) then
-        return id
-    end
+local function guidInstanceID()
+    -- WoW Forever obfuscates the server and spawn fields of creature GUIDs (Patch 1.60.1),
+    -- so no readable per-copy ID is available and instance copies are not told apart.
+    return nil
 end
 
 local function observeUnit(unit)
@@ -519,6 +510,7 @@ local function playerIsDeadOrGhost()
 end
 
 function T:ObserveInstanceGUID(guid)
+    pcall(LJ.Probe, "U01-guid", guid)
     if not inside then return false end
     local run = activeRun()
     if not run then return false end
@@ -569,6 +561,47 @@ function T:ObserveInstanceGUID(guid)
     return true
 end
 
+local function askResumeChoice(recent, d)
+    if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then return false end
+    local definition = {
+        text = LJ.L("RESUME_CHOICE_TEXT", d.name or recent.name or "?"),
+        button1 = LJ.L("RESUME_CHOICE_CONTINUE"),
+        button2 = LJ.L("RESUME_CHOICE_NEW"),
+        OnAccept = function()
+            local choice = pendingResumeChoice
+            pendingResumeChoice = nil
+            if not choice then return end
+            pcall(LJ.Probe, "U02-choice", "continue")
+            resumeRun(choice.run, choice.d)
+            observeUnit("target")
+            observeUnit("mouseover")
+            LJ:Changed()
+        end,
+        OnCancel = function()
+            local choice = pendingResumeChoice
+            pendingResumeChoice = nil
+            if not choice then return end
+            pcall(LJ.Probe, "U02-choice", "new")
+            T:StartRun(choice.d, false)
+            observeUnit("target")
+            observeUnit("mouseover")
+            LJ:Changed()
+        end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = false,
+        preferredIndex = 3,
+        exclusive = 1,
+    }
+    local W = LJ.Widgets
+    if W and type(W.StylePopup) == "function" then definition = W:StylePopup(definition) end
+    StaticPopupDialogs[RESUME_POPUP] = definition
+    pendingResumeChoice = { run = recent, d = d }
+    pcall(LJ.Probe, "U02-resume-shown", "sinceEnd=" .. tostring(now() - (tonumber(recent.ended) or now())))
+    StaticPopup_Show(RESUME_POPUP)
+    return true
+end
+
 function T:CheckZone()
     local data = db()
     if not data then return end
@@ -596,7 +629,7 @@ function T:CheckZone()
             run.key = d.key
             run.instanceID = d.instanceID or run.instanceID
             run.difficulty = d.difficulty or run.difficulty
-            if d.name and d.name ~= "" then run.name = d.name end
+            if d.name and d.name ~= "" and not (run.name and run.name:find(":")) then run.name = d.name end
             if reentering and run.zoneID then
                 run.reenterPending = true
                 reentryQueue(run, outsideAt or now())
@@ -614,6 +647,9 @@ function T:CheckZone()
             observeUnit("mouseover")
             return
         end
+        if pendingResumeChoice then return end
+        local recent = recentlyLeftRun()
+        if recent and sameInstance(recent, d) and askResumeChoice(recent, d) then return end
         local candidate = T:StartRun(d, wasFirst)
         if candidate and lastExitedRun and lastExitUntil and now() < lastExitUntil then
             transitionGuardRun = candidate
@@ -622,6 +658,10 @@ function T:CheckZone()
         observeUnit("mouseover")
     else
         data.manualBlockedKey = nil
+        if pendingResumeChoice then
+            pendingResumeChoice = nil
+            if StaticPopup_Hide then StaticPopup_Hide(RESUME_POPUP) end
+        end
         local wasInside = inside
         inside = false
         blocked = false
@@ -900,14 +940,11 @@ function T:FindPendingNeed(itemID, link, maxAge)
     local found, matches = nil, 0
     local at = now()
     for _, need in ipairs(run.needs or {}) do
-        local pending = need.result == nil
         local stamp = tonumber(need.at) or 0
-        local evidenceAt = not pending and tonumber(need.resolvedAt) or stamp
-        local age = at - evidenceAt
-        local maxEvidenceAge = pending and (maxAge or 900) or CHAT_RESULT_ECHO_SECONDS
-        if age >= 0 and age <= maxEvidenceAge and needMatches(need, itemID, link) then
+        local age = at - stamp
+        if need.result == nil and age >= 0 and age <= (maxAge or 900) and needMatches(need, itemID, link) then
             matches = matches + 1
-            if pending and (not found or stamp >= (tonumber(found.at) or 0)) then
+            if not found or stamp >= (tonumber(found.at) or 0) then
                 found = need
             end
         end
@@ -931,13 +968,25 @@ function T:ResolveNeed(need, result, reason, run)
     return true
 end
 
+-- Loot history settles whether our own Greed roll won the item. Without a
+-- matching history result the Greed roll stays a possible source of the bag gain.
+local function greedMayHaveWon(run, greed)
+    for _, drop in ipairs((run and run.drops) or {}) do
+        if drop.id == greed.id and math.abs((drop.at or 0) - (greed.at or 0)) <= 180
+            and drop.winnerSource == "lootHistory" then
+            return drop.rollKind == "greed" and LJ:IsMe(drop.winner) == true
+        end
+    end
+    return true
+end
+
 function T:HasGreedConflict(need, run)
     local id = need and need.id
     if not id then return false end
     local at = need.at or now()
     for i = 1, #((run and run.greeds) or {}) do
         local g = run.greeds[i]
-        if g.id == id and math.abs((g.at or 0) - at) <= 180 then return true end
+        if g.id == id and math.abs((g.at or 0) - at) <= 180 and greedMayHaveWon(run, g) then return true end
     end
     return false
 end
@@ -1421,7 +1470,7 @@ function T:NoteRoll(link, name, kind, value, source, run)
     end
     if not id or not value or type(name) ~= "string" or name == "" then return false end
     local mine = LJ:IsMe(name)
-    if kind ~= "greed" and kind ~= "transmog" then kind = "need" end
+    if kind ~= "need" and kind ~= "greed" and kind ~= "transmog" then return false end
     run.rolls = run.rolls or {}
     local at = now()
     if source ~= "history" then
@@ -1859,6 +1908,10 @@ local function recordBossEvent(run, id, name, event, at, members, routed)
     run.bosses = run.bosses or {}
     noteBoss(run, id, name, at)
     for _, member in ipairs(members) do noteBoss(run, nil, member, at, true) end
+    if run.instanceID == 429 and type(run.name) == "string" and not run.name:find(":") then
+        local wing = LJ.DungeonLoot and LJ.DungeonLoot:ResolveDireMaulWing(run)
+        if wing then run.name = wing end
+    end
     LJ:Changed()
 end
 
@@ -2000,6 +2053,7 @@ local function recordRollStart(run, rollID, observedLink, routed)
 end
 
 function T:OnStartRoll(rollID)
+    pcall(LJ.Probe, "U06-rollid", tostring(rollID) .. " t=" .. tostring(now()))
     if not inside then return end
     local run = activeRun()
     rollID = tonumber(LJ.Plain(rollID))
@@ -2529,9 +2583,8 @@ end
 
 local function hookRolls()
     if T.hooked then return end
-    T.hooked = true
     if type(RollOnLoot) ~= "function" or type(hooksecurefunc) ~= "function" then return end
-    pcall(hooksecurefunc, "RollOnLoot", function(rollID, rollType)
+    local ok = pcall(hooksecurefunc, "RollOnLoot", function(rollID, rollType)
         rollType = tonumber(rollType)
         if rollType == 1 then
             pcall(T.OnNeedRoll, T, rollID)
@@ -2539,6 +2592,7 @@ local function hookRolls()
             pcall(T.MarkGreed, T, rollID)
         end
     end)
+    T.hooked = ok or nil
 end
 
 function T:Start()
@@ -2564,6 +2618,7 @@ function T:ResetAll()
     end
     inside = false
     blocked = false
+    pendingResumeChoice = nil
     exitGraceRun, exitGraceUntil = nil, nil
     lastExitedRun, lastExitUntil = nil, nil
     lastSwitchedRun = nil
@@ -2691,6 +2746,7 @@ function T:GetDiagnosticState()
             lootSeen = run.lootSeen == true,
             bosses = #(run.bosses or {}),
             bossEvents = run.bosses,
+            itemsSeen = tonumber(run.itemsSeen) or 0,
             drops = #(run.drops or {}),
             rolls = #(run.rolls or {}),
             needs = total,

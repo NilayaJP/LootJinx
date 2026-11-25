@@ -12,7 +12,7 @@ end
 local function itemLabel(run, id)
     for _, list in ipairs({ run.needs or {}, run.drops or {} }) do
         for _, entry in ipairs(list) do
-            if entry.id == id and type(entry.link) == "string" and entry.link ~= "" then
+            if id ~= nil and entry.id == id and type(entry.link) == "string" and entry.link ~= "" then
                 return entry.link
             end
         end
@@ -52,7 +52,7 @@ function R:Entries(run)
         local at = tonumber(need.at) or 0
         for i = 1, observedCount do
             local entry = entries[i]
-            if not matched[i] and entry.own and entry.kind == "need" and entry.id == need.id
+            if not matched[i] and entry.own and entry.kind == "need" and need.id ~= nil and entry.id == need.id
                 and entry.value == value then
                 local bothKeys = need.lootHistoryKey and entry.lootHistoryKey
                 local bothIDs = need.rollID and entry.rollID
@@ -96,8 +96,10 @@ end
 function R:Summary(run)
     local counts, total = {}, 0
     for _, entry in ipairs(self:Entries(run)) do
-        counts[entry.kind] = (counts[entry.kind] or 0) + 1
-        total = total + 1
+        if entry.own then
+            counts[entry.kind] = (counts[entry.kind] or 0) + 1
+            total = total + 1
+        end
     end
     if total == 0 then return nil end
     local parts = {}

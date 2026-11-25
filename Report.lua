@@ -194,7 +194,14 @@ local function sendNextLine(currentSession)
             end
         end)
     else
-        return sendNextLine(currentSession)
+        if #queue == 0 then
+            timer = nil
+            finishReport()
+            return true
+        end
+        queue, timer = {}, nil
+        LJ:Print(LJ.L("REPORT_SEND_FAILED"))
+        return false
     end
     return true
 end

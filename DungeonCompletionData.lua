@@ -1,4 +1,4 @@
--- Completion and quest-boss names from ForeverDungeonJournal 2.1.3 with available German names and reviewed Wowhead Forever encounter labels.
+-- Completion and quest-boss names from ForeverDungeonJournal 2.1.5 with available German names and reviewed Wowhead Forever encounter labels.
 local ADDON, ns = ...
 local LJ = ns or _G.LootJinx
 if not LJ then return end
@@ -184,7 +184,6 @@ LJ.DungeonCompletionData = {
         { name = "Ogom the Wretched", aliases = { "Ogom the Wretched", "Ogom der Elende" }, npcID = 5711, deName = "Ogom der Elende" },
         { name = "Dreamscythe & Weaver", aliases = { "Dreamscythe & Weaver", "Dreamscythe", "Traumsense", "Fauche-rêve", "Guadañasueños", "Darquimeros", "Жнец Снов", "드림사이드", "德姆塞卡尔", "德姆塞卡爾", "Traumsense & Wirker" }, npcID = 5721, deName = "Traumsense & Wirker" },
         { name = "Shade of Eranikus", aliases = { "Shade of Eranikus", "Eranikus' Schemen" }, npcID = 5709, deName = "Eranikus' Schemen" },
-        { name = "Avatar of Hakkar", aliases = { "Avatar of Hakkar", "Avatar von Hakkar" }, npcID = 8443, deName = "Avatar von Hakkar" },
     },
     ["Blackrock Depths"] = {
         { name = "High Interrogator Gerstahn", aliases = { "High Interrogator Gerstahn", "Verhörmeisterin Gerstahn" }, npcID = 9018, deName = "Verhörmeisterin Gerstahn" },

@@ -86,13 +86,23 @@ end
 
 local function sortMatches(result, mode)
     local function newer(a, b)
-        return (tonumber(a.started) or 0) > (tonumber(b.started) or 0)
+        local sa, sb = tonumber(a.started) or 0, tonumber(b.started) or 0
+        if sa ~= sb then return sa > sb end
+        return (tonumber(a.id) or 0) > (tonumber(b.id) or 0)
     end
     local cmp
     if mode == "dateAsc" then
-        cmp = function(a, b) return (tonumber(a.started) or 0) < (tonumber(b.started) or 0) end
+        cmp = function(a, b)
+            local sa, sb = tonumber(a.started) or 0, tonumber(b.started) or 0
+            if sa ~= sb then return sa < sb end
+            return (tonumber(a.id) or 0) < (tonumber(b.id) or 0)
+        end
     elseif mode == "name" then
-        cmp = function(a, b) return normalized(LJ:DungeonName(a)) < normalized(LJ:DungeonName(b)) end
+        cmp = function(a, b)
+            local na, nb = normalized(LJ:DungeonName(a)), normalized(LJ:DungeonName(b))
+            if na ~= nb then return na < nb end
+            return newer(a, b)
+        end
     elseif mode == "wins" then
         cmp = function(a, b)
             local aw, al = needStats(a)
@@ -907,6 +917,7 @@ function H:Create()
         row.bookmark:SetScript("OnClick", function()
             if not row.run then return end
             row.run.bookmarked = row.run.bookmarked ~= true or nil
+            pcall(LJ.Probe, "U03-bookmark", tostring(row.run.bookmarked == true))
             if GameTooltip then GameTooltip:Hide() end
             H:Refresh()
         end)
@@ -1627,7 +1638,7 @@ function H:ConfirmCleanup()
     if not LJ.Storage or not LJ.Tracker then return end
     local preview = LJ.Storage:Preview(LJ.Tracker:GetRuns(), LJ.Tracker:GetActive(), LJ.Now())
     if preview.eligible == 0 then
-        LJ:Print(LJ.L("HISTORY_CLEANUP_NONE"))
+        LJ:Print(LJ.L("HISTORY_CLEANUP_NONE", LJ.Storage.AGE_DAYS))
         return
     end
     if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then

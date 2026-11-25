@@ -1,5 +1,5 @@
 -- Reviewed ForeverDungeonJournal boss flags; update only after source review.
-return { version = "2.1.3", bosses = {
+return { version = "2.1.5", bosses = {
     ["Alcaz Prison"] = {
         ["Blazeroar"] = "rare=0 optional=0 trash=0 summon=0 npc=255702 aliases=Blazeroar prior=",
         ["Katerina the Cleaner"] = "rare=0 optional=0 trash=0 summon=0 npc=257016 aliases=Katerina,Katerina the Cleaner prior=",
@@ -297,7 +297,7 @@ return { version = "2.1.3", bosses = {
     ["Sunken Temple"] = {
         ["Altar Bosses"] = "rare=0 optional=0 trash=0 summon=0 npc=- aliases= prior= members=5712,5713,5714,5715,5716,5717",
         ["Atal'alarion"] = "rare=0 optional=0 trash=0 summon=0 npc=8580 aliases=Atal'alarion prior=",
-        ["Avatar of Hakkar"] = "rare=0 optional=0 trash=0 summon=0 npc=8443 aliases=Avatar of Hakkar prior=",
+        ["Avatar of Hakkar"] = "rare=0 optional=1 trash=0 summon=0 npc=8443 aliases=Avatar of Hakkar prior=",
         ["Dreamscythe & Weaver"] = "rare=0 optional=0 trash=0 summon=0 npc=5721 aliases=Darquimeros,Dreamscythe,Fauche-rêve,Guadañasueños,Traumsense,Жнец Снов,德姆塞卡尔,德姆塞卡爾,드림사이드 prior= killWith=5720,Sastrón,Tecelão,Tisserand,Weaver,Wirker,Ткачик,德拉維沃爾,德拉维沃尔,위버",
         ["Gasher"] = "rare=0 optional=0 trash=0 summon=0 npc=5713 aliases=Gasher prior= parent=Altar Bosses",
         ["Hukku"] = "rare=0 optional=0 trash=0 summon=0 npc=5715 aliases=Hukku prior= parent=Altar Bosses",
@@ -350,7 +350,7 @@ return { version = "2.1.3", bosses = {
         ["Galgann Firehammer"] = "rare=0 optional=0 trash=0 summon=0 npc=7291 aliases=Galgann Firehammer prior=",
         ["Grimlok"] = "rare=0 optional=0 trash=0 summon=0 npc=4854 aliases=Grimlok prior=",
         ["Ironaya"] = "rare=0 optional=0 trash=0 summon=0 npc=7228 aliases=Ironaya prior=",
-        ["Obsidian Sentinel"] = "rare=0 optional=0 trash=0 summon=0 npc=7023 aliases=Obsidian Sentinel prior= lootRemoved=true",
+        ["Obsidian Sentinel"] = "rare=0 optional=0 trash=0 summon=0 npc=7023 aliases=Obsidian Sentinel prior=",
         ["Revelosh"] = "rare=0 optional=0 trash=0 summon=0 npc=6910 aliases=Revelosh prior=",
         ["The Lost Dwarves"] = "rare=0 optional=0 trash=0 summon=0 npc=6906 aliases=Baelog,Eric \"The Swift\",Olaf prior= factionOnly=Horde",
         ["Trash Drops"] = "rare=0 optional=0 trash=1 summon=0 npc=- aliases= prior=",

@@ -30,6 +30,18 @@ local function colored(c, text)
     return hex(c) .. tostring(text) .. "|r"
 end
 
+local function fitBadges(field, parts, separator)
+    -- Drop trailing badges until the line fits the field, so it never reaches the date column.
+    local function show() field:SetText(table.concat(parts, separator)) end
+    show()
+    if type(field.GetStringWidth) ~= "function" or type(field.GetWidth) ~= "function" then return end
+    local maxWidth = field:GetWidth()
+    while #parts > 1 and field:GetStringWidth() > maxWidth do
+        table.remove(parts)
+        show()
+    end
+end
+
 local function setText(fs, text)
     text = tostring(text or "")
     if fs:GetText() ~= text then fs:SetText(text) end
@@ -160,8 +172,6 @@ end
 function LJ:UpdateDashboardStatus(status, active, live, latest, skin)
     if live and active then
         status:SetState(LJ.L("STATUS_LIVE") .. " · " .. LJ:DungeonName(active), C.green, C.green)
-    elseif (active and active.paused) or (latest and not latest.closed and latest.paused) then
-        status:SetState(LJ.L("STATUS_IDLE"), skin.muted, skin.accent)
     else
         status:SetState(LJ.L("STATUS_READY"), skin.muted, C.dim)
     end
@@ -516,8 +526,8 @@ function LJ:UpdateDashboardRecent(panel, rows, runs)
         if run then
             local marker, color = LJ:RunStatusMarker(run)
             W:ColorTexture(row.bar, color)
-            local name = W:Truncate(LJ:DungeonName(run), marker and 24 or 36)
-            setText(row.name, marker and (name .. " · " .. marker) or name)
+            local name = LJ:DungeonName(run)
+            setText(row.name, W:Truncate(marker and (name .. " · " .. marker) or name, 36))
             setText(row.date, LJ:FormatTime(run.started, "DATE_LONG"))
 
             local badges = {}
@@ -532,7 +542,7 @@ function LJ:UpdateDashboardRecent(panel, rows, runs)
             if run.legacy then badges[#badges + 1] = LJ.L("JOURNAL_LEGACY") end
             local rolls = LJ.RecentRolls:Summary(run)
             if rolls then badges[#badges + 1] = rolls end
-            setText(row.badges, table.concat(badges, " · "))
+            fitBadges(row.badges, badges, " · ")
         end
     end
 end
