@@ -9,7 +9,7 @@ local AGE_SECONDS = S.AGE_DAYS * 86400
 
 local function eligible(run, active, now)
     if type(run) ~= "table" or run == active or run.closed ~= true
-        or run.detailVersion == nil then return false end
+        or run.detailVersion == nil or run.bookmarked == true then return false end
     local lastAt = tonumber(run.ended) or tonumber(run.lastSeen) or tonumber(run.started)
     if not lastAt or lastAt <= 0 or now - lastAt < AGE_SECONDS then return false end
     if type(run.pending) == "table" and #run.pending > 0 then return false end
@@ -41,7 +41,7 @@ function S:Clean(runs, active, now)
             for _, need in ipairs(run.needs or {}) do
                 if type(need) == "table" then
                     needs[#needs + 1] = {
-                        at = need.at, result = need.result,
+                        at = need.at, result = need.result, rollKind = need.rollKind,
                         quality = LJ.NeedItemQuality and LJ:NeedItemQuality(need) or nil,
                     }
                 end

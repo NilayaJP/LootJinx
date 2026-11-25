@@ -253,11 +253,15 @@ local function normalizeRun(run, fallbackID)
     if type(run) ~= "table" then return nil end
     run.id = tonumber(run.id) or fallbackID or 0
     run.name = type(run.name) == "string" and run.name or ""
+    if run.instanceID == 429 and type(run.name) == "string" and not run.name:find(":") then
+        local wing = LJ.DungeonLoot and LJ.DungeonLoot.ResolveDireMaulWing and LJ.DungeonLoot:ResolveDireMaulWing(run)
+        if wing then run.name = wing end
+    end
     run.key = type(run.key) == "string" and run.key or nil
     run.instanceID = tonumber(run.instanceID)
     run.zoneID = tonumber(run.zoneID)
     run.zoneIDKind = run.zoneIDKind == "zone" and "zone" or nil
-    if not run.zoneIDKind and run.zoneID == run.instanceID then
+    if not run.zoneIDKind and run.zoneID ~= nil and run.zoneID == run.instanceID then
         run.zoneID, run.reenterPending = nil, nil
     end
     -- The instance-copy check was removed; legacy copy fields are dropped.
@@ -310,9 +314,13 @@ local function normalizeRun(run, fallbackID)
                 cleanTimeline[#cleanTimeline + 1] = { kind = event.kind, at = tonumber(event.at) }
             end
         end
-        while #cleanTimeline > 24 do table.remove(cleanTimeline, 1) end
+        local dropped = 0
+        while #cleanTimeline > 24 do
+            table.remove(cleanTimeline, 1)
+            dropped = dropped + 1
+        end
         run.timeline = cleanTimeline
-        run.timelineOmitted = math.max(0, math.floor(tonumber(run.timelineOmitted) or 0))
+        run.timelineOmitted = math.max(0, math.floor(tonumber(run.timelineOmitted) or 0)) + dropped
     else
         run.timeline = nil
         run.timelineOmitted = nil
@@ -468,7 +476,7 @@ local function normalizeRun(run, fallbackID)
         if sighting and anchor and anchor.winner and compatibleEncounter(anchor, drop)
             and LJ.CompatibleItemVariant(anchor.link, drop.link) then
             local at = tonumber(drop.at) or 0
-            local reference = tonumber(anchor.lastWindowAt) or tonumber(anchor.at) or 0
+            local reference = tonumber(anchor.at) or 0
             if at >= reference and at - reference <= windowEchoSeconds then
                 anchor.sources = anchor.sources or { [anchor.source or "unknown"] = true }
                 for source in pairs(drop.sources or {}) do anchor.sources[source] = true end

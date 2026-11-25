@@ -32,7 +32,10 @@ function Overview:Snapshot()
         local match
         for savedKey, profile in pairs(profiles) do
             if savedKey ~= fallback and type(profile) == "table" and profile.name == name and profile.realm == realm then
-                if match then return nil end
+                if match then
+                    pcall(LJ.Probe, "U16-duplicate-name-realm", tostring(name) .. "-" .. tostring(realm))
+                    return nil
+                end
                 match = savedKey
             end
         end

@@ -1,4 +1,4 @@
--- Curated item ID/source index from ForeverDungeonJournal 2.1.3 (WoW Forever 1.60.1).
+-- Curated item ID/source index from ForeverDungeonJournal 2.1.5 (WoW Forever 1.60.1).
 -- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, tools/wowhead_forever_loot.tsv,
 -- and reviewed tools/foreverdb_loot_reviewed.tsv (Data from ForeverDB.net — https://foreverdb.net).
 -- Reference data only: observations and client events decide whether an item actually dropped.
@@ -144,8 +144,8 @@ LJ.DungeonLootData = {
         { "Deathless Marrow", false, { 274606, 274614, 274607, 271718 } },
         { "Primeval Elemental", false, { 274612, 274611, 274615, 271718 } },
         { "Gill", false, { 286646, 286649, 271718 }, 264177 },
-        { "Umbra", false, { 286662, 286658 }, 264172 },
-        { "\"Pyromancer\" Braxton", false, { 286650, 286651 }, 260468 },
+        { "Umbra", false, { 286662, 286658, 271718 }, 264172 },
+        { "\"Pyromancer\" Braxton", false, { 286650, 286651, 271718 }, 260468 },
         { "Min'loth the Serpent", false, { 274610, 274608, 274609, 271718 }, 260274 },
         { "Trash Drops", true, { 287002, 286997, 287005, 286998, 286999, 287000, 287001, 287003, 287004, 287006 } },
     },
@@ -182,7 +182,7 @@ LJ.DungeonLootData = {
         { "Revelosh", false, { 9389, 9388, 9387, 9390 }, 6910 },
         { "The Lost Dwarves", false, { 9400, 9401, 9398, 9394, 9403, 9404, 9399, 251400, 252896 }, 6906 },
         { "Ironaya", false, { 9407, 9409, 9408, 274484 }, 7228 },
-        { "Obsidian Sentinel", false, { 274430, 274428, 274425, 274485, 251400 }, 7023, lootRemoved = true },
+        { "Obsidian Sentinel", false, { 274430, 274428, 274425, 274485, 251400 }, 7023 },
         { "Ancient Stone Keeper", false, { 9410, 9411, 274431 }, 7206 },
         { "Galgann Firehammer", false, { 11311, 11310, 9419, 9412, 251402 }, 7291 },
         { "Grimlok", false, { 9415, 9414, 9416 }, 4854 },
@@ -221,7 +221,7 @@ LJ.DungeonLootData = {
         { "Tidemistress Ca'zass", false, { 276735, 276736, 276737, 273883 }, 255997 },
         { "Katerina the Cleaner", false, { 276739, 276738, 276740 }, 257016 },
         { "Blazeroar", false, { 276744, 276745, 276746, 276890 }, 255702 },
-        { "Trash Drops", true, { 287021, 287019, 287020, 287018, 287017, 287022, 287023, 287024, 287025 } },
+        { "Trash Drops", true, { 287021, 287019, 287020, 287018, 287017, 287022, 287023, 287024, 287025, 287026 } },
     },
     ["Sunken Temple"] = {
         { "Altar Bosses", false, { 10783, 10784, 10787, 10785, 10786, 10788 } },

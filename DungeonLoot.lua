@@ -251,6 +251,28 @@ function Catalog:IsLootRemoved(run, name)
     return false
 end
 
+function Catalog:ResolveDireMaulWing(run)
+    if type(run) ~= "table" or tonumber(run.instanceID) ~= 429 then return nil end
+    if type(run.name) == "string" and run.name:find(":") then return nil end
+    local observedIDs, observedNames = {}, {}
+    for _, boss in ipairs(run.bosses or {}) do
+        if tonumber(boss.id) then observedIDs[tonumber(boss.id)] = true end
+        if type(boss.name) == "string" then observedNames[boss.name:lower()] = true end
+    end
+    for wing, list in pairs(LJ.DungeonCompletionData or {}) do
+        if type(wing) == "string" and wing:match("^Dire Maul:") then
+            for _, boss in ipairs(list or {}) do
+                if boss.npcID and observedIDs[boss.npcID] then return wing end
+                if type(boss.name) == "string" and observedNames[boss.name:lower()] then return wing end
+                for _, alias in ipairs(boss.aliases or {}) do
+                    if type(alias) == "string" and observedNames[alias:lower()] then return wing end
+                end
+            end
+        end
+    end
+    return nil
+end
+
 function Catalog:CanInferBoss(drop)
     return (tonumber(drop.bossID) or 0) <= 0 and drop.source ~= "encounter"
         and not (drop.sources and drop.sources.encounter)

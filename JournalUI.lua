@@ -47,7 +47,7 @@ function Dashboard:Create()
     divider:SetHeight(1)
     W:ColorTexture(divider, S.border)
     self.footer = W:Font(f, 9, S.muted, "")
-    self.footer:SetText(LJ.L("FOOTER_HINT"))
+    self.footer:SetText(LJ.L("FOOTER_CLASS", select(1, LJ:ClassName()), LJ.L("FOOTER_HINT")))
     self.footer:SetPoint("BOTTOMLEFT", 16, 25)
     self.footer:SetWidth(230)
     W:AddDashboardCredit(f, S)
@@ -136,7 +136,11 @@ function Dashboard:Show()
     if not self.frame then return false end
     self:ApplyScale(LJ.DB.scale or 1)
     self:ApplyDisplayOptions()
-    self:Refresh()
+    local ok, err = pcall(self.Refresh, self)
+    if not ok then
+        LJ.lastRefreshError = tostring(err)
+        LJ:Print(LJ.L("ERROR_REFRESH", tostring(err)))
+    end
     self.frame:Show()
     return true
 end
