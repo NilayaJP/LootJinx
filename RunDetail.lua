@@ -880,7 +880,10 @@ local function rowTooltip(row)
             local name = roll.name
             if name == nil then pcall(LJ.Probe, "U11-rollname", "nil") end
             if LJ:IsMe(name) then name = LJ.L("DETAIL_YOU") end
-            local text = LJ.L("DETAIL_ROLL_LINE", kind, name, tonumber(roll.value))
+            -- WoW's Lua 5.1 rejects nil for %s; an unknown roller or value stays unknown.
+            if type(name) ~= "string" or name == "" then name = LJ.L("DETAIL_ROLLER_UNKNOWN") end
+            local value = tonumber(roll.value)
+            local text = LJ.L("DETAIL_ROLL_LINE", kind, name, value and tostring(math.floor(value)) or "?")
             if roll.kind ~= "need" then
                 GameTooltip:AddLine(text, 0.70, 0.75, 0.80)
             else
@@ -1361,7 +1364,7 @@ function M:Show(run, theme)
     page = 1
     local ok, err = pcall(M.Refresh, M)
     if not ok then
-        LJ:Print(LJ.L("ERROR_PART", "Run-Details", tostring(err)))
+        LJ:Print(LJ.L("ERROR_PART", LJ.L("DETAIL_TITLE"), tostring(err)))
         return false
     end
     if not frame:IsShown() then self:SuspendParentEscape() end

@@ -259,12 +259,11 @@ local function normalizeRun(run, fallbackID)
     end
     run.key = type(run.key) == "string" and run.key or nil
     run.instanceID = tonumber(run.instanceID)
-    run.zoneID = tonumber(run.zoneID)
-    run.zoneIDKind = run.zoneIDKind == "zone" and "zone" or nil
-    if not run.zoneIDKind and run.zoneID ~= nil and run.zoneID == run.instanceID then
-        run.zoneID, run.reenterPending = nil, nil
-    end
+    run.instanceName = type(run.instanceName) == "string" and run.instanceName ~= "" and run.instanceName or nil
     -- The instance-copy check was removed; legacy copy fields are dropped.
+    -- A saved copy ID from 1.7.6 would otherwise hold every later event in
+    -- the re-entry queue, because no GUID can confirm the copy any more.
+    run.zoneID, run.zoneIDKind, run.reenterPending = nil, nil, nil
     run.provisionalPreviousID = nil
     run.copyOutcome = nil
     run.difficulty = type(run.difficulty) == "string" and run.difficulty or nil
