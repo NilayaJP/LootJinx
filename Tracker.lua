@@ -356,6 +356,7 @@ local function resumeRun(run, d)
     run.key = d.key
     run.instanceID = d.instanceID or run.instanceID
     run.difficulty = d.difficulty or run.difficulty
+    if d.name and d.name ~= "" then run.instanceName = d.name end
     if d.name and d.name ~= "" and not (run.name and run.name:find(":")) then run.name = d.name end
     data.activeID = run.id
     inside = true
@@ -384,7 +385,9 @@ local function closeRun(run, reason)
     end
     T:FinalizeRunItems(run)
     run.closed = true
-    run.ended = run.ended or now()
+    -- A run closed after the player left ends when they left, not when the
+    -- close is noticed (for example at the next login hours later).
+    run.ended = run.ended or tonumber(run.outsideAt) or now()
     run.closedReason = reason or "closed"
     run.reenterPending = nil
     if reason == "switched-instance" then
@@ -447,6 +450,7 @@ function T:StartRun(d, partial)
     local run = {
         id = tonumber(data.nextRunID) or 1,
         name = d.name,
+        instanceName = d.name,
         key = d.key,
         instanceID = d.instanceID,
         zoneID = nil,
@@ -597,8 +601,13 @@ local function askResumeChoice(recent, d)
     if W and type(W.StylePopup) == "function" then definition = W:StylePopup(definition) end
     StaticPopupDialogs[RESUME_POPUP] = definition
     pendingResumeChoice = { run = recent, d = d }
+    local ok, shown = pcall(StaticPopup_Show, RESUME_POPUP)
+    if not ok or not shown then
+        -- Without a visible prompt no choice can arrive; let CheckZone start a run.
+        pendingResumeChoice = nil
+        return false
+    end
     pcall(LJ.Probe, "U02-resume-shown", "sinceEnd=" .. tostring(now() - (tonumber(recent.ended) or now())))
-    StaticPopup_Show(RESUME_POPUP)
     return true
 end
 
@@ -629,6 +638,7 @@ function T:CheckZone()
             run.key = d.key
             run.instanceID = d.instanceID or run.instanceID
             run.difficulty = d.difficulty or run.difficulty
+            if d.name and d.name ~= "" then run.instanceName = d.name end
             if d.name and d.name ~= "" and not (run.name and run.name:find(":")) then run.name = d.name end
             if reentering and run.zoneID then
                 run.reenterPending = true
@@ -2454,6 +2464,20 @@ function T:OnLootChat(text, _who, guid)
     recordLootChat(text, guid)
 end
 
+-- The reset message names the instance as the client does ("Dire Maul"), while
+-- Scarlet Monastery and Dire Maul runs are renamed to a catalog wing
+-- ("Dire Maul: East"). Compare against the client name and the wing prefix.
+local function resetNameMatches(run, resetName)
+    if not resetName then return false end
+    local names = { run.instanceName, run.name }
+    if type(run.name) == "string" then names[#names + 1] = run.name:match("^(.-):") end
+    for i = 1, #names do
+        local name = lower(names[i])
+        if name and name ~= "" and name == resetName then return true end
+    end
+    return false
+end
+
 function T:OnSystem(text)
     text = LJ.Plain(text)
     if type(text) ~= "string" then return end
@@ -2464,15 +2488,14 @@ function T:OnSystem(text)
     local run = activeRun()
     if not run then
         local recent = recentlyLeftRun()
-        if recent and resetName and resetName == lower(recent.name) then
+        if recent and resetNameMatches(recent, resetName) then
             recent.resetAfterExit = true
             diag("system-reset", recent.id, "after-exit")
             LJ:Changed()
         end
         return
     end
-    local runName = lower(run.name)
-    if resetName and runName and resetName ~= runName then return end
+    if resetName and not resetNameMatches(run, resetName) then return end
     if inside then blocked = true end
     diag("system-reset", run.id, "blocked=" .. tostring(blocked))
     T:CloseActive("instance-reset")

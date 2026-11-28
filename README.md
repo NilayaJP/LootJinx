@@ -2,7 +2,7 @@
 
 LootJinx tracks dungeon bad luck in **World of Warcraft: Forever**: lost Need rolls, unlucky streaks, missing loot, and personal records. Tracking starts automatically in dungeons, raids, and scenarios. Available in all supported client languages with five dashboard designs.
 
-**Current version:** 1.7.6 · **Interface:** 16001 · **Dependencies:** None
+**Current version:** 1.7.8 · **Interface:** 16001 · **Dependencies:** None
 
 ## What it tracks
 

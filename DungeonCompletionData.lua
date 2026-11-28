@@ -1,4 +1,4 @@
--- Completion and quest-boss names from ForeverDungeonJournal 2.1.5 with available German names and reviewed Wowhead Forever encounter labels.
+-- Completion and quest-boss names from ForeverDungeonJournal 2.1.8 with available German names and reviewed Wowhead Forever encounter labels.
 local ADDON, ns = ...
 local LJ = ns or _G.LootJinx
 if not LJ then return end

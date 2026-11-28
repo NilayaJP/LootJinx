@@ -166,9 +166,12 @@ local function sendNextLine(currentSession)
     end
     local sent, accepted
     if reportChannel == "BN_WHISPER" then
-        if not C_BattleNet or type(C_BattleNet.SendWhisper) ~= "function" then return false end
-        sent, accepted = pcall(C_BattleNet.SendWhisper, reportTarget, line)
-        sent = sent and accepted == true
+        local whisper = C_BattleNet and C_BattleNet.SendWhisper
+        if type(whisper) ~= "function" then whisper = BNSendWhisper end
+        if type(whisper) ~= "function" then return false end
+        -- The documented API returns nothing; only an explicit false is a refusal.
+        sent, accepted = pcall(whisper, reportTarget, line)
+        sent = sent and accepted ~= false
     else
         local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
         sent = pcall(send, line, reportChannel, nil, reportTarget)

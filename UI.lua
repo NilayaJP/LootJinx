@@ -34,9 +34,11 @@ local function fitBadges(field, parts, separator)
     -- Drop trailing badges until the line fits the field, so it never reaches the date column.
     local function show() field:SetText(table.concat(parts, separator)) end
     show()
-    if type(field.GetStringWidth) ~= "function" or type(field.GetWidth) ~= "function" then return end
+    -- A fixed-width FontString can report its truncated width; prefer the unbounded one.
+    local measure = field.GetUnboundedStringWidth or field.GetStringWidth
+    if type(measure) ~= "function" or type(field.GetWidth) ~= "function" then return end
     local maxWidth = field:GetWidth()
-    while #parts > 1 and field:GetStringWidth() > maxWidth do
+    while #parts > 1 and measure(field) > maxWidth do
         table.remove(parts)
         show()
     end
@@ -509,7 +511,7 @@ function LJ:CreateDashboardRecent(owner, window, skin, theme)
             if owner.moreMenu then owner.moreMenu:Hide() end
             if GameTooltip then GameTooltip:Hide() end
             local ok, err = pcall(LJ.RunDetail.Show, LJ.RunDetail, self.run, theme)
-            if not ok then LJ:Print(LJ.L("ERROR_PART", "Run-Details", tostring(err))) end
+            if not ok then LJ:Print(LJ.L("ERROR_PART", LJ.L("DETAIL_TITLE"), tostring(err))) end
         end)
         row:Hide()
         rows[i] = row
@@ -777,7 +779,7 @@ function UI:Create()
     end
     local ok, err = pcall(createFrame)
     if not ok then
-        LJ:Print(LJ.L("ERROR_PART", "Fenster", tostring(err)))
+        LJ:Print(LJ.L("ERROR_PART", LJ.L("ERROR_PART_WINDOW"), tostring(err)))
     end
     if not frame then return nil end
     pcall(UI.ApplyDisplayOptions, UI)

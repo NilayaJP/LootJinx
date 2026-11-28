@@ -23,8 +23,7 @@ if shared then shared("ForeverDungeonJournal", source) end
 local updates = assert(io.open(root .. "/Data/QuestUpdates.lua", "r"))
 local updateText = updates:read("*a")
 updates:close()
-local drownedLoot = assert(updateText:match("%-%- BEGIN drownedloot(.-)%-%- END drownedloot"),
-    "Drowned City loot block missing from QuestUpdates.lua")
+local drownedLoot = assert(loadfile("tools/fdj_drowned_loot.lua"))()(updateText)
 local drowned = assert(source.DB["The Drowned City"])
 local originalDrownedItems = {}
 for _, boss in ipairs(drowned.bosses or {}) do

@@ -1,5 +1,5 @@
 -- Reviewed ForeverDungeonJournal boss flags; update only after source review.
-return { version = "2.1.5", bosses = {
+return { version = "2.1.8", bosses = {
     ["Alcaz Prison"] = {
         ["Blazeroar"] = "rare=0 optional=0 trash=0 summon=0 npc=255702 aliases=Blazeroar prior=",
         ["Katerina the Cleaner"] = "rare=0 optional=0 trash=0 summon=0 npc=257016 aliases=Katerina,Katerina the Cleaner prior=",
@@ -25,6 +25,7 @@ return { version = "2.1.5", bosses = {
         ["Gortek the Apprentice"] = "rare=1 optional=0 trash=0 summon=0 npc=269111 aliases=Gortek,Gortek the Apprentice prior=",
         ["Impaan the Imprisoner"] = "rare=0 optional=0 trash=0 summon=0 npc=247206 aliases=Impaan,Impaan the Imprisoner prior=",
         ["Moontouched Wanderer"] = "rare=1 optional=0 trash=0 summon=0 npc=269104 aliases=Moontouched Wanderer prior=",
+        ["Mopes"] = "rare=1 optional=0 trash=0 summon=0 npc=247412 aliases=Mopes prior=",
         ["Sabella No-Eyes"] = "rare=1 optional=0 trash=0 summon=0 npc=269151 aliases=Sabella,Sabella No-Eyes prior=",
         ["Trash Drops"] = "rare=0 optional=0 trash=1 summon=0 npc=- aliases= prior=",
         ["Tunnelweb Matriarch"] = "rare=1 optional=0 trash=0 summon=0 npc=250034 aliases=Tunnelweb Matriarch prior=",
@@ -262,6 +263,7 @@ return { version = "2.1.5", bosses = {
         ["Cinder"] = "rare=0 optional=0 trash=0 summon=0 npc=261974 aliases=Cinder prior=",
         ["Direhorn Matriarch"] = "rare=0 optional=0 trash=0 summon=0 npc=262127 aliases=Direhorn Matriarch prior=",
         ["Izha'Rel and Tor'Rel"] = "rare=0 optional=0 trash=0 summon=0 npc=253218 aliases=Izha'Rel,Izha'Rel and Tor'Rel,Tor'Rel prior=",
+        ["King Op"] = "rare=1 optional=0 trash=0 summon=0 npc=261993 aliases=King Op prior=",
         ["Nanaya"] = "rare=0 optional=0 trash=0 summon=0 npc=261809 aliases=Nanaya prior=",
         ["Snowtalon"] = "rare=0 optional=0 trash=0 summon=0 npc=262297 aliases=Snowtalon prior=",
         ["Thunderhoof"] = "rare=0 optional=0 trash=0 summon=0 npc=261812 aliases=Thunderhoof prior=",
