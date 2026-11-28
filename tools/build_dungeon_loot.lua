@@ -19,8 +19,7 @@ if sharedFile then sharedFile("ForeverDungeonJournal", source) end
 local updates = assert(io.open(root .. "/Data/QuestUpdates.lua", "r"))
 local updateText = updates:read("*a")
 updates:close()
-local drownedLoot = assert(updateText:match("%-%- BEGIN drownedloot(.-)%-%- END drownedloot"),
-    "Drowned City loot block missing from QuestUpdates.lua")
+local drownedLoot = assert(loadfile("tools/fdj_drowned_loot.lua"))()(updateText)
 assert(load("local _, FDJ = ...\n" .. drownedLoot, "@QuestUpdates.lua:drownedloot"))(
     "ForeverDungeonJournal", source)
 local wowheadAdded, wowheadConflicts, wowheadSeen = assert(loadfile("tools/apply_wowhead_forever_loot.lua"))()(source)

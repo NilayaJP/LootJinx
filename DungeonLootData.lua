@@ -1,4 +1,4 @@
--- Curated item ID/source index from ForeverDungeonJournal 2.1.5 (WoW Forever 1.60.1).
+-- Curated item ID/source index from ForeverDungeonJournal 2.1.8 (WoW Forever 1.60.1).
 -- Sources: Data/Dungeons.lua, Data/SharedLoot.lua, reviewed Data/QuestUpdates.lua, tools/wowhead_forever_loot.tsv,
 -- and reviewed tools/foreverdb_loot_reviewed.tsv (Data from ForeverDB.net — https://foreverdb.net).
 -- Reference data only: observations and client events decide whether an item actually dropped.
@@ -151,7 +151,7 @@ LJ.DungeonLootData = {
     },
     ["Scarlet Monastery: Armory"] = {
         { "Herod", false, { 7718, 7719, 7717, 10330, 274295, 251398, 251399, 251400, 251401, 251402, 252843, 252844, 252845, 252846, 252847, 252896, 252897, 252898, 252899, 254038, 254040, 254042, 254044, 254046, 254048 }, 3975 },
-        { "Trash Drops", true, { 10329, 10332, 5819, 7730, 5756, 7757, 7761, 7787, 2262, 7727, 7728, 7729, 7736, 7753, 7755, 7758, 7759, 7760, 8225, 8226, 1992 } },
+        { "Trash Drops", true, { 10329, 10332, 5819, 7730, 5756, 7757, 7761, 7787, 2262, 7727, 7728, 7729, 7736, 7753, 7755, 7758, 7759, 7760, 8225, 8226, 1992, 255730 } },
     },
     ["Scarlet Monastery: Cathedral"] = {
         { "High Inquisitor Fairbanks", false, { 19507, 19508, 19509, 251398, 251399, 251400, 251401, 251402, 252843, 252844, 252845, 252846, 252847, 252896, 252897, 252898, 252899, 254038, 254040, 254042, 254046, 254048 }, 4542 },
@@ -237,7 +237,7 @@ LJ.DungeonLootData = {
         { "Ogom the Wretched", false, { 10804, 10803, 10805 }, 5711 },
         { "Dreamscythe & Weaver", false, { 10795, 10796, 10797, 12243, 12463, 12464, 12465, 12466 }, 5721 },
         { "Shade of Eranikus", false, { 10829, 10833, 10835, 10836, 10828, 10837, 10847, 254106, 252919, 251403, 10454 }, 5709 },
-        { "Avatar of Hakkar", false, { 12462, 10838, 10842, 10843, 10844, 10845, 10846, 10663 }, 8443 },
+        { "Avatar of Hakkar", false, { 12462, 10838, 10842, 10843, 10844, 10845, 10846, 252871, 10663 }, 8443 },
         { "Trash Drops", true, { 10630, 10629, 10631, 10632, 10633, 10634, 10623, 10625, 10626, 10628, 10627, 10624, 10801, 15733, 16216 } },
     },
     ["Blackrock Depths"] = {
@@ -258,7 +258,7 @@ LJ.DungeonLootData = {
         { "Lord Incendius", false, { 11764, 11765, 11766, 11767, 11768 }, 9017 },
         { "Bael'Gar", false, { 11802, 11803, 11805, 11807 }, 9016 },
         { "General Angerforge", false, { 11816, 11820, 11821, 11817, 11810 }, 9033 },
-        { "Golem Lord Argelmach", false, { 11822, 11823, 11669, 11819, 273113 }, 8983 },
+        { "Golem Lord Argelmach", false, { 11822, 11823, 11669, 11819, 273113, 273127 }, 8983 },
         { "Hurley Blackbreath", false, { 18044, 18043, 22275, 11735 }, 9537 },
         { "Phalanx", false, { 11745, 11744, 22212, 11746, 11743, 276879 }, 9502 },
         { "Ribbly Screwspigot", false, { 11742, 2662, 2663, 11612 }, 9543 },
@@ -340,6 +340,7 @@ LJ.DungeonLootData = {
         { "Gortek the Apprentice", false, { 280077, 280078 }, 269111 },
         { "Tunnelweb Matriarch", false, { 280085, 280086 }, 250034 },
         { "Sabella No-Eyes", false, { 280083, 280084 }, 269151 },
+        { "Mopes", false, { 280082, 280081 }, 247412 },
         { "Withermaw", false, { 280063, 280062, 280064 }, 247195 },
         { "Elder Shaman Bloodmane", false, { 280070, 280069, 280068 }, 247209 },
         { "Blackmaw Behemoth", false, { 280065, 280066, 280067 }, 247207 },
@@ -364,7 +365,7 @@ LJ.DungeonLootData = {
     ["Stratholme: Undead"] = {
         { "Stonespine", false, { 13399, 13397, 13954 }, 10809 },
         { "Nerub'enkan", false, { 13529, 13508, 16675, 18738, 18739, 18740, 13530, 13531, 13532, 13533 }, 10437 },
-        { "Baroness Anastari", false, { 16704, 13534, 18728, 18730, 18729, 13514, 13535, 13537, 13538, 13539, 273124 }, 10436 },
+        { "Baroness Anastari", false, { 16704, 13534, 18728, 18730, 18729, 13514, 13535, 13537, 13538, 13539, 273124, 273131 }, 10436 },
         { "Maleki the Pallid", false, { 18737, 16691, 13524, 18734, 18735, 13525, 13526, 13527, 13528, 12833 }, 10438 },
         { "Magistrate Barthilas", false, { 18722, 13376, 18725, 18727, 18726, 23198 }, 10435 },
         { "Ramstein the Gorger", false, { 16737, 13372, 13373, 13374, 13375, 13515, 18723 }, 10439 },
@@ -400,6 +401,7 @@ LJ.DungeonLootData = {
         { "Vitrix", false, { 280032, 280026, 280031, 280029, 280027, 280028 }, 272561 },
         { "Izha'Rel and Tor'Rel", false, { 280014, 280013, 280012 }, 253218 },
         { "Nanaya", false, { 280023, 280025, 273128, 280024, 273116 }, 261809 },
+        { "King Op", false, { 280027, 280026 }, 261993 },
         { "Trash Drops", true, { 287037, 287044, 287045, 252938 } },
     },
 }
